@@ -1,0 +1,176 @@
+# RISC-V Core Project .gitignore
+
+# =============================================================================
+# System Files
+# =============================================================================
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# =============================================================================
+# IDE and Editor Files
+# =============================================================================
+.vscode/
+.idea/
+*.sublime-*
+.atom/
+.brackets.json
+
+# =============================================================================
+# Simulation Files
+# =============================================================================
+sim/logs/
+sim/work/
+sim/transcript
+sim/vsim.wlf
+sim/waves/
+sim/*.log
+sim/*.vcd
+sim/*.fsdb
+sim/*.vpd
+
+# ModelSim
+sim/modelsim.ini
+sim/vsim_stacktrace.vstf
+
+# VCS
+sim/simv
+sim/simv.daidir/
+sim/csrc/
+sim/uvm_dpi/
+sim/*.key
+
+# Xcelium
+sim/xcelium.d/
+sim/xmsim.key
+sim/xmsim.log
+
+# Verilator
+sim/obj_dir/
+sim/Vriscv_core
+
+# =============================================================================
+# Synthesis Files
+# =============================================================================
+fpga/projects/*/vivado/
+fpga/projects/*/vivado.log
+fpga/projects/*/vivado.jou
+fpga/projects/*/project_1/
+fpga/projects/*/project_1.xpr
+fpga/bitstreams/*.bit
+fpga/bitstreams/*.bin
+
+# Xilinx Vivado
+fpga/projects/*/.Xil/
+fpga/projects/*/project_1.cache/
+fpga/projects/*/project_1.hw/
+fpga/projects/*/project_1.ip_user_files/
+fpga/projects/*/project_1.sim/
+fpga/projects/*/project_1.srcs/
+
+# Intel Quartus
+fpga/projects/*/db/
+fpga/projects/*/incremental_db/
+fpga/projects/*/output_files/
+fpga/projects/*/simulation/
+fpga/projects/*/*.qpf
+fpga/projects/*/*.qsf
+fpga/projects/*/*.qws
+
+# =============================================================================
+# ASIC Files
+# =============================================================================
+asic/synthesis/reports/
+asic/synthesis/logs/
+asic/place_route/reports/
+asic/place_route/logs/
+asic/verification/lvs/
+asic/verification/drc/
+asic/verification/timing/
+
+# Synopsys Design Compiler
+asic/synthesis/*.synopsys_dc.setup
+asic/synthesis/command.log
+asic/synthesis/default.svf
+
+# =============================================================================
+# Build and Temporary Files
+# =============================================================================
+build/
+tmp/
+temp/
+*.tmp
+*.bak
+*.orig
+
+# =============================================================================
+# Documentation Build Files
+# =============================================================================
+docs/_build/
+docs/.doctrees/
+docs/html/
+docs/latex/
+
+# =============================================================================
+# Software Build Files
+# =============================================================================
+software/examples/*/build/
+software/benchmarks/*/build/
+software/tools/*/build/
+*.o
+*.a
+*.so
+*.exe
+*.out
+
+# RISC-V Toolchain
+software/tools/riscv-gnu-toolchain/
+software/tools/riscv-tools/
+
+# =============================================================================
+# Test and Coverage Files
+# =============================================================================
+tb/tests/*/coverage/
+tb/tests/*/results/
+tb/tests/*/*.log
+tb/tests/*/*.vcd
+tb/tests/*/*.fsdb
+
+# Coverage databases
+*.ucdb
+*.acdb
+*.vdb
+
+# =============================================================================
+# CI/CD Files
+# =============================================================================
+ci/.github/workflows/*.log
+ci/docker/*.log
+
+# =============================================================================
+# Tool Configuration Files (keep templates, ignore generated)
+# =============================================================================
+tools/config/*.cfg.bak
+tools/config/*.cfg.tmp
+
+# =============================================================================
+# Project Specific
+# =============================================================================
+# Keep these files but ignore generated content
+!sim/scripts/*.tcl
+!fpga/constraints/*.xdc
+!fpga/constraints/*.sdc
+!asic/synthesis/scripts/*.tcl
+!asic/place_route/scripts/*.tcl
+
+# =============================================================================
+# Backup and Archive Files
+# =============================================================================
+*.tar.gz
+*.zip
+*.rar
+*.7z
+backup/
+archive/ 

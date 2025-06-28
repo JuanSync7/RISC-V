@@ -75,30 +75,67 @@ A complete, synthesizable RISC-V RV32IM core implementation featuring a 5-stage 
 
 ```
 RISC-V/
-├── 📄 Core Modules
-│   ├── riscv_core.sv          # Top-level core integration
-│   ├── fetch_stage.sv         # Instruction fetch stage
-│   ├── decode_stage.sv        # Instruction decode stage
-│   ├── execute_stage.sv       # Execute stage with ALU/Mult/Div
-│   ├── mem_stage.sv           # Memory access stage
-│   └── writeback_stage.sv     # Writeback stage
-├── 🔧 Functional Units
-│   ├── alu.sv                 # Arithmetic Logic Unit
-│   ├── mult_unit.sv           # Multi-cycle multiplier
-│   ├── div_unit.sv            # Multi-cycle divider
-│   ├── reg_file.sv            # 32x32 register file
-│   └── csr_regfile.sv         # Control and status registers
-├── ⚙️ Control Logic
-│   └── hazard_unit.sv         # Hazard detection and forwarding
-├── 📦 Package
-│   └── riscv_core_pkg.sv      # Common types and constants
 ├── 📚 Documentation
-│   ├── CURRENT_IMPLEMENTATION.md  # Current implementation details
-│   ├── PHASE1_IMPROVEMENTS.md     # Phase 1 improvement roadmap
+│   ├── docs/
+│   │   ├── architecture/           # Architecture documentation
+│   │   ├── implementation/         # Implementation details
+│   │   └── user_guide/             # User guides and tutorials
+│   ├── CURRENT_IMPLEMENTATION.md   # Current implementation details
+│   ├── PHASE1_IMPROVEMENTS.md      # Phase 1 improvement roadmap
 │   └── README.md                   # This file
-└── 📄 Project Files
-    ├── LICENSE                # MIT License
-    └── .gitattributes         # Git configuration
+├── 🔧 RTL Design Files (rtl/)
+│   ├── core/                       # Core pipeline stages
+│   │   ├── riscv_core.sv           # Top-level core integration
+│   │   ├── riscv_core_pkg.sv       # Common types and constants
+│   │   ├── fetch_stage.sv          # Instruction fetch stage
+│   │   ├── decode_stage.sv         # Instruction decode stage
+│   │   ├── execute_stage.sv        # Execute stage with ALU/Mult/Div
+│   │   ├── mem_stage.sv            # Memory access stage
+│   │   └── writeback_stage.sv      # Writeback stage
+│   ├── units/                      # Functional units
+│   │   ├── alu.sv                  # Arithmetic Logic Unit
+│   │   ├── mult_unit.sv            # Multi-cycle multiplier
+│   │   ├── div_unit.sv             # Multi-cycle divider
+│   │   ├── reg_file.sv             # 32x32 register file
+│   │   └── csr_regfile.sv          # Control and status registers
+│   ├── control/                    # Control and hazard logic
+│   │   └── hazard_unit.sv          # Hazard detection and forwarding
+│   ├── prediction/                 # Branch prediction components
+│   │   └── branch_predictor.sv     # Branch prediction unit (Phase 1)
+│   ├── memory/                     # Memory system components
+│   │   └── (Future: icache.sv, dcache.sv)
+│   ├── interfaces/                 # Interface definitions
+│   │   └── (Future: axi4_lite.sv, wishbone.sv)
+│   └── peripherals/                # Peripheral components
+│       └── (Future: uart.sv, timer.sv)
+├── 🧪 Testbench and Verification (tb/)
+│   ├── testbench/                  # Testbench files
+│   ├── tests/                      # Test cases
+│   ├── models/                     # Behavioral models
+│   └── scripts/                    # Test automation
+├── 🔬 Simulation (sim/)
+│   ├── scripts/                    # Simulation scripts
+│   ├── constraints/                # Timing constraints
+│   └── logs/                       # Simulation logs
+├── 🔌 FPGA Implementation (fpga/)
+│   ├── projects/                   # FPGA project files
+│   ├── constraints/                # FPGA constraints
+│   └── bitstreams/                 # Generated bitstreams
+├── 🏭 ASIC Implementation (asic/)
+│   ├── synthesis/                  # Synthesis files
+│   ├── place_route/                # Place and route files
+│   └── verification/               # ASIC verification
+├── 🛠️ Development Tools (tools/)
+│   ├── scripts/                    # Utility scripts
+│   ├── config/                     # Tool configurations
+│   └── templates/                  # Code templates
+├── 💻 Software (software/)
+│   ├── examples/                   # Example programs
+│   ├── benchmarks/                 # Benchmark programs
+│   └── tools/                      # Software tools
+└── 🔄 Continuous Integration (ci/)
+    ├── .github/                    # GitHub Actions
+    └── docker/                     # Docker configurations
 ```
 
 ---
@@ -116,12 +153,32 @@ RISC-V/
 git clone <repository-url>
 cd RISC-V
 
-# Compile SystemVerilog files
-vlog riscv_core_pkg.sv
-vlog alu.sv mult_unit.sv div_unit.sv reg_file.sv csr_regfile.sv
-vlog hazard_unit.sv
-vlog fetch_stage.sv decode_stage.sv execute_stage.sv mem_stage.sv writeback_stage.sv
-vlog riscv_core.sv
+# Compile SystemVerilog files (new directory structure)
+# Core package and types
+vlog rtl/core/riscv_core_pkg.sv
+
+# Functional units
+vlog rtl/units/alu.sv
+vlog rtl/units/mult_unit.sv
+vlog rtl/units/div_unit.sv
+vlog rtl/units/reg_file.sv
+vlog rtl/units/csr_regfile.sv
+
+# Control logic
+vlog rtl/control/hazard_unit.sv
+
+# Branch prediction (Phase 1)
+vlog rtl/prediction/branch_predictor.sv
+
+# Core pipeline stages
+vlog rtl/core/fetch_stage.sv
+vlog rtl/core/decode_stage.sv
+vlog rtl/core/execute_stage.sv
+vlog rtl/core/mem_stage.sv
+vlog rtl/core/writeback_stage.sv
+
+# Top-level core
+vlog rtl/core/riscv_core.sv
 
 # Run simulation (example with ModelSim)
 vsim -c riscv_core -do "run -all; quit"
