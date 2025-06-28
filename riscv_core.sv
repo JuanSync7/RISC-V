@@ -116,7 +116,12 @@ module riscv_core
         .i_arvalid_o          ( i_arvalid_o          ),
         .i_arready_i          ( i_arready_i          ),
         .i_araddr_o           ( i_araddr_o           ),
-        // ... Other AXI ports
+        .i_arprot_o           ( i_arprot_o           ),
+        .i_arcache_o          ( i_arcache_o          ),
+        .i_arsize_o           ( i_arsize_o           ),
+        .i_rdata_i            ( i_rdata_i            ),
+        .i_rvalid_i           ( i_rvalid_i           ),
+        .i_rready_o           ( i_rready_o           ),
         .if_id_reg_o          ( if_id_reg            )
     );
 
@@ -147,7 +152,8 @@ module riscv_core
         .pc_redirect_o        ( pc_redirect          ),
         .pc_redirect_target_o ( pc_redirect_target   ),
         .exec_stall_req_o     ( exec_stall_req       ), // AI_TAG: UPDATE - New stall request connection
-        .ex_mem_reg_o         ( ex_mem_reg           )
+        .ex_mem_reg_o         ( ex_mem_reg           ),
+        .overflow_o           ( /* unused - available for exception handling */ )
     );
 
     mem_stage u_mem_stage (
@@ -156,12 +162,24 @@ module riscv_core
         .stall_w_i    ( stall_w      ),
         .flush_m_i    ( /* unused */ ),
         .ex_mem_reg_i ( ex_mem_reg   ),
-        // All AXI data ports connected directly
-        .d_awvalid_o  ( d_awvalid_o  ), .d_awready_i(d_awready_i), .d_awaddr_o(d_awaddr_o),
-        .d_wvalid_o   ( d_wvalid_o   ), .d_wready_i(d_wready_i),   .d_wdata_o(d_wdata_o),  .d_wstrb_o(d_wstrb_o),
-        .d_bvalid_i   ( d_bvalid_i   ), .d_bready_o(d_bready_o),
-        .d_arvalid_o  ( d_arvalid_o  ), .d_arready_i(d_arready_i), .d_araddr_o(d_araddr_o),
-        .d_rvalid_i   ( d_rvalid_i   ), .d_rready_o(d_rready_o),   .d_rdata_i(d_rdata_i),
+        // AXI data ports connected directly
+        .d_awvalid_o  ( d_awvalid_o  ),
+        .d_awready_i  ( d_awready_i  ),
+        .d_awaddr_o   ( d_awaddr_o   ),
+        .d_awprot_o   ( d_awprot_o   ),
+        .d_wvalid_o   ( d_wvalid_o   ),
+        .d_wready_i   ( d_wready_i   ),
+        .d_wdata_o    ( d_wdata_o    ),
+        .d_wstrb_o    ( d_wstrb_o    ),
+        .d_bvalid_i   ( d_bvalid_i   ),
+        .d_bready_o   ( d_bready_o   ),
+        .d_arvalid_o  ( d_arvalid_o  ),
+        .d_arready_i  ( d_arready_i  ),
+        .d_araddr_o   ( d_araddr_o   ),
+        .d_arprot_o   ( d_arprot_o   ),
+        .d_rvalid_i   ( d_rvalid_i   ),
+        .d_rready_o   ( d_rready_o   ),
+        .d_rdata_i    ( d_rdata_i    ),
         .mem_wb_reg_o ( mem_wb_reg   )
     );
 
