@@ -198,9 +198,14 @@ alwaysApply: false
 #        //   <Brief, clear description of the file's/module's purpose and
 #        //    functionality.>
 #        //=============================================================================
-#
+#        //
+#        `timescale 1ns/1ps
+#        `default_nettype none // IMPORTANT: All signals must be explicitly typed
+#        //
+#        ```
 # 4.1.1 File Footer:
 #      - Every `.sv` and `.svh` file must end with a standard footer:
+#        ```systemverilog
 #        //=============================================================================
 #        // Dependencies: <list of dependencies>
 #        //
@@ -231,8 +236,6 @@ alwaysApply: false
 #        // 1.1.0   | YYYY-MM-DD | <Author Name>      | Added X / Implemented Y (Summary of changes)
 #        // 1.0.0   | YYYY-MM-DD | <Author Name>      | Initial release
 #        //=============================================================================
-#        `timescale 1ns/1ps
-#        `default_nettype none // IMPORTANT: All signals must be explicitly typed
 #        ```
 #
 # 4.2. Module Definition:

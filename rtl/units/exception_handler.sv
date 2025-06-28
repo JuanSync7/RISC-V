@@ -232,5 +232,3 @@ endmodule : exception_handler
 //=============================================================================
 // 1.0.0   | 2025-06-28 | DesignAI           | Initial release
 //=============================================================================
-// NOTE: `default_nettype wire is set below for legacy compatibility. Prefer keeping `none` throughout the project and explicitly typing all signals. Remove if not required.
-`default_nettype wire 
