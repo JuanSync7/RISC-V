@@ -1,25 +1,21 @@
-////////////////////////////////////////////////////////////////////////////////
+//=============================================================================
+// Company: Sondrel Ltd
+// Author: DesignAI (designai@sondrel.com)
+// Created: 2025-06-28
 //
-// Company:       Your Company Name
-// Engineer:      DesignAI
+// File: memory_req_rsp_if.sv
+// Module: memory_req_rsp_if
 //
-// Create Date:   2025-06-28
-// Design Name:   RV32IM Core
-// Module Name:   memory_req_rsp_if
-// Project Name:  riscv_cpu
-// Target Devices:ASIC
-// Tool Versions:
-// Description:   Protocol-agnostic memory request/response interface.
-//                Abstracts memory protocol details from core logic,
-//                enabling easy switching between AXI4, CHI, TileLink, etc.
+// Project Name: RISC-V RV32IM Core
+// Target Devices: ASIC/FPGA
+// Tool Versions: VCS 2020.03, ModelSim 2021.1
+// Verification Status: Not Verified
 //
-// Dependencies:  riscv_core_pkg.sv
-//
-// Revision:
-// Revision 1.0.0 - File Created
-// Additional Comments:
-//
-////////////////////////////////////////////////////////////////////////////////
+// Description:
+//   Protocol-agnostic memory request/response interface. Abstracts memory
+//   protocol details from core logic, enabling easy switching between
+//   AXI4, CHI, TileLink, etc.
+//=============================================================================
 
 `timescale 1ns/1ps
 `default_nettype none
@@ -218,5 +214,35 @@ interface memory_req_rsp_if;
     endfunction
 
 endinterface : memory_req_rsp_if
+
+//=============================================================================
+// Dependencies: riscv_core_pkg.sv
+//
+// Performance:
+//   - Critical Path: Interface handshake to data transfer
+//   - Max Frequency: TBD
+//   - Area: N/A (interface file)
+//
+// Verification Coverage:
+//   - Code Coverage: Not measured
+//   - Functional Coverage: Not measured
+//   - Branch Coverage: Not measured
+//
+// Synthesis:
+//   - Target Technology: ASIC/FPGA
+//   - Synthesis Tool: Design Compiler/Quartus
+//   - Clock Domains: 1 (clk)
+//
+// Testing:
+//   - Testbench: TBD
+//   - Test Vectors: TBD
+//   - Simulation Time: TBD
+//
+//-----
+// Revision History:
+// Version | Date       | Author             | Description
+//=============================================================================
+// 1.0.0   | 2025-06-28 | DesignAI           | Initial release
+//=============================================================================
 
 `default_nettype wire 

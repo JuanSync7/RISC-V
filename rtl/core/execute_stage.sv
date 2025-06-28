@@ -1,31 +1,23 @@
-////////////////////////////////////////////////////////////////////////////////
+//=============================================================================
+// Company: Sondrel Ltd
+// Author: DesignAI (designai@sondrel.com)
+// Created: 2025-06-27
 //
-// Company:       Your Company Name
-// Engineer:      DesignAI
+// File: execute_stage.sv
+// Module: execute_stage
 //
-// Create Date:   2025-06-27
-// Design Name:   RV32IM Core
-// Module Name:   execute_stage
-// Project Name:  riscv_cpu
-// Target Devices:ASIC
-// Tool Versions:
-// Description:   The Execute Stage (E) of the 5-stage RISC-V pipeline.
-//                - Selects ALU operands, incorporating data forwarding.
-//                - Performs calculations using the main ALU and a multi-cycle multiplier.
-//                - Evaluates branch conditions and calculates jump target addresses.
-//                - Generates PC redirect and stall signals.
-//                - Latches results into the EX/MEM pipeline register.
+// Project Name: RISC-V RV32IM Core
+// Target Devices: ASIC/FPGA
+// Tool Versions: VCS 2020.03, ModelSim 2021.1
+// Verification Status: Not Verified
 //
-// Dependencies:  riscv_core_pkg.sv, alu.sv, mult_unit.sv, div_unit.sv
-//
-// Revision:
-// Revision 1.2.0 - Integrated the multi-cycle div_unit, including stall
-//                  and result muxing logic for division operations.
-// Revision 1.1.0 - Integrated the multi-cycle mult_unit, including stall
-//                  and result muxing logic.
-// Revision 1.0.0 - File Created
-//
-////////////////////////////////////////////////////////////////////////////////
+// Description:
+//   The Execute Stage (E) of the 5-stage RISC-V pipeline. Selects ALU operands,
+//   incorporating data forwarding, performs calculations using the main ALU and
+//   multi-cycle multiplier/divider, evaluates branch conditions and calculates
+//   jump target addresses, generates PC redirect and stall signals, and latches
+//   results into the EX/MEM pipeline register.
+//=============================================================================
 
 `timescale 1ns/1ps
 `default_nettype none
@@ -332,3 +324,33 @@ module execute_stage
     assign exception_o = exception_detected;
 
 endmodule : execute_stage
+
+//=============================================================================
+// Dependencies: riscv_core_pkg.sv, alu.sv, mult_unit.sv, div_unit.sv, csr_regfile.sv, branch_predictor.sv
+//
+// Performance:
+//   - Critical Path: ALU operation to result output
+//   - Max Frequency: TBD
+//   - Area: TBD
+//
+// Verification Coverage:
+//   - Code Coverage: Not measured
+//   - Functional Coverage: Not measured
+//   - Branch Coverage: Not measured
+//
+// Synthesis:
+//   - Target Technology: ASIC/FPGA
+//   - Synthesis Tool: Design Compiler/Quartus
+//   - Clock Domains: 1 (clk_i)
+//
+// Testing:
+//   - Testbench: TBD
+//   - Test Vectors: TBD
+//   - Simulation Time: TBD
+//
+//-----
+// Revision History:
+// Version | Date       | Author             | Description
+//=============================================================================
+// 1.0.0   | 2025-06-27 | DesignAI           | Initial release
+//=============================================================================

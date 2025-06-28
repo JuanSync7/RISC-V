@@ -1,25 +1,21 @@
-////////////////////////////////////////////////////////////////////////////////
+//=============================================================================
+// Company: Sondrel Ltd
+// Author: DesignAI (designai@sondrel.com)
+// Created: 2025-06-28
 //
-// Company:       Your Company Name
-// Engineer:      DesignAI
+// File: memory_wrapper.sv
+// Module: memory_wrapper
 //
-// Create Date:   2025-06-28
-// Design Name:   RV32IM Core
-// Module Name:   memory_wrapper
-// Project Name:  riscv_cpu
-// Target Devices:ASIC
-// Tool Versions:
-// Description:   Memory wrapper that abstracts protocol details from pipeline stages.
-//                Provides a clean interface for instruction and data memory access,
-//                internally using protocol-agnostic memory_req_rsp_if.
+// Project Name: RISC-V RV32IM Core
+// Target Devices: ASIC/FPGA
+// Tool Versions: VCS 2020.03, ModelSim 2021.1
+// Verification Status: Not Verified
 //
-// Dependencies:  riscv_core_pkg.sv, memory_req_rsp_if.sv
-//
-// Revision:
-// Revision 1.0.0 - File Created
-// Additional Comments:
-//
-////////////////////////////////////////////////////////////////////////////////
+// Description:
+//   Memory wrapper that abstracts protocol details from pipeline stages.
+//   Provides a clean interface for instruction and data memory access,
+//   internally using protocol-agnostic memory_req_rsp_if.
+//=============================================================================
 
 `timescale 1ns/1ps
 `default_nettype none
@@ -318,4 +314,32 @@ module memory_wrapper #(
 
 endmodule : memory_wrapper
 
-`default_nettype wire 
+//=============================================================================
+// Dependencies: riscv_core_pkg.sv, memory_req_rsp_if.sv, axi4_adapter.sv
+//
+// Performance:
+//   - Critical Path: Memory request to response
+//   - Max Frequency: TBD
+//   - Area: TBD
+//
+// Verification Coverage:
+//   - Code Coverage: Not measured
+//   - Functional Coverage: Not measured
+//   - Branch Coverage: Not measured
+//
+// Synthesis:
+//   - Target Technology: ASIC/FPGA
+//   - Synthesis Tool: Design Compiler/Quartus
+//   - Clock Domains: 1 (clk_i)
+//
+// Testing:
+//   - Testbench: TBD
+//   - Test Vectors: TBD
+//   - Simulation Time: TBD
+//
+//-----
+// Revision History:
+// Version | Date       | Author             | Description
+//=============================================================================
+// 1.0.0   | 2025-06-28 | DesignAI           | Initial release
+//=============================================================================

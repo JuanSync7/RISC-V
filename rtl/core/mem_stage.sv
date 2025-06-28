@@ -1,27 +1,22 @@
-////////////////////////////////////////////////////////////////////////////////
+//=============================================================================
+// Company: Sondrel Ltd
+// Author: DesignAI (designai@sondrel.com)
+// Created: 2025-06-27
 //
-// Company:       Your Company Name
-// Engineer:      DesignAI
+// File: mem_stage.sv
+// Module: mem_stage
 //
-// Create Date:   2025-06-27
-// Design Name:   RV32IM Core
-// Module Name:   mem_stage
-// Project Name:  riscv_cpu
-// Target Devices:ASIC
-// Tool Versions:
-// Description:   The Memory Stage (M) of the 5-stage RISC-V pipeline.
-//                - Drives the AXI4 data memory interface for LOAD and STORE ops.
-//                - Contains data alignment logic for byte and half-word accesses.
-//                - For non-memory ops, passes the ALU result through to the next stage.
-//                - Latches results into the MEM/WB pipeline register.
+// Project Name: RISC-V RV32IM Core
+// Target Devices: ASIC/FPGA
+// Tool Versions: VCS 2020.03, ModelSim 2021.1
+// Verification Status: Not Verified
 //
-// Dependencies:  riscv_core_pkg.sv
-//
-// Revision:
-// Revision 1.0.0 - File Created
-// Additional Comments:
-//
-////////////////////////////////////////////////////////////////////////////////
+// Description:
+//   The Memory Stage (M) of the 5-stage RISC-V pipeline. Drives the AXI4 data
+//   memory interface for LOAD and STORE operations, contains data alignment
+//   logic for byte and half-word accesses, passes the ALU result through for
+//   non-memory operations, and latches results into the MEM/WB pipeline register.
+//=============================================================================
 
 `timescale 1ns/1ps
 `default_nettype none
@@ -280,4 +275,32 @@ module mem_stage
 
 endmodule : mem_stage
 
-`default_nettype wire
+//=============================================================================
+// Dependencies: riscv_core_pkg.sv, memory_wrapper.sv
+//
+// Performance:
+//   - Critical Path: Memory access to data output
+//   - Max Frequency: TBD
+//   - Area: TBD
+//
+// Verification Coverage:
+//   - Code Coverage: Not measured
+//   - Functional Coverage: Not measured
+//   - Branch Coverage: Not measured
+//
+// Synthesis:
+//   - Target Technology: ASIC/FPGA
+//   - Synthesis Tool: Design Compiler/Quartus
+//   - Clock Domains: 1 (clk_i)
+//
+// Testing:
+//   - Testbench: TBD
+//   - Test Vectors: TBD
+//   - Simulation Time: TBD
+//
+//-----
+// Revision History:
+// Version | Date       | Author             | Description
+//=============================================================================
+// 1.0.0   | 2025-06-27 | DesignAI           | Initial release
+//=============================================================================

@@ -1,27 +1,22 @@
-////////////////////////////////////////////////////////////////////////////////
+//=============================================================================
+// Company: Sondrel Ltd
+// Author: DesignAI (designai@sondrel.com)
+// Created: 2025-06-27
 //
-// Company:       Your Company Name
-// Engineer:      DesignAI
+// File: reg_file.sv
+// Module: reg_file
 //
-// Create Date:   2025-06-27
-// Design Name:   RV32IM Core
-// Module Name:   reg_file
-// Project Name:  riscv_cpu
-// Target Devices:ASIC
-// Tool Versions:
-// Description:   32-bit, 32-entry RISC-V register file.
-//                Implements two asynchronous read ports (rs1, rs2) and one
-//                synchronous write port (rd). Adheres to the RISC-V
-//                specification where register x0 is hardwired to zero;
-//                reads from x0 always return 0 and writes to x0 are ignored.
+// Project Name: RISC-V RV32IM Core
+// Target Devices: ASIC/FPGA
+// Tool Versions: VCS 2020.03, ModelSim 2021.1
+// Verification Status: Not Verified
 //
-// Dependencies:  riscv_core_pkg.sv
-//
-// Revision:
-// Revision 1.0.0 - File Created
-// Additional Comments:
-//
-////////////////////////////////////////////////////////////////////////////////
+// Description:
+//   32-bit, 32-entry RISC-V register file. Implements two asynchronous read
+//   ports (rs1, rs2) and one synchronous write port (rd). Adheres to the
+//   RISC-V specification where register x0 is hardwired to zero; reads from
+//   x0 always return 0 and writes to x0 are ignored.
+//=============================================================================
 
 `timescale 1ns/1ps
 `default_nettype none
@@ -108,4 +103,32 @@ module reg_file
 
 endmodule : reg_file
 
-`default_nettype wire
+//=============================================================================
+// Dependencies: riscv_core_pkg.sv
+//
+// Performance:
+//   - Critical Path: Register read to output
+//   - Max Frequency: TBD
+//   - Area: TBD
+//
+// Verification Coverage:
+//   - Code Coverage: Not measured
+//   - Functional Coverage: Not measured
+//   - Branch Coverage: Not measured
+//
+// Synthesis:
+//   - Target Technology: ASIC/FPGA
+//   - Synthesis Tool: Design Compiler/Quartus
+//   - Clock Domains: 1 (clk_i)
+//
+// Testing:
+//   - Testbench: TBD
+//   - Test Vectors: TBD
+//   - Simulation Time: TBD
+//
+//-----
+// Revision History:
+// Version | Date       | Author             | Description
+//=============================================================================
+// 1.0.0   | 2025-06-27 | DesignAI           | Initial release
+//=============================================================================

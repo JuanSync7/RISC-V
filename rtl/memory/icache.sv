@@ -1,26 +1,21 @@
-////////////////////////////////////////////////////////////////////////////////
+//=============================================================================
+// Company: Sondrel Ltd
+// Author: DesignAI (designai@sondrel.com)
+// Created: 2025-06-28
 //
-// Company:       Your Company Name
-// Engineer:      DesignAI
+// File: icache.sv
+// Module: icache
 //
-// Create Date:   2025-06-28
-// Design Name:   RV32IM Core
-// Module Name:   icache
-// Project Name:  riscv_cpu
-// Target Devices:ASIC
-// Tool Versions:
-// Description:   Instruction Cache (ICache) for the RISC-V core.
-//                Implements a 2-way set associative cache with LRU replacement
-//                policy. Target: >90% hit rate for typical workloads.
-//                Size: 4KB, Line Size: 32 bytes, Ways: 2
+// Project Name: RISC-V RV32IM Core
+// Target Devices: ASIC/FPGA
+// Tool Versions: VCS 2020.03, ModelSim 2021.1
+// Verification Status: Not Verified
 //
-// Dependencies:  riscv_core_pkg.sv
-//
-// Revision:
-// Revision 1.0.0 - File Created
-// Additional Comments:
-//
-////////////////////////////////////////////////////////////////////////////////
+// Description:
+//   Instruction Cache (ICache) for the RISC-V core. Implements a 2-way set
+//   associative cache with LRU replacement policy. Target: >90% hit rate for
+//   typical workloads. Size: 4KB, Line Size: 32 bytes, Ways: 2
+//=============================================================================
 
 `timescale 1ns/1ps
 `default_nettype none
@@ -445,4 +440,32 @@ module icache #(
 
 endmodule : icache
 
-`default_nettype wire 
+//=============================================================================
+// Dependencies: riscv_core_pkg.sv
+//
+// Performance:
+//   - Critical Path: Cache lookup to instruction output
+//   - Max Frequency: TBD
+//   - Area: TBD
+//
+// Verification Coverage:
+//   - Code Coverage: Not measured
+//   - Functional Coverage: Not measured
+//   - Branch Coverage: Not measured
+//
+// Synthesis:
+//   - Target Technology: ASIC/FPGA
+//   - Synthesis Tool: Design Compiler/Quartus
+//   - Clock Domains: 1 (clk_i)
+//
+// Testing:
+//   - Testbench: TBD
+//   - Test Vectors: TBD
+//   - Simulation Time: TBD
+//
+//-----
+// Revision History:
+// Version | Date       | Author             | Description
+//=============================================================================
+// 1.0.0   | 2025-06-28 | DesignAI           | Initial release
+//=============================================================================

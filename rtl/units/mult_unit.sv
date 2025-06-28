@@ -1,26 +1,21 @@
-////////////////////////////////////////////////////////////////////////////////
+//=============================================================================
+// Company: Sondrel Ltd
+// Author: DesignAI (designai@sondrel.com)
+// Created: 2025-06-28
 //
-// Company:       Your Company Name
-// Engineer:      DesignAI
+// File: mult_unit.sv
+// Module: mult_unit
 //
-// Create Date:   2025-06-28
-// Design Name:   RV32IM Core
-// Module Name:   mult_unit
-// Project Name:  riscv_cpu
-// Target Devices:ASIC
-// Tool Versions:
-// Description:   A dedicated multi-cycle multiplication unit for the RISC-V
-//                core. It implements the RV32M standard extension instructions
-//                (MUL, MULH, MULHSU, MULHU). It uses a registered, pipelined
-//                approach for high performance.
+// Project Name: RISC-V RV32IM Core
+// Target Devices: ASIC/FPGA
+// Tool Versions: VCS 2020.03, ModelSim 2021.1
+// Verification Status: Not Verified
 //
-// Dependencies:  riscv_core_pkg.sv
-//
-// Revision:
-// Revision 1.1.0 - Fixed operation type mapping to correctly match RISC-V RV32M specification
-// Revision 1.0.0 - File Created
-//
-////////////////////////////////////////////////////////////////////////////////
+// Description:
+//   A dedicated multi-cycle multiplication unit for the RISC-V core. It
+//   implements the RV32M standard extension instructions (MUL, MULH, MULHSU,
+//   MULHU). It uses a registered, pipelined approach for high performance.
+//=============================================================================
 
 `timescale 1ns/1ps
 `default_nettype none
@@ -128,3 +123,34 @@ module mult_unit
 
 
 endmodule : mult_unit
+
+//=============================================================================
+// Dependencies: riscv_core_pkg.sv
+//
+// Performance:
+//   - Critical Path: Multiplier to result output
+//   - Max Frequency: TBD
+//   - Area: TBD
+//
+// Verification Coverage:
+//   - Code Coverage: Not measured
+//   - Functional Coverage: Not measured
+//   - Branch Coverage: Not measured
+//
+// Synthesis:
+//   - Target Technology: ASIC/FPGA
+//   - Synthesis Tool: Design Compiler/Quartus
+//   - Clock Domains: 1 (clk_i)
+//
+// Testing:
+//   - Testbench: TBD
+//   - Test Vectors: TBD
+//   - Simulation Time: TBD
+//
+//-----
+// Revision History:
+// Version | Date       | Author             | Description
+//=============================================================================
+// 1.1.0   | 2025-06-28 | DesignAI           | Fixed operation type mapping to correctly match RISC-V RV32M specification
+// 1.0.0   | 2025-06-28 | DesignAI           | Initial release
+//=============================================================================

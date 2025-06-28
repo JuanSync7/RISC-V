@@ -1,25 +1,20 @@
-////////////////////////////////////////////////////////////////////////////////
+//=============================================================================
+// Company: Sondrel Ltd
+// Author: DesignAI (designai@sondrel.com)
+// Created: 2025-06-28
 //
-// Company:       Your Company Name
-// Engineer:      DesignAI
+// File: memory_wrapper_tb.sv
+// Module: memory_wrapper_tb
 //
-// Create Date:   2025-06-28
-// Design Name:   RV32IM Core
-// Module Name:   memory_wrapper_tb
-// Project Name:  riscv_cpu
-// Target Devices:ASIC
-// Tool Versions:
-// Description:   Testbench for the memory wrapper module.
-//                Tests both instruction and data memory interfaces
-//                with AXI4 protocol adapter.
+// Project Name: RISC-V RV32IM Core
+// Target Devices: ASIC/FPGA
+// Tool Versions: VCS 2020.03, ModelSim 2021.1
+// Verification Status: Not Verified
 //
-// Dependencies:  memory_wrapper.sv, axi4_adapter.sv, memory_req_rsp_if.sv
-//
-// Revision:
-// Revision 1.0.0 - File Created
-// Additional Comments:
-//
-////////////////////////////////////////////////////////////////////////////////
+// Description:
+//   Testbench for the memory wrapper module. Tests both instruction and
+//   data memory interfaces with AXI4 protocol adapter.
+//=============================================================================
 
 `timescale 1ns/1ps
 `default_nettype none
@@ -452,6 +447,36 @@ module memory_wrapper_tb;
 
 endmodule : memory_wrapper_tb
 
+//=============================================================================
+// Dependencies: memory_wrapper.sv, axi4_adapter.sv, memory_req_rsp_if.sv, riscv_core_pkg.sv
+//
+// Performance:
+//   - Simulation Time: TBD
+//   - Test Vectors: TBD
+//   - Coverage: TBD
+//
+// Verification Coverage:
+//   - Code Coverage: Not measured
+//   - Functional Coverage: Not measured
+//   - Branch Coverage: Not measured
+//
+// Synthesis:
+//   - Target Technology: N/A (testbench)
+//   - Synthesis Tool: N/A
+//   - Clock Domains: 1 (clk)
+//
+// Testing:
+//   - Testbench: memory_wrapper_tb.sv
+//   - Test Vectors: TBD
+//   - Simulation Time: TBD
+//
+//-----
+// Revision History:
+// Version | Date       | Author             | Description
+//=============================================================================
+// 1.0.0   | 2025-06-28 | DesignAI           | Initial release
+//=============================================================================
+
 // AI_TAG: TESTBENCH_MODULE - Simple AXI4 memory model
 module axi4_memory_model (
     input  logic        clk_i,
@@ -555,5 +580,3 @@ module axi4_memory_model (
     end
 
 endmodule : axi4_memory_model
-
-`default_nettype wire 

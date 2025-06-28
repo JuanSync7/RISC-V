@@ -1,26 +1,22 @@
-////////////////////////////////////////////////////////////////////////////////
+//=============================================================================
+// Company: Sondrel Ltd
+// Author: DesignAI (designai@sondrel.com)
+// Created: 2025-06-28
 //
-// Company:       Your Company Name
-// Engineer:      DesignAI
+// File: branch_predictor.sv
+// Module: branch_predictor
 //
-// Create Date:   2025-06-28
-// Design Name:   RV32IM Core
-// Module Name:   branch_predictor
-// Project Name:  riscv_cpu
-// Target Devices:ASIC
-// Tool Versions:
-// Description:   Branch Prediction Unit (BPU) for the RISC-V core.
-//                Implements a 2-bit saturating counter with Branch Target Buffer (BTB)
-//                and Branch History Table (BHT) for improved branch prediction accuracy.
-//                Target: >85% prediction accuracy for typical workloads.
+// Project Name: RISC-V RV32IM Core
+// Target Devices: ASIC/FPGA
+// Tool Versions: VCS 2020.03, ModelSim 2021.1
+// Verification Status: Not Verified
 //
-// Dependencies:  riscv_core_pkg.sv
-//
-// Revision:
-// Revision 1.0.0 - File Created
-// Additional Comments:
-//
-////////////////////////////////////////////////////////////////////////////////
+// Description:
+//   Branch Prediction Unit (BPU) for the RISC-V core. Implements a 2-bit
+//   saturating counter with Branch Target Buffer (BTB) and Branch History
+//   Table (BHT) for improved branch prediction accuracy. Target: >85%
+//   prediction accuracy for typical workloads.
+//=============================================================================
 
 `timescale 1ns/1ps
 `default_nettype none
@@ -234,4 +230,32 @@ module branch_predictor #(
 
 endmodule : branch_predictor
 
-`default_nettype wire 
+//=============================================================================
+// Dependencies: riscv_core_pkg.sv
+//
+// Performance:
+//   - Critical Path: BTB/BHT lookup to prediction output
+//   - Max Frequency: TBD
+//   - Area: TBD
+//
+// Verification Coverage:
+//   - Code Coverage: Not measured
+//   - Functional Coverage: Not measured
+//   - Branch Coverage: Not measured
+//
+// Synthesis:
+//   - Target Technology: ASIC/FPGA
+//   - Synthesis Tool: Design Compiler/Quartus
+//   - Clock Domains: 1 (clk_i)
+//
+// Testing:
+//   - Testbench: TBD
+//   - Test Vectors: TBD
+//   - Simulation Time: TBD
+//
+//-----
+// Revision History:
+// Version | Date       | Author             | Description
+//=============================================================================
+// 1.0.0   | 2025-06-28 | DesignAI           | Initial release
+//=============================================================================

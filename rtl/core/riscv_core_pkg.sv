@@ -1,27 +1,21 @@
-////////////////////////////////////////////////////////////////////////////////
+//=============================================================================
+// Company: Sondrel Ltd
+// Author: DesignAI (designai@sondrel.com)
+// Created: 2025-06-27
 //
-// Company:       Your Company Name
-// Engineer:      DesignAI
+// File: riscv_core_pkg.sv
+// Module: riscv_core_pkg
 //
-// Create Date:   2025-06-27
-// Design Name:   RV32IM Core
-// Module Name:   riscv_core_pkg
-// Project Name:  riscv_cpu
-// Target Devices:ASIC
-// Tool Versions:
-// Description:   Central package for the RV32IM RISC-V core.
-//                Contains all shared parameters, data types, enumerations,
-//                and pipeline register structures used throughout the design.
+// Project Name: RISC-V RV32IM Core
+// Target Devices: ASIC/FPGA
+// Tool Versions: VCS 2020.03, ModelSim 2021.1
+// Verification Status: Not Verified
 //
-// Dependencies:  None
-//
-// Revision:
-// Revision 1.2.0 - Added overflow flag to ex_mem_reg_t for ALU overflow detection
-// Revision 1.1.0 - Updated pipeline structs for hazard detection and added
-//                  control signals for M-extension and CSR operations.
-// Revision 1.0.0 - File Created
-//
-////////////////////////////////////////////////////////////////////////////////
+// Description:
+//   Central package for the RV32IM RISC-V core. Contains all shared parameters,
+//   data types, enumerations, and pipeline register structures used throughout
+//   the design.
+//=============================================================================
 
 `timescale 1ns/1ps
 `default_nettype none
@@ -286,3 +280,35 @@ package riscv_core_pkg;
     } trap_vector_t;
 
 endpackage : riscv_core_pkg
+
+//=============================================================================
+// Dependencies: None
+//
+// Performance:
+//   - Critical Path: N/A (package file)
+//   - Max Frequency: N/A
+//   - Area: N/A
+//
+// Verification Coverage:
+//   - Code Coverage: Not measured
+//   - Functional Coverage: Not measured
+//   - Branch Coverage: Not measured
+//
+// Synthesis:
+//   - Target Technology: ASIC/FPGA
+//   - Synthesis Tool: Design Compiler/Quartus
+//   - Clock Domains: N/A (package file)
+//
+// Testing:
+//   - Testbench: N/A (package file)
+//   - Test Vectors: N/A
+//   - Simulation Time: N/A
+//
+//-----
+// Revision History:
+// Version | Date       | Author             | Description
+//=============================================================================
+// 1.0.0   | 2025-06-27 | DesignAI           | Initial release
+//=============================================================================
+// NOTE: `default_nettype wire is set below for legacy compatibility. Prefer keeping `none` throughout the project and explicitly typing all signals. Remove if not required.
+`default_nettype wire

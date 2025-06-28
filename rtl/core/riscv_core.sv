@@ -1,27 +1,22 @@
-////////////////////////////////////////////////////////////////////////////////
+//=============================================================================
+// Company: Sondrel Ltd
+// Author: DesignAI (designai@sondrel.com)
+// Created: 2025-06-28
 //
-// Company:       Your Company Name
-// Engineer:      DesignAI
+// File: riscv_core.sv
+// Module: riscv_core
 //
-// Create Date:   2025-06-28
-// Design Name:   RV32IM Core
-// Module Name:   riscv_core
-// Project Name:  riscv_cpu
-// Target Devices:ASIC
-// Tool Versions:
-// Description:   Top-level module for the 5-stage pipelined RV32IM RISC-V core.
-//                This module instantiates and connects all pipeline stages
-//                (Fetch, Decode, Execute, Memory, Write-back) and control units
-//                (Register File, CSR File, Hazard Unit) to form the complete processor.
+// Project Name: RISC-V RV32IM Core
+// Target Devices: ASIC/FPGA
+// Tool Versions: VCS 2020.03, ModelSim 2021.1
+// Verification Status: Not Verified
 //
-// Dependencies:  All previously created .sv files.
-//
-// Revision:
-// Revision 1.1.0 - Integrated all units, including mult_unit stall path and CSR file.
-//                  Updated hazard unit connections for full functionality.
-// Revision 1.0.0 - File Created
-//
-////////////////////////////////////////////////////////////////////////////////
+// Description:
+//   Top-level module for the 5-stage pipelined RV32IM RISC-V core. This
+//   module instantiates and connects all pipeline stages (Fetch, Decode,
+//   Execute, Memory, Write-back) and control units (Register File, CSR
+//   File, Hazard Unit) to form the complete processor.
+//=============================================================================
 
 `timescale 1ns/1ps
 `default_nettype none
@@ -439,3 +434,37 @@ module riscv_core
     assign pc_redirect_target = pc_redirect_target_combined;
 
 endmodule : riscv_core
+
+//=============================================================================
+// Dependencies: All core modules (fetch_stage.sv, decode_stage.sv, execute_stage.sv, 
+//               mem_stage.sv, writeback_stage.sv, reg_file.sv, csr_regfile.sv, 
+//               hazard_unit.sv, alu.sv, mult_unit.sv, div_unit.sv, exception_handler.sv,
+//               branch_predictor.sv, icache.sv, memory_wrapper.sv, axi4_adapter.sv)
+//
+// Performance:
+//   - Critical Path: Pipeline stage to stage
+//   - Max Frequency: TBD
+//   - Area: TBD
+//
+// Verification Coverage:
+//   - Code Coverage: Not measured
+//   - Functional Coverage: Not measured
+//   - Branch Coverage: Not measured
+//
+// Synthesis:
+//   - Target Technology: ASIC/FPGA
+//   - Synthesis Tool: Design Compiler/Quartus
+//   - Clock Domains: 1 (clk_i)
+//
+// Testing:
+//   - Testbench: TBD
+//   - Test Vectors: TBD
+//   - Simulation Time: TBD
+//
+//-----
+// Revision History:
+// Version | Date       | Author             | Description
+//=============================================================================
+// 1.1.0   | 2025-06-28 | DesignAI           | Integrated all units, including mult_unit stall path and CSR file. Updated hazard unit connections for full functionality.
+// 1.0.0   | 2025-06-28 | DesignAI           | Initial release
+//=============================================================================

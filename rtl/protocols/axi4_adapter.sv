@@ -1,25 +1,21 @@
-////////////////////////////////////////////////////////////////////////////////
+//=============================================================================
+// Company: Sondrel Ltd
+// Author: DesignAI (designai@sondrel.com)
+// Created: 2025-06-28
 //
-// Company:       Your Company Name
-// Engineer:      DesignAI
+// File: axi4_adapter.sv
+// Module: axi4_adapter
 //
-// Create Date:   2025-06-28
-// Design Name:   RV32IM Core
-// Module Name:   axi4_adapter
-// Project Name:  riscv_cpu
-// Target Devices:ASIC
-// Tool Versions:
-// Description:   AXI4 protocol adapter for protocol-agnostic memory interface.
-//                Converts between memory_req_rsp_if and AXI4 signals,
-//                maintaining backward compatibility with existing AXI4 systems.
+// Project Name: RISC-V RV32IM Core
+// Target Devices: ASIC/FPGA
+// Tool Versions: VCS 2020.03, ModelSim 2021.1
+// Verification Status: Not Verified
 //
-// Dependencies:  riscv_core_pkg.sv, memory_req_rsp_if.sv
-//
-// Revision:
-// Revision 1.0.0 - File Created
-// Additional Comments:
-//
-////////////////////////////////////////////////////////////////////////////////
+// Description:
+//   AXI4 protocol adapter for protocol-agnostic memory interface. Converts
+//   between memory_req_rsp_if and AXI4 signals, maintaining backward
+//   compatibility with existing AXI4 systems.
+//=============================================================================
 
 `timescale 1ns/1ps
 `default_nettype none
@@ -260,4 +256,32 @@ module axi4_adapter #(
 
 endmodule : axi4_adapter
 
-`default_nettype wire 
+//=============================================================================
+// Dependencies: riscv_core_pkg.sv, memory_req_rsp_if.sv
+//
+// Performance:
+//   - Critical Path: Protocol conversion to AXI4 handshake
+//   - Max Frequency: TBD
+//   - Area: TBD
+//
+// Verification Coverage:
+//   - Code Coverage: Not measured
+//   - Functional Coverage: Not measured
+//   - Branch Coverage: Not measured
+//
+// Synthesis:
+//   - Target Technology: ASIC/FPGA
+//   - Synthesis Tool: Design Compiler/Quartus
+//   - Clock Domains: 1 (clk_i)
+//
+// Testing:
+//   - Testbench: TBD
+//   - Test Vectors: TBD
+//   - Simulation Time: TBD
+//
+//-----
+// Revision History:
+// Version | Date       | Author             | Description
+//=============================================================================
+// 1.0.0   | 2025-06-28 | DesignAI           | Initial release
+//=============================================================================

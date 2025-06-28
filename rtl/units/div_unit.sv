@@ -1,27 +1,22 @@
-////////////////////////////////////////////////////////////////////////////////
+//=============================================================================
+// Company: Sondrel Ltd
+// Author: DesignAI (designai@sondrel.com)
+// Created: 2025-06-28
 //
-// Company:       Your Company Name
-// Engineer:      DesignAI
+// File: div_unit.sv
+// Module: div_unit
 //
-// Create Date:   2025-06-28
-// Design Name:   RV32IM Core
-// Module Name:   div_unit
-// Project Name:  riscv_cpu
-// Target Devices:ASIC
-// Tool Versions:
-// Description:   A dedicated multi-cycle division unit for the RISC-V core.
-//                It implements the RV32M standard extension instructions
-//                (DIV, DIVU, REM, REMU). It uses a registered, pipelined
-//                approach for high performance and handles division by zero
-//                and overflow conditions according to the RISC-V specification.
+// Project Name: RISC-V RV32IM Core
+// Target Devices: ASIC/FPGA
+// Tool Versions: VCS 2020.03, ModelSim 2021.1
+// Verification Status: Not Verified
 //
-// Dependencies:  riscv_core_pkg.sv
-//
-// Revision:
-// Revision 1.0.0 - File Created
-// Additional Comments:
-//
-////////////////////////////////////////////////////////////////////////////////
+// Description:
+//   A dedicated multi-cycle division unit for the RISC-V core. It implements
+//   the RV32M standard extension instructions (DIV, DIVU, REM, REMU). It uses
+//   a registered, pipelined approach for high performance and handles division
+//   by zero and overflow conditions according to the RISC-V specification.
+//=============================================================================
 
 `timescale 1ns/1ps
 `default_nettype none
@@ -171,4 +166,34 @@ module div_unit
         $error("Assertion failed: Invalid division operation type detected.");
 `endif
 
-endmodule : div_unit 
+endmodule : div_unit
+
+//=============================================================================
+// Dependencies: riscv_core_pkg.sv
+//
+// Performance:
+//   - Critical Path: Division operation to result output
+//   - Max Frequency: TBD
+//   - Area: TBD
+//
+// Verification Coverage:
+//   - Code Coverage: Not measured
+//   - Functional Coverage: Not measured
+//   - Branch Coverage: Not measured
+//
+// Synthesis:
+//   - Target Technology: ASIC/FPGA
+//   - Synthesis Tool: Design Compiler/Quartus
+//   - Clock Domains: 1 (clk_i)
+//
+// Testing:
+//   - Testbench: TBD
+//   - Test Vectors: TBD
+//   - Simulation Time: TBD
+//
+//-----
+// Revision History:
+// Version | Date       | Author             | Description
+//=============================================================================
+// 1.0.0   | 2025-06-28 | DesignAI           | Initial release
+//============================================================================= 

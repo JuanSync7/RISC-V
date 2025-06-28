@@ -1,27 +1,21 @@
-////////////////////////////////////////////////////////////////////////////////
+//=============================================================================
+// Company: Sondrel Ltd
+// Author: DesignAI (designai@sondrel.com)
+// Created: 2025-06-27
 //
-// Company:       Your Company Name
-// Engineer:      DesignAI
+// File: alu.sv
+// Module: alu
 //
-// Create Date:   2025-06-27
-// Design Name:   RV32IM Core
-// Module Name:   alu
-// Project Name:  riscv_cpu
-// Target Devices:ASIC
-// Tool Versions:
-// Description:   Arithmetic Logic Unit (ALU) for the RISC-V core.
-//                This is a purely combinational module that performs all
-//                integer arithmetic, logical, and shift operations as
-//                defined by the RV32I base instruction set.
+// Project Name: RISC-V RV32IM Core
+// Target Devices: ASIC/FPGA
+// Tool Versions: VCS 2020.03, ModelSim 2021.1
+// Verification Status: Not Verified
 //
-// Dependencies:  riscv_core_pkg.sv
-//
-// Revision:
-// Revision 1.1.0 - Added overflow detection for arithmetic operations
-// Revision 1.0.0 - File Created
-// Additional Comments:
-//
-////////////////////////////////////////////////////////////////////////////////
+// Description:
+//   Arithmetic Logic Unit (ALU) for the RISC-V core. This is a purely
+//   combinational module that performs all integer arithmetic, logical,
+//   and shift operations as defined by the RV32I base instruction set.
+//=============================================================================
 
 `timescale 1ns/1ps
 `default_nettype none
@@ -112,5 +106,35 @@ module alu
     assign overflow_o   = add_overflow || sub_overflow;
 
 endmodule : alu
+
+//=============================================================================
+// Dependencies: riscv_core_pkg.sv
+//
+// Performance:
+//   - Critical Path: ALU operation to result output
+//   - Max Frequency: TBD
+//   - Area: TBD
+//
+// Verification Coverage:
+//   - Code Coverage: Not measured
+//   - Functional Coverage: Not measured
+//   - Branch Coverage: Not measured
+//
+// Synthesis:
+//   - Target Technology: ASIC/FPGA
+//   - Synthesis Tool: Design Compiler/Quartus
+//   - Clock Domains: 1 (clk_i)
+//
+// Testing:
+//   - Testbench: TBD
+//   - Test Vectors: TBD
+//   - Simulation Time: TBD
+//
+//-----
+// Revision History:
+// Version | Date       | Author             | Description
+//=============================================================================
+// 1.0.0   | 2025-06-27 | DesignAI           | Initial release
+//=============================================================================
 
 `default_nettype wire

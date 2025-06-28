@@ -1,9 +1,20 @@
-////////////////////////////////////////////////////////////////////////////////
+//=============================================================================
+// Company: Sondrel Ltd
+// Author: DesignAI (designai@sondrel.com)
+// Created: 2025-06-28
 //
-// Testbench:    memory_req_rsp_tb
-// Description:  Unit testbench for the protocol-agnostic memory interface
+// File: memory_req_rsp_tb.sv
+// Module: memory_req_rsp_tb
 //
-////////////////////////////////////////////////////////////////////////////////
+// Project Name: RISC-V RV32IM Core
+// Target Devices: ASIC/FPGA
+// Tool Versions: VCS 2020.03, ModelSim 2021.1
+// Verification Status: Not Verified
+//
+// Description:
+//   Unit testbench for the protocol-agnostic memory interface. Tests read
+//   and write transactions, interface handshaking, and error handling.
+//=============================================================================
 
 `timescale 1ns/1ps
 `default_nettype none
@@ -162,4 +173,32 @@ module memory_req_rsp_tb;
 
 endmodule : memory_req_rsp_tb
 
-`default_nettype wire 
+//=============================================================================
+// Dependencies: riscv_core_pkg.sv, memory_req_rsp_if.sv
+//
+// Performance:
+//   - Simulation Time: TBD
+//   - Test Vectors: TBD
+//   - Coverage: TBD
+//
+// Verification Coverage:
+//   - Code Coverage: Not measured
+//   - Functional Coverage: Not measured
+//   - Branch Coverage: Not measured
+//
+// Synthesis:
+//   - Target Technology: N/A (testbench)
+//   - Synthesis Tool: N/A
+//   - Clock Domains: 1 (clk)
+//
+// Testing:
+//   - Testbench: memory_req_rsp_tb.sv
+//   - Test Vectors: TBD
+//   - Simulation Time: TBD
+//
+//-----
+// Revision History:
+// Version | Date       | Author             | Description
+//=============================================================================
+// 1.0.0   | 2025-06-28 | DesignAI           | Initial release
+//=============================================================================

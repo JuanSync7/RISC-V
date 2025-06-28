@@ -218,11 +218,11 @@ alwaysApply: false
 #        //   - Target Technology: ASIC/FPGA
 #        //   - Synthesis Tool: Design Compiler/Quartus
 #        //   - Clock Domains: <number of clk domain>
+#        //   - Constraints File: <SDC file name>
 #        //
 #        // Testing:
 #        //   - Testbench: <testbench name>
-#        //   - Test Vectors: <number of test vectors>
-#        //   - Simulation Time: <simualtion time>
+#        //   - Test Vectors: <number of test vectors in testbench mentioned above>
 #        //
 #        //----------------------------------------------------------------------------
 #        // Revision History:

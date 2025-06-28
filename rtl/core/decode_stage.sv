@@ -1,29 +1,23 @@
-////////////////////////////////////////////////////////////////////////////////
+//=============================================================================
+// Company: Sondrel Ltd
+// Author: DesignAI (designai@sondrel.com)
+// Created: 2025-06-27
 //
-// Company:       Your Company Name
-// Engineer:      DesignAI
+// File: decode_stage.sv
+// Module: decode_stage
 //
-// Create Date:   2025-06-27
-// Design Name:   RV32IM Core
-// Module Name:   decode_stage
-// Project Name:  riscv_cpu
-// Target Devices:ASIC
-// Tool Versions:
-// Description:   The Decode Stage (D) of the 5-stage RISC-V pipeline.
-//                - Decodes the instruction's opcode, funct3, and funct7 fields.
-//                - Generates all control signals for downstream stages.
-//                - Generates the sign-extended immediate value.
-//                - Provides the rs1 and rs2 addresses to the Register File.
-//                - Latches all results into the ID/EX pipeline register.
+// Project Name: RISC-V RV32IM Core
+// Target Devices: ASIC/FPGA
+// Tool Versions: VCS 2020.03, ModelSim 2021.1
+// Verification Status: Not Verified
 //
-// Dependencies:  riscv_core_pkg.sv
-//
-// Revision:
-// Revision 1.1.0 - Added decoding for M-extension (MUL) and SYSTEM (CSR)
-//                  instructions. Updated pipeline register latching for hazard unit.
-// Revision 1.0.0 - File Created
-//
-////////////////////////////////////////////////////////////////////////////////
+// Description:
+//   The Decode Stage (D) of the 5-stage RISC-V pipeline. Decodes the
+//   instruction's opcode, funct3, and funct7 fields, generates all control
+//   signals for downstream stages, generates the sign-extended immediate
+//   value, provides the rs1 and rs2 addresses to the Register File, and
+//   latches all results into the ID/EX pipeline register.
+//=============================================================================
 
 `timescale 1ns/1ps
 `default_nettype none
@@ -256,3 +250,33 @@ module decode_stage
     assign id_ex_reg_o = id_ex_reg_q;
 
 endmodule : decode_stage
+
+//=============================================================================
+// Dependencies: riscv_core_pkg.sv, reg_file.sv
+//
+// Performance:
+//   - Critical Path: Instruction decode to control signals
+//   - Max Frequency: TBD
+//   - Area: TBD
+//
+// Verification Coverage:
+//   - Code Coverage: Not measured
+//   - Functional Coverage: Not measured
+//   - Branch Coverage: Not measured
+//
+// Synthesis:
+//   - Target Technology: ASIC/FPGA
+//   - Synthesis Tool: Design Compiler/Quartus
+//   - Clock Domains: 1 (clk_i)
+//
+// Testing:
+//   - Testbench: TBD
+//   - Test Vectors: TBD
+//   - Simulation Time: TBD
+//
+//-----
+// Revision History:
+// Version | Date       | Author             | Description
+//=============================================================================
+// 1.0.0   | 2025-06-27 | DesignAI           | Initial release
+//=============================================================================
