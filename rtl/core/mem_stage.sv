@@ -42,29 +42,29 @@ module mem_stage
     // AI_TAG: PORT_DESC - ex_mem_reg_i - The EX/MEM pipeline register data.
     input  ex_mem_reg_t ex_mem_reg_i,
 
-    // --- AXI4 Data Memory Interface (Master) ---
-    // Write Address Channel
-    output logic        d_awvalid_o,
-    input  logic        d_awready_i,
-    output addr_t       d_awaddr_o,
-    output logic [2:0]  d_awprot_o,
-    // Write Data Channel
-    output logic        d_wvalid_o,
-    input  logic        d_wready_i,
-    output word_t       d_wdata_o,
-    output logic [3:0]  d_wstrb_o,
-    // Write Response Channel
-    input  logic        d_bvalid_i,
-    output logic        d_bready_o,
-    // Read Address Channel
-    output logic        d_arvalid_o,
-    input  logic        d_arready_i,
-    output addr_t       d_araddr_o,
-    output logic [2:0]  d_arprot_o,
-    // Read Data Channel
-    input  logic        d_rvalid_i,
-    output logic        d_rready_o,
-    input  word_t       d_rdata_i,
+    // --- Memory Wrapper Data Interface ---
+    // AI_TAG: PORT_DESC - data_req_valid_o - Data request valid.
+    output logic        data_req_valid_o,
+    // AI_TAG: PORT_DESC - data_req_ready_i - Data request ready.
+    input  logic        data_req_ready_i,
+    // AI_TAG: PORT_DESC - data_req_addr_o - Data request address.
+    output addr_t       data_req_addr_o,
+    // AI_TAG: PORT_DESC - data_req_write_o - Data request write flag.
+    output logic        data_req_write_o,
+    // AI_TAG: PORT_DESC - data_req_size_o - Data request size.
+    output logic [2:0]  data_req_size_o,
+    // AI_TAG: PORT_DESC - data_req_data_o - Data request write data.
+    output word_t       data_req_data_o,
+    // AI_TAG: PORT_DESC - data_req_strb_o - Data request write strobes.
+    output logic [3:0]  data_req_strb_o,
+    // AI_TAG: PORT_DESC - data_rsp_valid_i - Data response valid.
+    input  logic        data_rsp_valid_i,
+    // AI_TAG: PORT_DESC - data_rsp_ready_o - Data response ready.
+    output logic        data_rsp_ready_o,
+    // AI_TAG: PORT_DESC - data_rsp_data_i - Data response data.
+    input  word_t       data_rsp_data_i,
+    // AI_TAG: PORT_DESC - data_rsp_error_i - Data response error.
+    input  logic        data_rsp_error_i,
 
     // --- Output to Write-back Stage ---
     // AI_TAG: PORT_DESC - mem_wb_reg_o - The MEM/WB pipeline register data.
@@ -111,16 +111,16 @@ module mem_stage
         logic [1:0]  addr_lsb = ex_mem_reg_i.alu_result[1:0];
 
         read_data_aligned = 'x;
-        halfword = d_rdata_i[addr_lsb*8 +: 16];
-        byte     = d_rdata_i[addr_lsb*8 +: 8];
+        halfword = data_rsp_data_i[addr_lsb*8 +: 16];
+        byte     = data_rsp_data_i[addr_lsb*8 +: 8];
 
         case (ex_mem_reg_i.ctrl.funct3)
             3'b000: read_data_aligned = {{24{byte[7]}}, byte};                // LB (Load Byte, sign-extended)
             3'b001: read_data_aligned = {{16{halfword[15]}}, halfword};       // LH (Load Half-word, sign-extended)
-            3'b010: read_data_aligned = d_rdata_i;                            // LW (Load Word)
+            3'b010: read_data_aligned = data_rsp_data_i;                            // LW (Load Word)
             3'b100: read_data_aligned = {24'b0, byte};                        // LBU (Load Byte, Unsigned)
             3'b101: read_data_aligned = {16'b0, halfword};                    // LHU (Load Half-word, Unsigned)
-            default: read_data_aligned = d_rdata_i; // Should not happen for loads
+            default: read_data_aligned = data_rsp_data_i; // Should not happen for loads
         endcase
     end
 
@@ -129,23 +129,27 @@ module mem_stage
     // aligned data from memory. For all other instructions, it's the ALU result.
     assign wb_data_d = (ex_mem_reg_i.ctrl.mem_read_en) ? read_data_aligned : ex_mem_reg_i.alu_result;
 
-    // AI_TAG: AXI4_LOGIC - Data Memory AXI Interface
-    // Description: Drives the AXI signals based on control signals from the EX/MEM register.
-    // The Hazard Unit is expected to stall this stage until the AXI handshake completes.
-    assign d_awvalid_o = ex_mem_reg_i.ctrl.mem_write_en;
-    assign d_awaddr_o  = ex_mem_reg_i.alu_result;
-    assign d_wvalid_o  = ex_mem_reg_i.ctrl.mem_write_en;
-    assign d_wdata_o   = write_data_aligned;
-    assign d_wstrb_o   = write_strobes;
-    assign d_bready_o  = 1'b1; // Always ready to accept write response
-
-    assign d_arvalid_o = ex_mem_reg_i.ctrl.mem_read_en;
-    assign d_araddr_o  = ex_mem_reg_i.alu_result;
-    assign d_rready_o  = 1'b1; // Always ready to accept read data when requested
-
-    // AXI constants for data access
-    assign d_awprot_o = 3'b010; // Privileged, Secure, Data access
-    assign d_arprot_o = 3'b010; // Privileged, Secure, Data access
+    // AI_TAG: INTERNAL_LOGIC - Memory Wrapper Interface Control
+    // Description: Drives the memory wrapper signals based on control signals from the EX/MEM register.
+    // The Hazard Unit is expected to stall this stage until the memory handshake completes.
+    assign data_req_valid_o = ex_mem_reg_i.ctrl.mem_read_en || ex_mem_reg_i.ctrl.mem_write_en;
+    assign data_req_addr_o  = ex_mem_reg_i.alu_result;
+    assign data_req_write_o = ex_mem_reg_i.ctrl.mem_write_en;
+    assign data_req_data_o  = write_data_aligned;
+    assign data_req_strb_o  = write_strobes;
+    assign data_rsp_ready_o = 1'b1; // Always ready to accept response
+    
+    // Map funct3 to AXI size for memory wrapper
+    always_comb begin
+        case (ex_mem_reg_i.ctrl.funct3)
+            3'b000: data_req_size_o = 3'b000; // SB/LB - 1 byte
+            3'b001: data_req_size_o = 3'b001; // SH/LH - 2 bytes
+            3'b010: data_req_size_o = 3'b010; // SW/LW - 4 bytes
+            3'b100: data_req_size_o = 3'b000; // LBU - 1 byte
+            3'b101: data_req_size_o = 3'b001; // LHU - 2 bytes
+            default: data_req_size_o = 3'b010; // Default to word
+        endcase
+    end
 
     // AI_TAG: INTERNAL_LOGIC - MEM/WB Pipeline Register
     always_ff @(posedge clk_i or negedge rst_ni) begin
@@ -156,8 +160,8 @@ module mem_stage
                 mem_wb_reg_q.reg_write_en <= 1'b0; // Flush to a bubble
             end else begin
                 // AI_TAG: DESIGN_NOTE - The wb_data is only valid if the instruction was a non-memory
-                // op OR it was a load and d_rvalid_i is asserted by the memory system.
-                // The Hazard Unit must stall this stage until d_rvalid_i is high for loads.
+                // op OR it was a load and data_rsp_valid_i is asserted by the memory system.
+                // The Hazard Unit must stall this stage until data_rsp_valid_i is high for loads.
                 mem_wb_reg_q.wb_data      <= wb_data_d;
                 mem_wb_reg_q.rd_addr      <= ex_mem_reg_i.rd_addr;
                 mem_wb_reg_q.reg_write_en <= ex_mem_reg_i.ctrl.reg_write_en;

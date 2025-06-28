@@ -29,7 +29,9 @@
 module riscv_core
     import riscv_core_pkg::*;
 #(
-    parameter addr_t RESET_VECTOR = 32'h0000_0000
+    parameter addr_t RESET_VECTOR = 32'h0000_0000,
+    // AI_TAG: PARAM_DESC - PROTOCOL_TYPE - Memory protocol type for the memory wrapper.
+    parameter string PROTOCOL_TYPE = "AXI4"
 )
 (
     input  logic        clk_i,
@@ -103,8 +105,90 @@ module riscv_core
     // AI_TAG: INTERNAL_WIRE - Branch Prediction Interface
     branch_update_t bp_update;
 
+    // AI_TAG: INTERNAL_WIRE - Memory Wrapper Interface
+    logic        instr_req_valid;
+    logic        instr_req_ready;
+    addr_t       instr_req_addr;
+    logic        instr_rsp_valid;
+    logic        instr_rsp_ready;
+    word_t       instr_rsp_data;
+    logic        instr_rsp_error;
+    
+    logic        data_req_valid;
+    logic        data_req_ready;
+    addr_t       data_req_addr;
+    logic        data_req_write;
+    logic [2:0]  data_req_size;
+    word_t       data_req_data;
+    logic [3:0]  data_req_strb;
+    logic        data_rsp_valid;
+    logic        data_rsp_ready;
+    word_t       data_rsp_data;
+    logic        data_rsp_error;
+
     //==========================================================================
-    // 1. Pipeline Stages Instantiation
+    // 1. Memory Wrapper Instantiation
+    //==========================================================================
+
+    memory_wrapper #(
+        .PROTOCOL_TYPE(PROTOCOL_TYPE)
+    ) u_memory_wrapper (
+        .clk_i(clk_i),
+        .rst_ni(rst_ni),
+        
+        // Instruction memory interface
+        .instr_req_valid_i(instr_req_valid),
+        .instr_req_ready_o(instr_req_ready),
+        .instr_req_addr_i(instr_req_addr),
+        .instr_rsp_valid_o(instr_rsp_valid),
+        .instr_rsp_ready_i(instr_rsp_ready),
+        .instr_rsp_data_o(instr_rsp_data),
+        .instr_rsp_error_o(instr_rsp_error),
+        
+        // Data memory interface
+        .data_req_valid_i(data_req_valid),
+        .data_req_ready_o(data_req_ready),
+        .data_req_addr_i(data_req_addr),
+        .data_req_write_i(data_req_write),
+        .data_req_size_i(data_req_size),
+        .data_req_data_i(data_req_data),
+        .data_req_strb_i(data_req_strb),
+        .data_rsp_valid_o(data_rsp_valid),
+        .data_rsp_ready_i(data_rsp_ready),
+        .data_rsp_data_o(data_rsp_data),
+        .data_rsp_error_o(data_rsp_error),
+        
+        // AXI4 interface (for backward compatibility)
+        .i_arvalid_o(i_arvalid_o),
+        .i_arready_i(i_arready_i),
+        .i_araddr_o(i_araddr_o),
+        .i_arprot_o(i_arprot_o),
+        .i_arcache_o(i_arcache_o),
+        .i_arsize_o(i_arsize_o),
+        .i_rdata_i(i_rdata_i),
+        .i_rvalid_i(i_rvalid_i),
+        .i_rready_o(i_rready_o),
+        .d_awvalid_o(d_awvalid_o),
+        .d_awready_i(d_awready_i),
+        .d_awaddr_o(d_awaddr_o),
+        .d_awprot_o(d_awprot_o),
+        .d_wvalid_o(d_wvalid_o),
+        .d_wready_i(d_wready_i),
+        .d_wdata_o(d_wdata_o),
+        .d_wstrb_o(d_wstrb_o),
+        .d_bvalid_i(d_bvalid_i),
+        .d_bready_o(d_bready_o),
+        .d_arvalid_o(d_arvalid_o),
+        .d_arready_i(d_arready_i),
+        .d_araddr_o(d_araddr_o),
+        .d_arprot_o(d_arprot_o),
+        .d_rvalid_i(d_rvalid_i),
+        .d_rready_o(d_rready_o),
+        .d_rdata_i(d_rdata_i)
+    );
+
+    //==========================================================================
+    // 2. Pipeline Stages Instantiation
     //==========================================================================
 
     fetch_stage #(.RESET_VECTOR(RESET_VECTOR)) u_fetch_stage (
@@ -116,15 +200,13 @@ module riscv_core
         .pc_redirect_en_i     ( pc_redirect          ),
         .pc_redirect_target_i ( pc_redirect_target   ),
         .bp_update_i          ( bp_update            ),
-        .i_arvalid_o          ( i_arvalid_o          ),
-        .i_arready_i          ( i_arready_i          ),
-        .i_araddr_o           ( i_araddr_o           ),
-        .i_arprot_o           ( i_arprot_o           ),
-        .i_arcache_o          ( i_arcache_o          ),
-        .i_arsize_o           ( i_arsize_o           ),
-        .i_rdata_i            ( i_rdata_i            ),
-        .i_rvalid_i           ( i_rvalid_i           ),
-        .i_rready_o           ( i_rready_o           ),
+        .instr_req_valid_o    ( instr_req_valid      ),
+        .instr_req_ready_i    ( instr_req_ready      ),
+        .instr_req_addr_o     ( instr_req_addr       ),
+        .instr_rsp_valid_i    ( instr_rsp_valid      ),
+        .instr_rsp_ready_o    ( instr_rsp_ready      ),
+        .instr_rsp_data_i     ( instr_rsp_data       ),
+        .instr_rsp_error_i    ( instr_rsp_error      ),
         .if_id_reg_o          ( if_id_reg            ),
         .pc_f_o               ( /* unused */         ),
         .bp_prediction_o      ( /* unused - available for monitoring */ )
@@ -167,24 +249,18 @@ module riscv_core
         .stall_w_i    ( stall_w      ),
         .flush_m_i    ( /* unused */ ),
         .ex_mem_reg_i ( ex_mem_reg   ),
-        // AXI data ports connected directly
-        .d_awvalid_o  ( d_awvalid_o  ),
-        .d_awready_i  ( d_awready_i  ),
-        .d_awaddr_o   ( d_awaddr_o   ),
-        .d_awprot_o   ( d_awprot_o   ),
-        .d_wvalid_o   ( d_wvalid_o   ),
-        .d_wready_i   ( d_wready_i   ),
-        .d_wdata_o    ( d_wdata_o    ),
-        .d_wstrb_o    ( d_wstrb_o    ),
-        .d_bvalid_i   ( d_bvalid_i   ),
-        .d_bready_o   ( d_bready_o   ),
-        .d_arvalid_o  ( d_arvalid_o  ),
-        .d_arready_i  ( d_arready_i  ),
-        .d_araddr_o   ( d_araddr_o   ),
-        .d_arprot_o   ( d_arprot_o   ),
-        .d_rvalid_i   ( d_rvalid_i   ),
-        .d_rready_o   ( d_rready_o   ),
-        .d_rdata_i    ( d_rdata_i    ),
+        // Memory wrapper data interface
+        .data_req_valid_o ( data_req_valid ),
+        .data_req_ready_i ( data_req_ready ),
+        .data_req_addr_o  ( data_req_addr  ),
+        .data_req_write_o ( data_req_write ),
+        .data_req_size_o  ( data_req_size  ),
+        .data_req_data_o  ( data_req_data  ),
+        .data_req_strb_o  ( data_req_strb  ),
+        .data_rsp_valid_i ( data_rsp_valid ),
+        .data_rsp_ready_o ( data_rsp_ready ),
+        .data_rsp_data_i  ( data_rsp_data  ),
+        .data_rsp_error_i ( data_rsp_error ),
         .mem_wb_reg_o ( mem_wb_reg   )
     );
 
@@ -201,7 +277,7 @@ module riscv_core
     );
 
     //==========================================================================
-    // 2. Core Units Instantiation
+    // 3. Core Units Instantiation
     //==========================================================================
 
     reg_file u_reg_file ( .clk_i(clk_i), .rst_ni(rst_ni), .write_en_i(rf_write_en), .rd_addr_i(rf_rd_addr), .rd_data_i(rf_rd_data), .rs1_addr_i(rs1_addr), .rs1_data_o(rs1_data), .rs2_addr_i(rs2_addr), .rs2_data_o(rs2_data) );
@@ -225,7 +301,7 @@ module riscv_core
     );
 
     //==========================================================================
-    // 3. Control Logic Instantiation
+    // 4. Control Logic Instantiation
     //==========================================================================
 
     // AI_TAG: UPDATE - Hazard unit instantiation now fully connected for stalls.
@@ -237,10 +313,10 @@ module riscv_core
         .mem_wb_reg_i     ( mem_wb_reg           ),
         .pc_redirect_e_i  ( pc_redirect          ),
         .exec_stall_req_i ( exec_stall_req       ),
-        .i_arvalid_i      ( i_arvalid_o          ), // From fetch stage
-        .i_arready_i      ( i_arready_i          ), // From memory system
-        .d_mem_req_i      ( d_arvalid_o | d_awvalid_o ),
-        .d_mem_ready_i    ( d_arvalid_o ? d_arready_i : d_awready_i ), // Simplified ready
+        .i_arvalid_i      ( instr_req_valid      ), // From fetch stage via memory wrapper
+        .i_arready_i      ( instr_req_ready      ), // From memory wrapper
+        .d_mem_req_i      ( data_req_valid       ), // From memory stage via memory wrapper
+        .d_mem_ready_i    ( data_req_ready       ), // From memory wrapper
         .stall_f_o        ( stall_f              ),
         .stall_d_o        ( stall_d              ),
         .stall_m_o        ( stall_m              ),

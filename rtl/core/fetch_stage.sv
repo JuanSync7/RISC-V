@@ -59,16 +59,21 @@ module fetch_stage
     // AI_TAG: PORT_DESC - bp_update_i - Branch prediction update information from execute stage.
     input  branch_update_t bp_update_i,
 
-    // --- AXI4 Instruction Read Interface (Master) ---
-    output logic        i_arvalid_o,
-    input  logic        i_arready_i,
-    output addr_t       i_araddr_o,
-    output logic [2:0]  i_arprot_o,  // Privileged, secure, data access
-    output logic [3:0]  i_arcache_o, // Bufferable, modifiable, etc.
-    output logic [1:0]  i_arsize_o,  // 4-byte transfer
-    input  word_t       i_rdata_i,
-    input  logic        i_rvalid_i,
-    output logic        i_rready_o,
+    // --- Memory Wrapper Instruction Interface ---
+    // AI_TAG: PORT_DESC - instr_req_valid_o - Instruction request valid.
+    output logic        instr_req_valid_o,
+    // AI_TAG: PORT_DESC - instr_req_ready_i - Instruction request ready.
+    input  logic        instr_req_ready_i,
+    // AI_TAG: PORT_DESC - instr_req_addr_o - Instruction request address.
+    output addr_t       instr_req_addr_o,
+    // AI_TAG: PORT_DESC - instr_rsp_valid_i - Instruction response valid.
+    input  logic        instr_rsp_valid_i,
+    // AI_TAG: PORT_DESC - instr_rsp_ready_o - Instruction response ready.
+    output logic        instr_rsp_ready_o,
+    // AI_TAG: PORT_DESC - instr_rsp_data_i - Instruction response data.
+    input  word_t       instr_rsp_data_i,
+    // AI_TAG: PORT_DESC - instr_rsp_error_i - Instruction response error.
+    input  logic        instr_rsp_error_i,
 
     // --- Output to Decode Stage ---
     // AI_TAG: PORT_DESC - if_id_reg_o - The IF/ID pipeline register data passed to the Decode stage.
@@ -137,46 +142,56 @@ module fetch_stage
         end
     end
 
-    // AI_TAG: INTERNAL_LOGIC - IF/ID Pipeline Register
-    // Description: This register decouples the Fetch and Decode stages.
-    // - It is stalled if the Decode stage is stalled (stall_d_i).
-    // - It is flushed (loaded with a NOP) if a branch is mispredicted or an exception occurs.
-    // - Otherwise, it latches the instruction received from memory.
+    // --- ICache Interface ---
+    // Add signals for ICache
+    logic        icache_ready;
+    word_t       icache_instruction;
+    logic        icache_hit;
+    logic        icache_valid;
+    logic        icache_flush;
+    logic        icache_flush_done;
+
+    // Instantiate ICache with memory wrapper interface
+    icache u_icache (
+        .clk_i(clk_i),
+        .rst_ni(rst_ni),
+        .pc_i(pc_q),
+        .valid_i(!stall_f_i && !pc_redirect_en_i),
+        .ready_o(icache_ready),
+        .instruction_o(icache_instruction),
+        .hit_o(icache_hit),
+        .valid_o(icache_valid),
+        .mem_req_valid_o(instr_req_valid_o),
+        .mem_req_ready_i(instr_req_ready_i),
+        .mem_req_addr_o(instr_req_addr_o),
+        .mem_rsp_valid_i(instr_rsp_valid_i),
+        .mem_rsp_data_i(instr_rsp_data_i),
+        .mem_rsp_ready_o(instr_rsp_ready_o),
+        .flush_i(icache_flush),
+        .flush_done_o(icache_flush_done)
+    );
+
+    // ICache flush logic (can be tied to reset or exception flush)
+    assign icache_flush = flush_f_i;
+
+    // IF/ID pipeline register now uses ICache output
     always_ff @(posedge clk_i or negedge rst_ni) begin
         if (!rst_ni) begin
             if_id_reg_q.instr <= NOP_INSTRUCTION;
             if_id_reg_q.pc    <= '0;
             if_id_reg_q.valid <= 1'b0;
         end else if (!stall_d_i) begin
-            // If the pipe is flowing, check for flushes or new valid instructions.
             if (flush_f_i) begin
                 if_id_reg_q.instr <= NOP_INSTRUCTION;
-                if_id_reg_q.pc    <= '0; // PC is irrelevant for a bubble
+                if_id_reg_q.pc    <= '0;
                 if_id_reg_q.valid <= 1'b0;
             end else begin
-                // Latch the incoming instruction from memory
-                if_id_reg_q.instr <= i_rdata_i;
-                if_id_reg_q.pc    <= pc_q; // Latch the PC that requested this instruction
-                // AI_TAG: DESIGN_NOTE - The validity of the instruction in the D stage depends
-                // on the memory system asserting i_rvalid and this stage being ready to accept it (i_rready_o).
-                if_id_reg_q.valid <= i_rvalid_i & i_rready_o;
+                if_id_reg_q.instr <= icache_instruction;
+                if_id_reg_q.pc    <= pc_q;
+                if_id_reg_q.valid <= icache_valid;
             end
         end
-        // If stall_d_i is high, the register holds its previous value.
     end
-
-    // AI_TAG: AXI4_LOGIC - Instruction Fetch AXI Read Channel
-    // Description: Manages the AXI4 handshake to fetch instructions.
-    assign i_araddr_o  = pc_q;
-    // We issue a new read request if the stage is not stalled and not currently being redirected.
-    assign i_arvalid_o = !stall_f_i && !pc_redirect_en_i;
-    // We are ready to accept an instruction if the next stage is not stalled.
-    assign i_rready_o  = !stall_d_i;
-
-    // AXI constants for instruction fetch
-    assign i_arprot_o  = 3'b010; // Privileged, Secure, Data access
-    assign i_arcache_o = 4'b0010; // Normal Non-cacheable Bufferable
-    assign i_arsize_o  = 2'b010;  // 4 bytes
 
     // --- Module Outputs ---
     assign if_id_reg_o = if_id_reg_q;
