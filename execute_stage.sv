@@ -61,7 +61,11 @@ module execute_stage
     output ex_mem_reg_t ex_mem_reg_o,
 
     // AI_TAG: NEW_PORT - Overflow output for arithmetic operations
-    output logic overflow_o
+    output logic overflow_o,
+
+    // AI_TAG: NEW_PORT - Branch prediction update output
+    // AI_TAG: PORT_DESC - bp_update_o - Branch prediction update information for the BPU.
+    output branch_update_t bp_update_o
 );
 
     localparam logic [1:0] FWD_SEL_REG  = 2'b00;
@@ -169,12 +173,23 @@ module execute_stage
         end
     end
 
+    // AI_TAG: INTERNAL_LOGIC - Branch Prediction Update Logic
+    // Generate branch prediction updates for the BPU
+    always_comb begin
+        bp_update_o.update_valid = id_ex_reg_i.ctrl.is_branch;
+        bp_update_o.update_pc = id_ex_reg_i.pc;
+        bp_update_o.actual_taken = branch_taken;
+        bp_update_o.actual_target = (branch_taken) ? 
+                                   (id_ex_reg_i.pc + id_ex_reg_i.immediate) : 
+                                   (id_ex_reg_i.pc + 4);
+        bp_update_o.is_branch = id_ex_reg_i.ctrl.is_branch;
+    end
+
     // AI_TAG: INTERNAL_LOGIC - PC Redirect Logic
     assign pc_redirect_o        = branch_taken || (id_ex_reg_i.ctrl.wb_mux_sel == WB_SEL_PC_P4);
     assign pc_redirect_target_o = (id_ex_reg_i.ctrl.wb_mux_sel == WB_SEL_PC_P4 && id_ex_reg_i.ctrl.alu_op == ALU_OP_ADD)
                                   ? {alu_result[XLEN-1:1], 1'b0}
                                   : id_ex_reg_i.pc + id_ex_reg_i.immediate;
-
 
     // AI_TAG: INTERNAL_LOGIC - EX/MEM Pipeline Register
     always_ff @(posedge clk_i or negedge rst_ni) begin

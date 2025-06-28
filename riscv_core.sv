@@ -100,6 +100,8 @@ module riscv_core
     addr_t      mepc_out, mtvec_out;
     word_t      mstatus_out, mcause_in, mtval_in;
 
+    // AI_TAG: INTERNAL_WIRE - Branch Prediction Interface
+    branch_update_t bp_update;
 
     //==========================================================================
     // 1. Pipeline Stages Instantiation
@@ -113,6 +115,7 @@ module riscv_core
         .flush_f_i            ( flush_f              ),
         .pc_redirect_en_i     ( pc_redirect          ),
         .pc_redirect_target_i ( pc_redirect_target   ),
+        .bp_update_i          ( bp_update            ),
         .i_arvalid_o          ( i_arvalid_o          ),
         .i_arready_i          ( i_arready_i          ),
         .i_araddr_o           ( i_araddr_o           ),
@@ -122,7 +125,9 @@ module riscv_core
         .i_rdata_i            ( i_rdata_i            ),
         .i_rvalid_i           ( i_rvalid_i           ),
         .i_rready_o           ( i_rready_o           ),
-        .if_id_reg_o          ( if_id_reg            )
+        .if_id_reg_o          ( if_id_reg            ),
+        .pc_f_o               ( /* unused */         ),
+        .bp_prediction_o      ( /* unused - available for monitoring */ )
     );
 
     decode_stage u_decode_stage (
@@ -148,12 +153,12 @@ module riscv_core
         .id_ex_reg_i          ( id_ex_reg            ),
         .ex_mem_reg_m_i       ( ex_mem_reg           ),
         .wb_data_w_i          ( wb_data_fwd          ),
-        .csr_read_data_i      ( csr_read_data        ),
         .pc_redirect_o        ( pc_redirect          ),
         .pc_redirect_target_o ( pc_redirect_target   ),
         .exec_stall_req_o     ( exec_stall_req       ), // AI_TAG: UPDATE - New stall request connection
         .ex_mem_reg_o         ( ex_mem_reg           ),
-        .overflow_o           ( /* unused - available for exception handling */ )
+        .overflow_o           ( /* unused - available for exception handling */ ),
+        .bp_update_o          ( bp_update            )
     );
 
     mem_stage u_mem_stage (

@@ -182,6 +182,30 @@ package riscv_core_pkg;
     parameter logic [11:0] MIP_ADDR     = 12'h344;
     parameter logic [11:0] MHARTID_ADDR = 12'hF14;
 
+    //---------------------------------------------------------------------------
+    // 8. Branch Predictor Definitions
+    //---------------------------------------------------------------------------
+    // AI_TAG: TYPEDEF - branch_prediction_t - Branch prediction result structure
+    typedef struct packed {
+        logic        predict_taken;    // Prediction result (1=taken, 0=not-taken)
+        addr_t       predict_target;   // Predicted branch target address
+        logic        btb_hit;          // BTB hit indicator
+    } branch_prediction_t;
+
+    // AI_TAG: TYPEDEF - branch_update_t - Branch update information structure
+    typedef struct packed {
+        logic        update_valid;     // Update is valid
+        addr_t       update_pc;        // PC of the branch being updated
+        logic        actual_taken;     // Actual branch outcome
+        addr_t       actual_target;    // Actual branch target
+        logic        is_branch;        // Instruction is a branch
+    } branch_update_t;
+
+    // AI_TAG: CONSTANT - BPU_DEFAULT_BTB_ENTRIES - Default BTB size
+    parameter integer BPU_DEFAULT_BTB_ENTRIES = 64;
+    
+    // AI_TAG: CONSTANT - BPU_DEFAULT_BHT_ENTRIES - Default BHT size
+    parameter integer BPU_DEFAULT_BHT_ENTRIES = 256;
 
 endpackage : riscv_core_pkg
 

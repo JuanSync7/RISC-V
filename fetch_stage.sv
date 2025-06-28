@@ -31,7 +31,11 @@ module fetch_stage
     import riscv_core_pkg::*;
 #(
     // AI_TAG: PARAMETER - RESET_VECTOR - The address where the core begins execution after reset.
-    parameter addr_t RESET_VECTOR = 32'h0000_0000
+    parameter addr_t RESET_VECTOR = 32'h0000_0000,
+    // AI_TAG: PARAMETER - BTB_ENTRIES - Number of entries in the Branch Target Buffer.
+    parameter integer BTB_ENTRIES = BPU_DEFAULT_BTB_ENTRIES,
+    // AI_TAG: PARAMETER - BHT_ENTRIES - Number of entries in the Branch History Table.
+    parameter integer BHT_ENTRIES = BPU_DEFAULT_BHT_ENTRIES
 )
 (
     input  logic        clk_i,
@@ -51,6 +55,10 @@ module fetch_stage
     // AI_TAG: PORT_DESC - pc_redirect_target_i - The new target address for the PC.
     input  addr_t       pc_redirect_target_i,
 
+    // --- Branch Predictor Update Interface ---
+    // AI_TAG: PORT_DESC - bp_update_i - Branch prediction update information from execute stage.
+    input  branch_update_t bp_update_i,
+
     // --- AXI4 Instruction Read Interface (Master) ---
     output logic        i_arvalid_o,
     input  logic        i_arready_i,
@@ -66,7 +74,9 @@ module fetch_stage
     // AI_TAG: PORT_DESC - if_id_reg_o - The IF/ID pipeline register data passed to the Decode stage.
     output if_id_reg_t  if_id_reg_o,
     // AI_TAG: PORT_DESC - pc_f_o - The current value of the PC for use in control/hazard logic.
-    output addr_t       pc_f_o
+    output addr_t       pc_f_o,
+    // AI_TAG: PORT_DESC - bp_prediction_o - Branch prediction result for the current instruction.
+    output branch_prediction_t bp_prediction_o
 );
 
     // AI_TAG: RISC-V_SPEC - A NOP is encoded as `addi x0, x0, 0`.
@@ -78,13 +88,39 @@ module fetch_stage
     // AI_TAG: INTERNAL_STORAGE - IF/ID pipeline register.
     if_id_reg_t if_id_reg_q;
 
+    // AI_TAG: INTERNAL_LOGIC - Branch prediction signals
+    logic        bp_predict_taken;
+    addr_t       bp_predict_target;
+    logic        bp_btb_hit;
+
+    // AI_TAG: INTERNAL_LOGIC - Branch Predictor instance
+    branch_predictor #(
+        .BTB_ENTRIES(BTB_ENTRIES),
+        .BHT_ENTRIES(BHT_ENTRIES)
+    ) branch_predictor_inst (
+        .clk_i(clk_i),
+        .rst_ni(rst_ni),
+        .pc_i(pc_q),
+        .predict_taken_o(bp_predict_taken),
+        .predict_target_o(bp_predict_target),
+        .btb_hit_o(bp_btb_hit),
+        .update_i(bp_update_i.update_valid),
+        .update_pc_i(bp_update_i.update_pc),
+        .actual_taken_i(bp_update_i.actual_taken),
+        .actual_target_i(bp_update_i.actual_target),
+        .is_branch_i(bp_update_i.is_branch)
+    );
+
     // AI_TAG: INTERNAL_LOGIC - Next PC Selection Logic
     // Description: This logic determines the address of the next instruction.
     // Priority 1: A redirect from a branch, jump, or exception has highest priority.
-    // Priority 2: Default sequential execution (PC + 4).
+    // Priority 2: Branch prediction (if no redirect and BPU predicts taken).
+    // Priority 3: Default sequential execution (PC + 4).
     always_comb begin
         if (pc_redirect_en_i) begin
             pc_d = pc_redirect_target_i;
+        end else if (bp_predict_taken && bp_btb_hit) begin
+            pc_d = bp_predict_target;
         end else begin
             pc_d = pc_q + 4;
         end
@@ -145,6 +181,7 @@ module fetch_stage
     // --- Module Outputs ---
     assign if_id_reg_o = if_id_reg_q;
     assign pc_f_o      = pc_q;
+    assign bp_prediction_o = {bp_predict_taken, bp_predict_target, bp_btb_hit};
 
 endmodule : fetch_stage
 
