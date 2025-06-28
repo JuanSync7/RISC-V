@@ -190,7 +190,8 @@ alwaysApply: false
 #        // Description:
 #        //   <Brief, clear description of the file's/module's purpose and
 #        //    functionality.>
-#        //
+#        //=============================================================================
+#
 # 4.1.1 File Footer:
 #      - Every `.sv` and `.svh` file must end with a standard footer:
 #        //=============================================================================

@@ -3,6 +3,7 @@ description: Systemverilog few shot example for proper systemverilog coding prac
 globs: 
 alwaysApply: false
 ---
+//=============================================================================
 // MODULE_NAME: simple_fifo_ctrl
 // AUTHOR: DesignAI Example Generator
 // VERSION: 1.0.0
@@ -14,6 +15,7 @@ alwaysApply: false
 // MODULE_TYPE: RTL
 // TARGET_TECHNOLOGY_PREF: ASIC
 // RELATED_SPECIFICATION: Internal_FIFO_Spec_v1.2
+//=============================================================================
 
 // AI_TAG: FEATURE - Implements an AXI4-Lite slave interface for register access.
 // AI_TAG: FEATURE - Configurable FIFO depth via parameter P_FIFO_DEPTH.
