@@ -155,9 +155,26 @@ module decode_stage
                     // AI_TAG: UPDATE - Differentiate between standard R-type and M-extension
                     if (funct7 == FUNCT7_M_EXT) begin
                         // This is an M-extension instruction (MUL/DIV)
-                        ctrl_d.mult_en      = 1'b1; // Enable the multiplier unit
                         ctrl_d.reg_write_en = 1'b1;
                         ctrl_d.wb_mux_sel   = WB_SEL_ALU; // Result comes from Execute stage path
+                        
+                        // AI_TAG: UPDATE - Differentiate between multiplication and division based on funct3
+                        case (funct3)
+                            3'b000, 3'b001, 3'b010, 3'b011: begin
+                                // Multiplication instructions: MUL, MULH, MULHSU, MULHU
+                                ctrl_d.mult_en = 1'b1;
+                                ctrl_d.div_en  = 1'b0;
+                            end
+                            3'b100, 3'b101, 3'b110, 3'b111: begin
+                                // Division instructions: DIV, DIVU, REM, REMU
+                                ctrl_d.mult_en = 1'b0;
+                                ctrl_d.div_en  = 1'b1;
+                            end
+                            default: begin
+                                ctrl_d.mult_en = 1'b0;
+                                ctrl_d.div_en  = 1'b0;
+                            end
+                        endcase
                     end else begin
                         // This is a standard R-type instruction
                         ctrl_d.alu_src_a_sel = ALU_A_SEL_RS1;

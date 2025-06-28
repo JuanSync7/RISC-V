@@ -16,9 +16,11 @@
 //                - Generates PC redirect and stall signals.
 //                - Latches results into the EX/MEM pipeline register.
 //
-// Dependencies:  riscv_core_pkg.sv, alu.sv, mult_unit.sv
+// Dependencies:  riscv_core_pkg.sv, alu.sv, mult_unit.sv, div_unit.sv
 //
 // Revision:
+// Revision 1.2.0 - Integrated the multi-cycle div_unit, including stall
+//                  and result muxing logic for division operations.
 // Revision 1.1.0 - Integrated the multi-cycle mult_unit, including stall
 //                  and result muxing logic.
 // Revision 1.0.0 - File Created
@@ -77,7 +79,9 @@ module execute_stage
     logic  branch_taken;
     word_t mult_result;
     logic  mult_done;
-    word_t final_result; // AI_TAG: UPDATE - Muxed result from ALU or Multiplier
+    word_t div_result;         // AI_TAG: NEW - Division result
+    logic  div_done;           // AI_TAG: NEW - Division done flag
+    word_t final_result; // AI_TAG: UPDATE - Muxed result from ALU, Multiplier, or Divider
 
     ex_mem_reg_t ex_mem_reg_q;
 
@@ -127,13 +131,27 @@ module execute_stage
         .done_o       ( mult_done                 )
     );
 
+    // AI_TAG: MODULE_INSTANCE - Multi-cycle Division Unit Instantiation
+    div_unit u_div_unit (
+        .clk_i        ( clk_i                     ),
+        .rst_ni       ( rst_ni                    ),
+        .start_i      ( id_ex_reg_i.ctrl.div_en   ),
+        .operand_a_i  ( fwd_operand_a             ),
+        .operand_b_i  ( fwd_operand_b             ),
+        .op_type_i    ( id_ex_reg_i.ctrl.funct3   ),
+        .result_o     ( div_result                ),
+        .done_o       ( div_done                  )
+    );
+
     // AI_TAG: INTERNAL_LOGIC - Final Result Mux
     // Selects the result from the active unit.
-    assign final_result = id_ex_reg_i.ctrl.mult_en ? mult_result : alu_result;
+    assign final_result = id_ex_reg_i.ctrl.mult_en ? mult_result : 
+                         id_ex_reg_i.ctrl.div_en  ? div_result  : alu_result;
 
     // AI_TAG: INTERNAL_LOGIC - Stall Request Generation
-    // Stall the pipeline if a multiplication is in progress and not yet complete.
-    assign exec_stall_req_o = id_ex_reg_i.ctrl.mult_en & !mult_done;
+    // Stall the pipeline if a multiplication or division is in progress and not yet complete.
+    assign exec_stall_req_o = (id_ex_reg_i.ctrl.mult_en & !mult_done) || 
+                             (id_ex_reg_i.ctrl.div_en  & !div_done);
 
     // AI_TAG: INTERNAL_LOGIC - Branch Evaluation Logic
     always_comb begin
