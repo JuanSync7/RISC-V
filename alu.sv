@@ -17,6 +17,7 @@
 // Dependencies:  riscv_core_pkg.sv
 //
 // Revision:
+// Revision 1.1.0 - Added overflow detection for arithmetic operations
 // Revision 1.0.0 - File Created
 // Additional Comments:
 //
@@ -38,7 +39,9 @@ module alu
     // AI_TAG: PORT_DESC - alu_result_o - 32-bit result of the ALU operation.
     output word_t   alu_result_o,
     // AI_TAG: PORT_DESC - zero_o - Flag that is asserted if the ALU result is zero. Used for branch evaluation.
-    output logic    zero_o
+    output logic    zero_o,
+    // AI_TAG: PORT_DESC - overflow_o - Flag that is asserted when arithmetic operations overflow. Used for exception handling.
+    output logic    overflow_o
 );
 
     // AI_TAG: FEATURE - Implements RV32I arithmetic operations: ADD, SUB.
@@ -46,8 +49,10 @@ module alu
     // AI_TAG: FEATURE - Implements RV32I shift operations: SLL, SRL, SRA.
     // AI_TAG: FEATURE - Implements RV32I comparison operations: SLT, SLTU.
     // AI_TAG: FEATURE - Implements pass-through capabilities for LUI and address calculations.
+    // AI_TAG: FEATURE - Implements overflow detection for ADD and SUB operations.
 
     logic [XLEN-1:0] alu_result;
+    logic add_overflow, sub_overflow;
 
     // AI_TAG: INTERNAL_LOGIC - Main ALU combinational logic.
     // Description: A case statement selects the operation based on alu_op_i.
@@ -77,11 +82,34 @@ module alu
         endcase
     end
 
+    // AI_TAG: INTERNAL_LOGIC - Overflow Detection Logic.
+    // Description: Detects arithmetic overflow for ADD and SUB operations.
+    // Overflow occurs when:
+    // - ADD: Adding two positive numbers produces a negative result, or
+    //        adding two negative numbers produces a positive result
+    // - SUB: Subtracting a negative number from a positive number produces a negative result, or
+    //        subtracting a positive number from a negative number produces a positive result
+    always_comb begin
+        add_overflow = 1'b0;
+        sub_overflow = 1'b0;
+        
+        if (alu_op_i == ALU_OP_ADD) begin
+            // Overflow occurs when adding two numbers of the same sign produces a result of opposite sign
+            add_overflow = (operand_a_i[XLEN-1] == operand_b_i[XLEN-1]) && 
+                          (alu_result[XLEN-1] != operand_a_i[XLEN-1]);
+        end else if (alu_op_i == ALU_OP_SUB) begin
+            // Overflow occurs when subtracting numbers of opposite signs produces a result of the same sign as the subtrahend
+            sub_overflow = (operand_a_i[XLEN-1] != operand_b_i[XLEN-1]) && 
+                          (alu_result[XLEN-1] == operand_b_i[XLEN-1]);
+        end
+    end
+
     // AI_TAG: INTERNAL_LOGIC - Zero Flag Generation.
     // Description: Combinatorially asserts 'zero_o' if the ALU result is zero.
     // The result of a SUB operation is used to evaluate branch conditions (e.g., BEQ).
     assign alu_result_o = alu_result;
     assign zero_o       = (alu_result == '0);
+    assign overflow_o   = add_overflow || sub_overflow;
 
 endmodule : alu
 

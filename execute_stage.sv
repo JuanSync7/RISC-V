@@ -56,7 +56,10 @@ module execute_stage
     output logic        exec_stall_req_o,
 
     // --- Output to Memory Stage ---
-    output ex_mem_reg_t ex_mem_reg_o
+    output ex_mem_reg_t ex_mem_reg_o,
+
+    // AI_TAG: NEW_PORT - Overflow output for arithmetic operations
+    output logic overflow_o
 );
 
     localparam logic [1:0] FWD_SEL_REG  = 2'b00;
@@ -70,6 +73,7 @@ module execute_stage
     word_t alu_operand_b;
     word_t alu_result;
     logic  alu_zero_flag;
+    logic  alu_overflow_flag;  // AI_TAG: NEW - Overflow flag from ALU
     logic  branch_taken;
     word_t mult_result;
     logic  mult_done;
@@ -107,7 +111,8 @@ module execute_stage
         .operand_a_i  ( alu_operand_a             ),
         .operand_b_i  ( alu_operand_b             ),
         .alu_result_o ( alu_result                ),
-        .zero_o       ( alu_zero_flag             )
+        .zero_o       ( alu_zero_flag             ),
+        .overflow_o   ( alu_overflow_flag         )
     );
 
     // AI_TAG: MODULE_INSTANCE - Multi-cycle Multiplier Unit Instantiation
@@ -117,7 +122,7 @@ module execute_stage
         .start_i      ( id_ex_reg_i.ctrl.mult_en  ),
         .operand_a_i  ( fwd_operand_a             ),
         .operand_b_i  ( fwd_operand_b             ),
-        .op_type_i    ( id_ex_reg_i.ctrl.funct3[1:0] ),
+        .op_type_i    ( id_ex_reg_i.ctrl.funct3   ),
         .result_o     ( mult_result               ),
         .done_o       ( mult_done                 )
     );
@@ -168,6 +173,7 @@ module execute_stage
                 ex_mem_reg_q.alu_result <= final_result;
                 ex_mem_reg_q.store_data <= fwd_operand_b;
                 ex_mem_reg_q.rd_addr    <= id_ex_reg_i.rd_addr;
+                ex_mem_reg_q.alu_overflow <= alu_overflow_flag;  // AI_TAG: NEW - Latch overflow flag
                 ex_mem_reg_q.ctrl       <= id_ex_reg_i.ctrl;
             end
         end

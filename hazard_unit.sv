@@ -17,6 +17,7 @@
 // Dependencies:  riscv_core_pkg.sv
 //
 // Revision:
+// Revision 1.2.0 - Fixed forwarding logic to correctly check source register addresses
 // Revision 1.1.0 - Implemented memory and execution stall logic. Corrected
 //                  load-use hazard detection and resolution mechanism.
 // Revision 1.0.0 - File Created
@@ -122,20 +123,20 @@ module hazard_unit
         // --- Forwarding Logic ---
         // AI_TAG: FORWARDING_LOGIC - EX/MEM -> EX Path (Highest Priority Forward)
         if (ex_mem_reg_i.ctrl.reg_write_en && (ex_mem_reg_i.rd_addr != '0)) begin
-            if (ex_mem_reg_i.rd_addr == id_ex_reg_i.rd_addr) begin
+            if (ex_mem_reg_i.rd_addr == id_ex_reg_i.rs1_addr) begin
                 forward_a_sel_o = FWD_SEL_MEM;
             end
-            if (ex_mem_reg_i.rd_addr == id_ex_reg_i.rd_addr) begin
+            if (ex_mem_reg_i.rd_addr == id_ex_reg_i.rs2_addr) begin
                 forward_b_sel_o = FWD_SEL_MEM;
             end
         end
 
         // AI_TAG: FORWARDING_LOGIC - MEM/WB -> EX Path
         if (mem_wb_reg_i.reg_write_en && (mem_wb_reg_i.rd_addr != '0)) begin
-            if ((mem_wb_reg_i.rd_addr == id_ex_reg_i.rd_addr) && (forward_a_sel_o == FWD_SEL_REG)) begin
+            if ((mem_wb_reg_i.rd_addr == id_ex_reg_i.rs1_addr) && (forward_a_sel_o == FWD_SEL_REG)) begin
                 forward_a_sel_o = FWD_SEL_WB;
             end
-            if ((mem_wb_reg_i.rd_addr == id_ex_reg_i.rd_addr) && (forward_b_sel_o == FWD_SEL_REG)) begin
+            if ((mem_wb_reg_i.rd_addr == id_ex_reg_i.rs2_addr) && (forward_b_sel_o == FWD_SEL_REG)) begin
                 forward_b_sel_o = FWD_SEL_WB;
             end
         end

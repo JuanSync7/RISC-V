@@ -16,6 +16,7 @@
 // Dependencies:  None
 //
 // Revision:
+// Revision 1.2.0 - Added overflow flag to ex_mem_reg_t for ALU overflow detection
 // Revision 1.1.0 - Updated pipeline structs for hazard detection and added
 //                  control signals for M-extension and CSR operations.
 // Revision 1.0.0 - File Created
@@ -155,6 +156,7 @@ package riscv_core_pkg;
         word_t         alu_result;
         word_t         store_data;
         reg_addr_t     rd_addr;
+        logic          alu_overflow;   // AI_TAG: NEW - Overflow flag from ALU for exception handling
         ctrl_signals_t ctrl;
     } ex_mem_reg_t;
 

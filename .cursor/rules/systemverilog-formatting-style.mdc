@@ -1,0 +1,641 @@
+---
+description: Systemverilog Style Formatting. Must when generating Systemverilog code for consistency.
+globs: 
+alwaysApply: false
+---
+################################################################################
+# ProjectName/TeamName SystemVerilog RTL Coding and Formatting Style Guide
+# Version: 2.0
+# Last Updated: 2025-05-25
+################################################################################
+
+#-------------------------------------------------------------------------------
+# Introduction
+#-------------------------------------------------------------------------------
+# This document defines the SystemVerilog coding and formatting style for RTL
+# design. Adherence to these guidelines is mandatory to ensure code
+# consistency, readability, maintainability, and to facilitate collaboration,
+# synthesis, and verification.
+#
+# This guide complements the IEEE 1800-2017 SystemVerilog standard.
+# For language semantics and syntax, refer to IEEE 1800-2017.
+#
+
+#-------------------------------------------------------------------------------
+# 1. General Formatting
+#-------------------------------------------------------------------------------
+# 1.1. Character Encoding:
+#      - UTF-8
+#
+# 1.2. Line Length:
+#      - Maximum 120 characters. Break longer lines for readability.
+#
+# 1.3. Indentation:
+#      - 4 spaces per indentation level. Do NOT use tabs.
+#
+# 1.4. `timescale:
+#      - `timescale 1ns/1ps must be declared at the top of every SystemVerilog
+#        file (`.sv`, `.svh`).
+#
+# 1.5. `default_nettype:
+#      - `default_nettype none must be used at the top of each RTL file
+#        after `timescale to prevent implicit wire declarations.
+#
+# 1.6. Comments:
+#      - // for single-line comments.
+#      - /* ... */ for multi-line block comments (use sparingly in RTL, prefer //).
+#      - Use meaningful comments to explain complex logic, design trade-offs,
+#        or non-obvious code sections.
+#      - Standard Tags:
+#        // TODO: Item needing completion.
+#        // FIXME: Item that is broken and needs fixing.
+#        // NOTE: Important information or clarification.
+#        // INFO: General information.
+#        // WARNING: Potential issue or caution.
+#        // REVIEW: Code section that needs review.
+#
+# 1.7. Preprocessor Directives for Simulation/Synthesis:
+#      - Clearly delineate code sections for simulation-only or synthesis-only
+#        using standard preprocessor directives:
+#        `ifdef SIMULATION
+#          // Simulation-only code (e.g., display statements, specific checks)
+#        `endif
+#
+#        `ifdef SYNTHESIS
+#          // Synthesis-only code (rare, usually for tool-specific attributes)
+#        `else
+#          // Code for non-synthesis tools or alternative implementation if SYNTHESIS is not defined
+#        `endif
+#
+#        // Alternatively, for code to be excluded from synthesis:
+#        // synthesis translate_off
+#        ...
+#        // synthesis translate_on
+
+#-------------------------------------------------------------------------------
+# 2. Naming Conventions
+#-------------------------------------------------------------------------------
+# 2.1. General:
+#      - Use descriptive names. Avoid single-letter names except for loop variables (i, j, k).
+#      - Use snake_case for signals, variables, and most identifiers unless specified.
+#      - Use snake_case for module names, interface names, package names, class names, and typedefs.
+#      - Use UPPER_CASE for parameters, localparams, and macros.
+#
+# 2.2. File Naming:
+#      - RTL Modules:       module_name.sv          (e.g., data_processor.sv)
+#      - Testbenches:       ModuleName_tb.sv       (e.g., data_processor_tb.sv)
+#      - Packages:          feature_name_pkg.sv     (e.g., axi_utils_pkg.sv)
+#      - Interfaces:        purpose_name_if.sv      (e.g., axi_stream_if.sv)
+#      - Include Files:     header_name_hdr.svh     (e.g., defines_hdr.svh)
+#      - Constraints:       module_name.sdc         (e.g., data_processor.sdc)
+#
+# 2.3. Module and Interface Names:
+#      - snake_case (e.g., `my_module`, `standard_bus_if`).
+#
+# 2.4. Signal Naming:
+#      - Suffixes:
+#        - `_i`: input port
+#        - `_o`: output port
+#        - `_io`: inout port
+#        - `_r`: registered signal (output of a flip-flop)
+#        - `_ns`: next-state signal for a registered signal (combinational)
+#        - `_c` or `_comb`: combinational logic signal (if clarity needed beyond _ns)
+#        - `_w`: wire (explicitly, if needed for clarity, often implicit)
+#        - `_en`: enable signal
+#        - `_busy`: busy status signal
+#        - `_valid`: valid signal
+#        - `_ready`: ready signal
+#        - `_ack`: acknowledge signal
+#        - `_req`: request signal
+#        - `_done`: done signal
+#        - `_data`: data bus (e.g., `tx_data_i`, `mem_addr_o`)
+#        - `_addr`: address bus
+#        - `_wr`: write signal (e.g., `axi_awvalid_i`)
+#        - `_rd`: read signal (e.g., `axi_arvalid_i`)
+#        - `_sync`: signal synchronized across clock domains
+#      - Prefixes:
+#        - `clk_`: clock signals (e.g., `clk_core`, `clk_mem`)
+#        - `rst_n_` or `arst_n_`: active-low asynchronous reset (project-specific choice, be consistent)
+#        - `srst_n_` or `rst_n_`: active-low synchronous reset (project-specific choice, be consistent)
+#        - `rst_p_`: active-high reset (less common for top-level resets)
+#      - State Machine Signals:
+#        - State register: `state_r`
+#        - Next state logic: `state_ns`
+#        - State encoding: `S_IDLE`, `S_FETCH`, `S_DECODE` (use enums for states)
+#      - Bus Connections: Always `[MSB:LSB]` (e.g., `logic [31:0] data_bus;`)
+#
+# 2.5. Parameters and Localparams:
+#      - UPPER_CASE_SNAKE_CASE (e.g., `DATA_WIDTH`, `FIFO_DEPTH`).
+#      - Prefix `P_` for parameters if distinction from localparams is critical (e.g. `P_DATA_WIDTH`).
+#      - Prefix `LP_` for localparams if distinction is critical.
+#
+# 2.6. Type Definitions (typedefs, enums, structs):
+#      - snake_case with `_t` suffix (e.g., `address_t`, `state_type_t`, `config_bus_t`).
+#
+# 2.7. Instances:
+#      - `u_<ModuleName>` or `<module_name_instance_purpose>` (e.g., `u_data_fifo`, `data_path_fifo`). Be consistent.
+#
+# 2.8. Generate Blocks:
+#      - `gen_<purpose>` (e.g., `gen_lanes[i].u_LaneLogic`).
+#
+# 2.9. Assertions and Sequences:
+#      - `a_<property_name>` for assertions.
+#      - `s_<sequence_name>` for sequences.
+#      - `p_<property_name>` for properties.
+#      - `cg_<group_name>` for covergroups.
+#      - `cp_<point_name>` for coverpoints.
+#
+#-------------------------------------------------------------------------------
+# 3. Directory Structure
+#-------------------------------------------------------------------------------
+# project_root/
+# ├── doc/                  // Design documents, specifications
+# ├── rtl/                  // All synthesizable RTL SystemVerilog code (.sv)
+# │   ├── core/             // Core logic modules
+# │   ├── interfaces/       // Interface definitions (.sv)
+# │   └── common/           // Common utilities, shared modules
+# ├── tb/                   // Testbench code
+# │   ├── top/              // Top-level testbench files (_tb.sv)
+# │   ├── uvm/              // UVM components (agents, envs, sequences, tests)
+# │   │   ├── agents/
+# │   │   ├── envs/
+# │   │   ├── sequences/
+# │   │   └── tests/
+# │   ├── common/           // Common testbench utilities, tasks, checkers
+# │   └── vip/              // Verification IP
+# ├── pkg/                  // SystemVerilog packages (.sv) (parameters, typedefs, utility functions)
+# ├── syn/                  // Synthesis scripts, SDC constraints, reports
+# │   ├── scripts/
+# │   ├── constraints/      // Timing constraints (.sdc)
+# │   └── reports/
+# ├── formal/               // Formal verification scripts and properties
+# ├── scripts/              // General utility scripts (lint, build, etc.)
+# └── sim/                  // Simulation scripts, build directories (tool specific)
+#
+#-------------------------------------------------------------------------------
+# 4. Module and Interface Declarations
+#-------------------------------------------------------------------------------
+# 4.1. File Header:
+#      - Every `.sv` and `.svh` file must start with a standard header:
+#        ```systemverilog
+#        //=============================================================================
+#        // File: <FileName.sv>
+#        // Project: <ProjectName>
+#        // Module: <ModuleName> (if applicable)
+#        // Author: <Author Name> (<author_email@company.com>)
+#        // Created: YYYY-MM-DD
+#        //
+#        // Description:
+#        //   <Brief, clear description of the file's/module's purpose and
+#        //    functionality.>
+#        //
+#        //-----------------------------------------------------------------------------
+#        // Revision History:
+#        // Version | Date       | Author             | Description
+#        //=============================================================================
+#        // 1.0     | YYYY-MM-DD | <Author Name>      | Initial release
+#        // 1.1     | YYYY-MM-DD | <Another Author>   | Added feature X, fixed bug Y
+#        //=============================================================================
+#        `timescale 1ns/1ps
+#        `default_nettype none // IMPORTANT: All signals must be explicitly typed
+#        ```
+#
+# 4.2. Module Definition:
+#      - Use ANSI-style port declarations.
+#      - Parameters must explicitly be typed (e.g., `parameter integer DATA_WIDTH = 32`).
+#      - Group ports by logical function (e.g., clock/reset, data_if, control_if) if numerous.
+#      - Align port names, types, and comments for readability.
+#
+#        ```systemverilog
+#        module MyModule #(
+#            parameter integer DATA_WIDTH     = 32,    // Description for DATA_WIDTH
+#            parameter integer FIFO_DEPTH     = 1024,  // Description for FIFO_DEPTH
+#            parameter type    ADDR_TYPE_T    = logic [15:0] // Example of type parameter
+#        ) (
+#            // Clock and Reset
+#            input  logic                clk_i,         // System clock
+#            input  logic                rst_ni,        // Asynchronous active-low reset
+#
+#            // Data Input Interface
+#            input  logic [DATA_WIDTH-1:0] din_data_i,
+#            input  logic                din_valid_i,
+#            output logic                din_ready_o,
+#
+#            // Control Signals
+#            input  logic                enable_processing_i,
+#            output logic                processing_done_o,
+#
+#            // Data Output Interface
+#            output logic [DATA_WIDTH-1:0] dout_data_o,
+#            output logic                dout_valid_o,
+#            input  logic                dout_ready_i
+#        );
+#
+#            //--------------------------------------------------------------------
+#            // Local Parameters
+#            //--------------------------------------------------------------------
+#            localparam integer INTERNAL_STAGES = 2;
+#            localparam logic [1:0] S_IDLE  = 2'b00;
+#            localparam logic [1:0] S_PROC  = 2'b01;
+#            localparam logic [1:0] S_DONE  = 2'b10;
+#
+#            //--------------------------------------------------------------------
+#            // Internal Signal Declarations
+#            //--------------------------------------------------------------------
+#            // Registers
+#            logic [DATA_WIDTH-1:0] data_pipeline_r   [INTERNAL_STAGES];
+#            logic                  data_valid_r      [INTERNAL_STAGES];
+#            logic [1:0]            current_state_r;
+#            logic [1:0]            next_state_c; // Combinational logic for FSM next state
+#
+#            // Combinational signals / Wires
+#            logic                  processed_data_valid_c;
+#            logic [DATA_WIDTH-1:0] processed_data_c;
+#            logic                  can_accept_input_c;
+#            logic                  start_processing_c;
+#
+#            //--------------------------------------------------------------------
+#            // Combinational Logic
+#            //--------------------------------------------------------------------
+#            assign can_accept_input_c = (current_state_r == S_IDLE) || !data_valid_r[0];
+#            assign din_ready_o = can_accept_input_c; // Example output assignment
+#
+#            // Example: Simple data processing (e.g., increment)
+#            always_comb begin : proc_data_processing
+#                processed_data_c = data_pipeline_r[INTERNAL_STAGES-1] + {{DATA_WIDTH-1{1'b0}}, 1'b1}; // Increment
+#                processed_data_valid_c = data_valid_r[INTERNAL_STAGES-1];
+#            end
+#
+#            //--------------------------------------------------------------------
+#            // Sequential Logic (Registers)
+#            //--------------------------------------------------------------------
+#            // Input data pipeline stage 0
+#            always_ff @(posedge clk_i or negedge rst_ni) begin : proc_pipeline_stage_0
+#                if (!rst_ni) begin
+#                    data_pipeline_r[0] <= '0;
+#                    data_valid_r[0]    <= 1'b0;
+#                end else if (can_accept_input_c && din_valid_i) begin
+#                    data_pipeline_r[0] <= din_data_i;
+#                    data_valid_r[0]    <= 1'b1;
+#                end else if (!data_valid_r[1]) begin // If next stage can accept
+#                    data_valid_r[0]    <= 1'b0; // Data has moved or was invalid
+#                end
+#            end
+#
+#            // Subsequent pipeline stages
+#            // NOTE: A generate block would be better for many stages
+#            always_ff @(posedge clk_i or negedge rst_ni) begin : proc_pipeline_stage_1
+#                if (!rst_ni) begin
+#                    data_pipeline_r[1] <= '0;
+#                    data_valid_r[1]    <= 1'b0;
+#                end else begin
+#                    data_pipeline_r[1] <= data_pipeline_r[0]; // Data from previous stage
+#                    data_valid_r[1]    <= data_valid_r[0];    // Valid from previous stage
+#                end
+#            end
+#
+#            //--------------------------------------------------------------------
+#            // Finite State Machine (FSM) Example
+#            //--------------------------------------------------------------------
+#            // FSM State Register
+#            always_ff @(posedge clk_i or negedge rst_ni) begin : proc_fsm_state_reg
+#                if (!rst_ni) begin
+#                    current_state_r <= S_IDLE;
+#                end else begin
+#                    current_state_r <= next_state_c;
+#                end
+#            end
+#
+#            // FSM Next-State Logic
+#            always_comb begin : proc_fsm_next_state
+#                next_state_c = current_state_r; // Default: stay in current state
+#                processing_done_o = 1'b0;       // Default output
+#                start_processing_c = 1'b0;      // Default control
+#
+#                case (current_state_r)
+#                    S_IDLE: begin
+#                        if (din_valid_i && din_ready_o && enable_processing_i) begin
+#                            next_state_c = S_PROC;
+#                            start_processing_c = 1'b1; // hypothetical signal
+#                        end
+#                    end
+#                    S_PROC: begin
+#                        // Assume processing takes some cycles, check data_valid_r[INTERNAL_STAGES-1]
+#                        if (data_valid_r[INTERNAL_STAGES-1]) begin // If data has passed through pipeline
+#                            next_state_c = S_DONE;
+#                        end
+#                    end
+#                    S_DONE: begin
+#                        processing_done_o = 1'b1;
+#                        if (dout_ready_i) begin // If downstream consumer is ready
+#                            next_state_c = S_IDLE;
+#                        end
+#                    end
+#                    default: begin // Should not happen with well-defined states
+#                        next_state_c = S_IDLE;
+#                    end
+#                endcase
+#            end
+#
+#            // FSM Output Logic (can also be registered)
+#            assign dout_data_o  = (current_state_r == S_DONE) ? processed_data_c : '0;
+#            assign dout_valid_o = (current_state_r == S_DONE) && processed_data_valid_c;
+#
+#            //--------------------------------------------------------------------
+#            // Sub-module Instantiation Example
+#            //--------------------------------------------------------------------
+#            `ifdef SIMULATION // Example: A utility module only used in simulation
+#            // Ensure MyUtilityModule.sv exists and is defined
+#            // MyUtilityModule #(
+#            //     .SOME_PARAM(32)
+#            // ) u_my_utility_checker (
+#            //     .clk_i          (clk_i),
+#            //     .rst_ni         (rst_ni),
+#            //     .check_signal_i (processed_data_c),
+#            //     .error_flag_o   (/* connect to a monitor signal */)
+#            // );
+#            `endif
+#
+#            // TODO: Add assertions for critical properties, e.g., FSM state transitions
+#            // TODO: Review reset conditions for all registers thoroughly
+#
+#        endmodule : MyModule
+#        // `default_nettype wire // Revert default_nettype if absolutely necessary for legacy code,
+#                               // but prefer keeping `none` throughout the project and explicitly
+#                               // typing all signals. If reverted, do it at the end of the file.
+#        ```
+#
+# 4.3. Interface Definition: Similar header and clarity as modules.
+#      - Use modports to define perspectives (e.g., master, slave, monitor).
+#
+#        ```systemverilog
+#        interface MyBus_if #(
+#            parameter integer DATA_WIDTH = 32,
+#            parameter integer ADDR_WIDTH = 16
+#        ) (
+#            input logic clk,
+#            input logic rst_n
+#        );
+#            logic [ADDR_WIDTH-1:0] addr;
+#            logic [DATA_WIDTH-1:0] wdata;
+#            logic [DATA_WIDTH-1:0] rdata;
+#            logic                  write_en;
+#            logic                  read_en;
+#            logic                  ready;
+#            logic                  valid;
+#
+#            modport Master (
+#                output addr, wdata, write_en, read_en,
+#                input  rdata, ready, valid,
+#                input  clk, rst_n
+#            );
+#
+#            modport Slave (
+#                input  addr, wdata, write_en, read_en,
+#                output rdata, ready, valid,
+#                input  clk, rst_n
+#            );
+#
+#            modport Monitor (
+#                input addr, wdata, rdata, write_en, read_en, ready, valid,
+#                input clk, rst_n
+#            );
+#        endinterface : MyBus_if
+#        ```
+#
+#-------------------------------------------------------------------------------
+# 5. RTL Coding Style
+#-------------------------------------------------------------------------------
+# 5.1. Data Types:
+#      - Use `logic` for general-purpose signals and ports. Avoid `wire` and `reg`
+#        unless a specific reason exists (e.g., multiple drivers for `wire`).
+#      - Use `bit` for 2-state variables when 4-state resolution is not needed (e.g., counters, flags in verification).
+#      - Use `integer`, `int`, `byte`, `shortint`, `longint` where appropriate, especially for parameters and loop variables.
+#      - Packed Structures: Always use packed structures (`struct packed`, `union packed`)
+#        and packed arrays when bit-level concatenation or type casting is needed.
+#        Ensure correct bit ordering.
+#      - Enums: Use `enum` for FSM states and other sets of named constants.
+#        Specify a base type if needed (e.g., `enum logic [2:0] { IDLE, RUN, DONE } state_e;`).
+#
+# 5.2. Procedural Blocks:
+#      - `always_comb`: For purely combinational logic. Sensitive to all read signals.
+#                       Avoid latches by ensuring all paths assign to all outputs.
+#      - `always_ff`: For sequential logic (flip-flops). Must have a clock event.
+#                     `@(posedge clk_i or negedge rst_ni)` for async reset.
+#                     `@(posedge clk_i)` for sync reset (reset logic inside).
+#      - `always_latch`: For intentional latches (use with extreme caution, generally avoid in RTL).
+#      - `initial`: Generally for simulation stimulus, testbench setup, or memory loading.
+#                   Avoid in synthesizable RTL modules unless for specific initial values of `reg`
+#                   that are synthesis-tool dependent (prefer explicit resets).
+#      - Use `begin`/`end` for blocks with more than one statement. Name `begin`/`end` blocks for complex logic.
+#        ```systemverilog
+#        always_ff @(posedge clk_i or negedge rst_ni) begin : proc_my_register
+#            if (!rst_ni) begin
+#                my_reg_r <= '0;
+#            end else if (enable_i) begin
+#                my_reg_r <= data_i;
+#            end
+#        end
+#        ```
+#
+# 5.3. Reset Strategy:
+#      - Project-wide decision: Typically asynchronous active-low reset (`rst_ni`).
+#      - All flip-flops must be resettable, unless explicitly justified (e.g., certain data path registers
+#        where reset value doesn't matter and can save area, but must be carefully analyzed).
+#      - Reset synchronizers must be used when reset is asserted/de-asserted asynchronously to a clock domain.
+#
+# 5.4. Instantiation:
+#      - Use named port mapping exclusively for clarity and error prevention.
+#      - Parameter mapping should also be named.
+#        ```systemverilog
+#        MySubModule #(
+#            .DATA_WIDTH (LOCAL_DATA_WIDTH),
+#            .FIFO_DEPTH (32)
+#        ) u_my_sub_module (
+#            .clk_i        (clk_i),
+#            .rst_ni       (rst_ni),
+#            .data_in_i    (sub_data_in),
+#            .data_out_o   (sub_data_out)
+#            // Add comments for clarity if needed
+#        );
+#        ```
+#
+# 5.5. Operators:
+#      - Use parentheses to clarify operator precedence in complex expressions.
+#      - Be cautious with blocking (`=`) vs. non-blocking (`<=`) assignments:
+#        - Use `<=` in `always_ff`.
+#        - Use `=` in `always_comb` (and for variables in tasks/functions).
+#
+# 5.6. Generate Constructs:
+#      - Use `generate` for regularly structured, repetitive logic.
+#      - Always label generate blocks.
+#        ```systemverilog
+#        genvar i;
+#        generate
+#            for (i = 0; i < NUM_UNITS; i = i + 1) begin : gen_unit_logic
+#                UnitType u_unit (
+#                    .clk_i   (clk_i),
+#                    .rst_ni  (rst_ni),
+#                    .input_i (unit_inputs_i[i]),
+#                    .output_o(unit_outputs_o[i])
+#                );
+#            end
+#        endgenerate
+#        ```
+#
+# 5.7. Packages:
+#      - Group related parameters, constants, typedefs, tasks, and functions into packages.
+#      - Import specific items from packages (`import my_pkg::my_param;`) or use wildcard
+#        import (`import my_pkg::*;`) within modules/interfaces where needed. Avoid polluting global namespace.
+#
+# 5.8. Finite State Machines (FSMs):
+#      - Use `enum` for state encoding.
+#      - Clearly separate state register logic (`always_ff`) from next-state logic (`always_comb`)
+#        and output logic (`always_comb` or registered outputs).
+#      - Ensure all states are reachable and FSM can't get stuck. Define default transitions in `case` statements.
+#
+# 5.9. Clock Domain Crossing (CDC):
+#      - All CDC paths must use approved synchronizer circuits (e.g., 2-flop, 3-flop for data, MUX-based for data buses).
+#      - Clearly comment CDC logic and identify synchronizers.
+#      - Use dedicated CDC synchronizer modules.
+#      - Prefix synchronized signals (e.g., `src_domain_signal_sync`).
+#
+# 5.10. Power-Aware Design:
+#      - Implement clock gating using library cells or inferred via `always_ff` with enable.
+#      - `(* gclk *)` attribute may be used for clock signals if supported by tools for auto-gating.
+#      - Minimize switching activity.
+#
+#-------------------------------------------------------------------------------
+# 6. Assertions (SVA)
+#-------------------------------------------------------------------------------
+# 6.1. Placement:
+#      - Assertions can be inline within the RTL module or bound externally.
+#      - For module-internal properties directly tied to its logic, inline is often clearer.
+#      - For interface protocol checks or complex multi-module properties, bind files may be preferred.
+#
+# 6.2. Naming: (See section 2.9)
+#
+# 6.3. Style:
+#      - Assertions should be concise and check specific, verifiable properties.
+#      - Add messages to assertions to aid debugging on failure.
+#        `assert property (@(posedge clk_i) disable iff (!rst_ni) my_property) else $error("My property failed");`
+#      - Use `cover property` for functional coverage points.
+#
+#-------------------------------------------------------------------------------
+# 7. Verification & UVM (High-Level Guidelines for RTL Designers)
+#-------------------------------------------------------------------------------
+# 7.1. Design for Verification (DFV):
+#      - Provide observation points (ports or internal signals easily accessible via hierarchy) for critical internal states.
+#      - Ensure controllability of inputs and modes.
+#      - Design with clear interfaces and defined protocols.
+#
+# 7.2. Testbench Documentation Example (from your original file, slightly adapted):
+#    //-----------------------------------------------------------------------------
+#    // Testbench: ModuleName_tb
+#    // Author: <Author>
+#    // Date: YYYY-MM-DD
+#    // Purpose: Verify <specific functionality> and protocol compliance for ModuleName.
+#    //
+#    // Tests Covered:
+#    //   1. Test_ResetSequence: Verifies reset behavior (lines X-Y in test_reset.sv)
+#    //   2. Test_AxiWriteBurst: Checks AXI full write burst functionality (lines A-B in test_axi_writes.sv)
+#    //   3. Test_FifoOverflow: Validates FIFO overflow/underflow protection (lines C-D in test_fifo_corners.sv)
+#    //
+#    // Coverage Goals:
+#    //   - Functional Coverage: 100% for cg_bus_transactions (defined in ModuleName_if_cov.sv)
+#    //   - Code Coverage: Strive for >95% (Branch, Statement, Condition)
+#    //   - Key FSM transitions: All states and major transitions covered (see coverpoint "state_cp")
+#    //
+#    // Critical Checks (Assertions or Scoreboard):
+#    //   1. AXI_HANDSHAKE_TIMEOUT_ASSERT: Ensures AXI handshakes do not deadlock.
+#    //   2. FIFO_OVERFLOW_PROTECT_ASSERT: Verifies FIFO overflow protection.
+#    //   3. DATA_INTEGRITY_CHECK: Scoreboard validation for end-to-end data path.
+#    //-----------------------------------------------------------------------------
+#
+# 7.3. Coverage Tracking Example (from your original file, slightly adapted):
+#    // In an interface or a dedicated coverage package/module
+#    `ifdef SIMULATION
+#    covergroup cg_axi_transactions @(posedge clk_i);
+#        option.per_instance = 1;
+#        AWVALID_CP: coverpoint axi_if.awvalid iff (axi_if.awready) {
+#            bins hit = {1};
+#        }
+#        AWLEN_CP: coverpoint axi_if.awlen {
+#            bins single_beat = {0};
+#            bins burst_2_16  = {[1:15]}; // Example for AXI4-Lite max, adjust for full AXI
+#            bins max_burst   = {255};   // Example for AXI3/4
+#        }
+#        // Add more coverpoints for address, protection types, etc.
+#    endgroup : cg_axi_transactions
+#
+#    initial begin
+#        // Instantiation depends on where cg is defined.
+#        // If in an interface, it might be implicit or need `new` in a class wrapper.
+#        // MyBus_if.cg_axi_transactions axi_cg = new(); // if interface based
+#    end
+#    `endif
+#
+#-------------------------------------------------------------------------------
+# 8. Tool Directives & Scripts
+#-------------------------------------------------------------------------------
+# 8.1. Synthesis:
+#      - Use standard pragmas for synthesis control (e.g., `// synopsys full_case`, `// synopsys parallel_case`).
+#        Use with caution and understand their implications.
+#      - Constraints should be in separate SDC files.
+#
+# 8.2. Linting:
+#      - All RTL must be clean from critical lint warnings (e.g., SpyGlass, AscentLint).
+#      - Strive for zero warnings; any waived warnings must be justified and documented.
+#
+# 8.3. Example Tool Commands (from your original file, maintained for reference):
+#      // Synopsys VCS: Enable SVA
+#      // vcs -sverilog +v2k -assert svaext <other_options> <file_list>
+#
+#      // Cadence Xcelium: Waveform dumping
+#      // xrun -access +rwc -input dump_waves.tcl <other_options> <file_list>
+#      // (dump_waves.tcl would contain: `probe -create -depth all -tasks -functions -uvm -database my_waves -shm <top_module>`)
+#
+#-------------------------------------------------------------------------------
+# 9. Version Control
+#-------------------------------------------------------------------------------
+# 9.1. Commit Messages:
+#      - Use clear and concise commit messages.
+#      - Format: `<Type>: <Subject>` (e.g., `feat: Add new FIFO module for data buffering`)
+#        - Types: `feat` (new feature), `fix` (bug fix), `docs` (documentation),
+#                 `style` (formatting), `refactor`, `test`, `chore` (build/tool updates).
+#      - Body of commit message (optional) should explain "what" and "why", not "how".
+#
+# 9.2. Branching Strategy:
+#      - Follow project-defined branching strategy (e.g., feature branches, develop, main/master).
+#
+#-------------------------------------------------------------------------------
+# Appendix A: Forbidden Constructs in RTL
+#-------------------------------------------------------------------------------
+# - `assign` with `delay` (`#delay`).
+# - `initial` blocks for register initialization (use resets). Exception: ROM initialization if supported by synth tool.
+# - `fork-join_any`, `fork-join_none` in RTL.
+# - Non-blocking assignments (`<=`) in `always_comb` or functions.
+# - Blocking assignments (`=`) to the same variable from multiple `always` blocks.
+# - Mixing blocking and non-blocking assignments to the same variable.
+# - Events (`->`, `event`) directly in RTL logic (use for testbenches).
+#
+#-------------------------------------------------------------------------------
+# Appendix B: Checklist Summary (Quick Reference)
+#-------------------------------------------------------------------------------
+# [ ] File Header Present and Correct?
+# [ ] `timescale` and `default_nettype none` Used?
+# [ ] Naming Conventions Followed (files, modules, signals, params)?
+# [ ] ANSI-Style Ports & Named Instantiation?
+# [ ] Parameters Typed (e.g., `parameter integer ...`)?
+# [ ] Correct Procedural Blocks (`always_ff`, `always_comb`)?
+# [ ] Reset Strategy Applied Consistently?
+# [ ] Comments Clear and Sufficient? (`TODO`, `FIXME` used appropriately?)
+# [ ] Line Length and Indentation Correct?
+# [ ] No Forbidden Constructs?
+# [ ] CDC Handled Correctly with Synchronizers?
+# [ ] Simulation/Synthesis Directives Used Correctly?
+#
+################################################################################
+# End of Style Guide
+################################################################################
+

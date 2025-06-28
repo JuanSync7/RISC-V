@@ -1,0 +1,660 @@
+---
+description: Systemverilog Documentation Formatting. This is a must when generating systemverilog code with proper comments for documentation generation after.
+globs: 
+alwaysApply: false
+---
+#-------------------------------------------------------------------------------
+# 1. Generating Module Design Documentation
+#-------------------------------------------------------------------------------
+# This section outlines the standard structure and content that the Assistant
+# will generate when asked to "create documentation for the code" for a specific
+# SystemVerilog RTL module.
+# The goal is to produce a comprehensive document
+# suitable for design reviews, integration, and verification understanding.
+#
+# The documentation will be generated in Markdown format.
+#
+#-------------------------------------------------------------------------------
+# 1.1. Documentation Generation Process:
+#-------------------------------------------------------------------------------
+# When requested to generate documentation, the Assistant will:
+# 1. Parse the provided SystemVerilog module code to extract:
+#    - Module name
+#    - Parameters (name, type, default value, usage, constraints)
+#    - Ports (name, direction, type, width, timing, default state, load)
+#    - Interface usage (type, modport, protocol version, data widths, user signals, associated clock/reset)
+#    - Information from standard file headers (Author, Version, Date, Description, Module Type, Target Technology Preference, Related Specification).
+#       // MODULE_NAME: <ModuleName>
+#       // AUTHOR: <Author Name>
+#       // VERSION: <X.Y.Z>
+#       // DATE: <YYYY-MM-DD>
+#       // DESCRIPTION: <Brief module description for the Overview section.>
+#       // PRIMARY_PURPOSE: <Detailed purpose of the module.>
+#       // ROLE_IN_SYSTEM: <How this module fits into a larger system, if known.>
+#       // PROBLEM_SOLVED: <What specific problem this module addresses.>
+#       // MODULE_TYPE: <e.g., RTL, Behavioral, Testbench_Component>
+#       // TARGET_TECHNOLOGY_PREF: <ASIC/FPGA>
+#       // RELATED_SPECIFICATION: <Document_Name_Or_Link_to_Spec>
+# 2. Attempt to infer architectural details based on common coding styles and
+#    naming conventions (e.g., FSM states if `enum` and `_r`/`_ns` are used,
+#    pipeline stages if `_r[stage_idx]` is used). It will also look for specific `AI_TAGS` to enrich this.
+# 3. Structure this information into the standard documentation template outlined below.
+# 4. Use placeholders like "[TODO: User to provide details]" or
+#    "[INFO: Assistant requires clarification on ...]" for information that cannot
+#    be automatically extracted or inferred, such as:
+#    - High-level block diagrams (graphical). 
+#    - Detailed theory of operation beyond basic interface descriptions or tagged scenarios. 
+#    - Specific register map details if not in a machine-readable format (AI_TAGs or recognized standard) within comments. 
+#    - Complex performance targets or non-obvious synthesis considerations not covered by tags. 
+#    - Detailed security threat models or safety analyses unless explicitly tagged.
+# 5. The user is expected to review and complete these placeholders to finalize
+#    the documentation. The Assistant should highlight inferred information for user validation.
+# 6. The Assistant will attempt to cross-reference information (e.g., linking port clock domains to CDC strategies).
+#
+#-------------------------------------------------------------------------------
+# 1.2. Standard Module Documentation Structure:
+#-------------------------------------------------------------------------------
+#
+# ```markdown
+# # Module Design Document: <ModuleName>
+#
+# **Version:** <Extracted from file header or X.Y>
+# **Source File(s):** `<ModuleName>.sv`, `<RelevantPackage_pkg>.sv`
+# **Author:** <Extracted from file header>
+# **Generated On:** YYYY-MM-DD
+# **Module Type:** <Extracted from file header, e.g., RTL, Behavioral>
+# **Target Technology Preference:** <Extracted from file header, e.g., ASIC, FPGA>
+# **Related Specification(s):** <Extracted from file header>
+#
+# ## 1. Overview
+#
+# <Brief description extracted from the module file header (`// DESCRIPTION`).>
+# <This section should explain the module's primary purpose (`// PRIMARY_PURPOSE`), its role in the larger system (`// ROLE_IN_SYSTEM`), and what problem it solves (`// PROBLEM_SOLVED`).>
+#
+# ## 2. Key Features
+#
+# <Generated from `// AI_TAG: FEATURE` comments.>
+# * Feature 1: [TODO: User to elaborate or verify AI-extracted feature]
+# * Feature 2: [TODO: User to elaborate or verify AI-extracted feature]
+# * ... (e.g., Implements AXI4-Lite slave interface, Provides configurable FIFO depth)
+#
+# ## 3. Block Diagram
+#
+# [TODO: User to insert a graphical block diagram. The Assistant will provide a textual representation based on `AI_TAG: INTERNAL_BLOCK` and `AI_TAG: BLOCK_DIAGRAM_DESC` if available.]
+#
+# **Textual Representation (Inferred/Tagged):**
+#
+#   +-----------------------------------------------------+
+#   | <ModuleName>                                        |
+#   |                                                     |
+#   | Inputs:                                             |
+#   |   - clk_i, rst_ni                                   |
+#   |   - <interface_name>_if                             |
+#   |   - control_signals_i                               |
+#   |                                                     |
+#   | Outputs:                                            |
+#   |   - <interface_name>_if                             |
+#   |   - status_signals_o                                |
+#   |                                                     |
+#   | Internal Blocks (Inferred/User-Specified from `AI_TAG: INTERNAL_BLOCK`):          |
+#   |   - Input Stage / Synchronizers                     |
+#   |   - Core Processing Logic / FSM                     |
+#   |   - Output Stage / Registers                        |
+#   +-----------------------------------------------------+
+#
+# **Detailed Interconnections (from `AI_TAG: BLOCK_DIAGRAM_DESC`):**
+# <Textual description of how blocks are connected and data flows between them.>
+#
+# ## 4. Parameters
+#
+# | Parameter Name     | Type             | Default Value | Description (from `AI_TAG: PARAM_DESC`)        | Usage (from `AI_TAG: PARAM_USAGE`) | Constraints (from `AI_TAG: PARAM_CONSTRAINTS`) |
+# |--------------------|------------------|---------------|-------------------------------------------------|------------------------------------|---------------------------------------------|
+# | `PARAMETER_NAME_1` | `integer`        | `32`          | Specifies the data width for X.                 | Influences datapath width.         | Must be power of 2.                         |
+# | `P_FIFO_DEPTH`     | `integer`        | `64`          | Defines the depth of the internal Y FIFO.       | Impacts BRAM usage and latency.    | Max 1024.                                   |
+# | `FEATURE_ENABLE`   | `bit`            | `1'b1`        | Enables/disables optional feature Z.            | Controls synthesis of feature Z logic. | N/A                                         |
+# | `ADDR_TYPE_T`      | `type` (`logic [15:0]`) | `logic [15:0]`| Defines the type for internal addressing.     | Sets address bus width.            | N/A                                         |
+# | ...                |                  |               |                                                 |                                    |                                             |
+#
+# ## 5. Ports
+#
+# | Port Name         | Dir.  | Type / Width                 | Clock Domain (from `AI_TAG: PORT_CLK_DOMAIN`) | Default State (from `AI_TAG: PORT_DEFAULT_STATE`) | Timing (from `AI_TAG: PORT_TIMING`) | Description (from `AI_TAG: PORT_DESC`)                                           |
+# |-------------------|-------|------------------------------|-------------------------------------------|-----------------------------------------------|-------------------------------------|----------------------------------------------------------------------------------|
+# | `clk_i`           | input | `logic`                      | `clk_i`                                   | N/A                                           | N/A                                 | System clock. All synchronous logic is clocked on its rising edge.               |
+# | `rst_ni`          | input | `logic`                      | `clk_i` (async assert)                    | N/A                                           | Asynchronous                        | Asynchronous active-low reset. Synchronously de-asserted internally if specified.  |
+# | `port_data_i`     | input | `logic [DATA_WIDTH-1:0]`     | `clk_i`                                   | N/A                                           | Registered Input                    | Input data bus.                                                                  |
+# | `port_valid_i`    | input | `logic`                      | `clk_i`                                   | N/A                                           | N/A                                 | Qualifies `port_data_i`.                                                         |
+# | `port_ready_o`    | output| `logic`                      | `clk_i`                                   | `1'b0` (during reset)                         | Combinatorial                       | Indicates module is ready to accept data on `port_data_i`.                       |
+# | `other_req_i`     | input | `logic`                      | `clk_other_i`                             | N/A                                           | Synchronized internally             | Request from another clock domain.                                               |
+# | ...               |       |                              |                                           |                                               |                                     |                                                                                  |
+#
+# ## 6. Interfaces
+#
+# This section describes any standard or custom SystemVerilog interfaces used by the module.
+#
+# ### 6.1. `<InterfaceInstanceName>` (`<InterfaceType_if>.<ModportName>`)
+# * **Type:** <Extracted from `AI_TAG: IF_TYPE`, e.g., AXI4-Lite Slave>
+# * **Modport:** <Extracted from `AI_TAG: IF_MODPORT`>
+# * **Protocol Version:** <Extracted from `AI_TAG: IF_PROTOCOL_VERSION`>
+# * **Description:** <Extracted from `AI_TAG: IF_DESC`>
+# * **Key Signals (from modport perspective):** `awaddr`, `awvalid`, `awready`, ... [INFO: Assistant may list signals based on interface type and modport if known]
+# * **Data Widths:** <Extracted from `AI_TAG: IF_DATA_WIDTHS`>
+# * **User Signals:** <Extracted from `AI_TAG: IF_USER_SIGNALS`>
+# * **Associated Clock:** <Extracted from `AI_TAG: IF_CLOCKING`, defaults to primary module clock>
+# * **Associated Reset:** <Extracted from `AI_TAG: IF_RESET`, defaults to primary module reset>
+#
+# ### 6.2. ...
+#
+# ## 7. Internal Architecture / Design Details
+#
+# <High-level description of the module's internal structure. The Assistant may infer some details, but user input and tags are crucial here.>
+#
+# ### 7.1. Clocking and Reset
+# * **Clock Domains:**
+#   * `clk_i`: Primary clock. Source: <from `AI_TAG: CLOCK_SOURCE` for clk_i>. Target Frequency: <from `AI_TAG: CLOCK_FREQUENCY_TARGET` for clk_i>.
+#   * <List other clock domains based on `PORT_CLK_DOMAIN` and `AI_TAG: CDC_STRATEGY` tags.>
+# * **Clock Domain Crossing (CDC) Strategy:**
+#   * <Generated from `AI_TAG: CDC_STRATEGY` comments, e.g., "clk_a_i -> clk_b_i: Handled by 2-flop synchronizer on signal xyz.">
+# * **Reset Strategy:**
+#   * Primary Reset (`rst_ni`): Asynchronous active-low reset.
+#   * De-assertion: <"Synchronously de-asserted" if `AI_TAG: RESET_STRATEGY_NOTE` or `AI_TAG: RESET_SYNC_STAGES` indicates, otherwise "Asynchronous">.
+#   * Sync Stages (if applicable): <from `AI_TAG: RESET_SYNC_STAGES`>.
+#   * Additional Notes: <from `AI_TAG: RESET_STRATEGY_NOTE`>.
+#
+# ### 7.2. Datapath
+# <Overall description from `AI_TAG: DATAPATH_DESC`.>
+#   * **Key Datapath Elements (from `AI_TAG: DATAPATH_ELEMENT`):**
+#       * Element Name: <Name>, Type: <Type>, Description: <Description>
+#       * ...
+#   * **Pipeline Stages (if applicable, from `AI_TAG: PIPELINE_STAGE` or inferred):**
+#       * Stage 0 (<Name>): <Description> (Register Style: <from `AI_TAG: PIPELINE_REG_STYLE`>)
+#       * Stage 1 (<Name>): <Description> (Register Style: <from `AI_TAG: PIPELINE_REG_STYLE`>)
+#       * ...
+#
+# ### 7.3. Control Logic / Finite State Machines (FSMs)
+# <Description of the main control structures.>
+# * **FSM Name:** `<fsm_variable_name>` (from `AI_TAG: FSM_NAME`)
+#     * **Purpose:** <from `AI_TAG: FSM_PURPOSE`>
+#     * **Encoding:** <from `AI_TAG: FSM_ENCODING`>
+#     * **Reset State:** <from `AI_TAG: FSM_RESET_STATE`>
+#     * **Key Input Conditions:** <from `AI_TAG: FSM_INPUT_CONDITIONS`>
+#     * **States (from `AI_TAG: FSM_STATE`):**
+#         * `S_IDLE`: <Description>. Output Actions: <from `AI_TAG: FSM_OUTPUT_ACTIONS`>
+#         * `S_PROCESSING`: <Description>. Output Actions: <from `AI_TAG: FSM_OUTPUT_ACTIONS`>
+#         * ...
+#     * **State Transitions (from `AI_TAG: FSM_TRANSITION`):**
+#         * `S_IDLE` -> `S_PROCESSING` when (<condition_description>).
+#         * ... [TODO: User to verify or provide full diagram/details if complex]
+#
+# ### 7.4. Key Internal Registers/Storage
+# <Description of significant internal storage elements not part of a standard register map.>
+# * `<Register/Memory Name>` (from `AI_TAG: INTERNAL_STORAGE`):
+#     * Purpose: <Description from tag>
+#     * Type: <from `AI_TAG: INTERNAL_STORAGE_TYPE`>
+#     * Access: <from `AI_TAG: INTERNAL_STORAGE_ACCESS`>
+# * `internal_config_r`: Stores runtime configuration loaded via ...
+#
+# ## 8. Theory of Operation
+#
+# <Detailed explanation of how the module functions for its primary use cases. This section describes sequences of operations, interactions between internal blocks, and how inputs are processed to generate outputs. User to provide detailed operational flows unless covered by `AI_TAG: SCENARIO_START` or `AI_TAG: USE_CASE_START`.>
+#
+# **Use Case / Scenario: `<Name from AI_TAG: USE_CASE_START or AI_TAG: SCENARIO_START>`**
+# <Multiline description from between SCENARIO_START/END or USE_CASE_START/END tags.>
+# 1.  ...
+# 2.  ...
+#
+# **Error Conditions (from `AI_TAG: ERROR_CONDITION`):**
+# * **Condition:** <Condition Name>
+#   * **Trigger:** <Trigger description>
+#   * **Behavior/Recovery:** <Expected behavior or recovery mechanism>
+#
+# ## 9. Register Map (If Applicable)
+#
+# <This section is critical for memory-mapped modules. Format based on `AI_TAG: REG_BLOCK_START` and related tags. If no tags, TODO for user.>
+#
+# **Register Block: `<Optional Name from AI_TAG: REG_BLOCK_START>`**
+# **Base Address:** `<from AI_TAG: REG_BASE_ADDRESS or "TODO: User to specify">`
+#
+# | Offset (from `AI_TAG: REG_OFFSET`) | Name (from `AI_TAG: REG_NAME`) | Width (from `AI_TAG: REG_WIDTH`) | Access (from `AI_TAG: REG_ACCESS`) | Reset Val. (from `AI_TAG: REG_RESET_VAL`) | Volatility (from `AI_TAG: REG_VOLATILITY`) | Description (from `AI_TAG: REG_DESC`) | Sensitivity (from `AI_TAG: REG_SENSITIVITY`) |
+# |-----------|------------------|-------|--------|--------------------|----------------|-------------------------------------------|-----------------|
+# | `0x00`    | `CONTROL_REG`    | 32    | RW     | `32'h0`            | Volatile       | Main control register.                    | N/A             |
+# |           | **Field Name** (from `AI_TAG: FIELD_NAME`) | **Bits** (from `AI_TAG: FIELD_BITS`) | **Access** (from `AI_TAG: FIELD_ACCESS`) | **Reset Val.** (from `AI_TAG: FIELD_RESET_VAL`) | **Enum** (from `AI_TAG: FIELD_ENUM_VALUE`) | **Description** (from `AI_TAG: FIELD_DESC`) | **Interrupt** (from `AI_TAG: FIELD_INTERRUPT`) |
+# |           | `ENABLE`         | `0`   | RW     | `1'b0`             | 0:Off, 1:On    | Module enable. `1`=Enable, `0`=Disable.   | None            |
+# |           | `IE`             | `1`   | RW     | `1'b0`             |                | Interrupt enable.                         | int_status[0]   |
+# |           | `SW_RESET`       | `31`  | WO     | `1'b0`             |                | Software reset (self-clearing).           | N/A             |
+# | `0x04`    | `STATUS_REG`     | 32    | RO     | `32'h0`            | Volatile       | Status register.                          | Updates on event X|
+# |           | `BUSY`           | `0`   | RO     | `1'b0`             |                | Module busy status.                       | None            |
+# |           | `FIFO_FULL`      | `1`   | RO     | `1'b0`             |                | Internal FIFO is full.                    | None            |
+# | ...       |                  |       |        |                    |                |                                           |                 |
+#
+# ## 10. Low-Power Design
+#
+# * **Clock Gating Strategies:**
+#   * <Generated from `AI_TAG: CLOCK_GATING_LOGIC` comments, e.g., "Clock to datapath_q is gated off when `enable_gating_i` is low and FSM is in S_IDLE.">
+# * **Power Gating Domains:**
+#   * <Generated from `AI_TAG: POWER_GATING_DOMAIN` comments, e.g., "Analog_Block_PG: Contains sensitive analog comparators. Controlled by `power_down_analog_i`".>
+# * **Power States:**
+#   * <Generated from `AI_TAG: POWER_STATE` comments, e.g., "SLEEP_MODE: All clocks gated, main RAM in retention. Wake-up via interrupt.">
+# * **General Power Intent:** <Generated from `AI_TAG: POWER_INTENT`>
+#
+# ## 11. Security Mechanisms
+#
+# * **Protected Assets:**
+#   * <Generated from `AI_TAG: SECURITY_ASSET` comments, e.g., "KEY_REG: Stores the 128-bit AES key.">
+# * **Security Mechanisms Implemented:**
+#   * <Generated from `AI_TAG: SECURITY_MECHANISM` comments, e.g., "AES_ENCRYPT_OUTPUT: Output data is encrypted using AES-128 in GCM mode.">
+# * **Potential Vulnerability Concerns (for review):**
+#   * <Generated from `AI_TAG: SECURITY_VULNERABILITY_CONCERN` comments, e.g., "Review timing of debug signal access to prevent side-channel on KEY_REG loading.">
+#
+# ## 12. Safety Mechanisms
+#
+# * **Hazards Mitigated:**
+#   * <Generated from `AI_TAG: SAFETY_HAZARD_MITIGATION` comments, e.g., "FSM_Stuck_State: Dual redundant FSMs with comparator logic detect and flag mismatches.">
+# * **Compliance to Safety Standards:**
+#   * <Generated from `AI_TAG: SAFETY_STANDARD_COMPLIANCE` comments, e.g., "ISO26262 ASIL-B: Parity protection on internal RAMs contributes to diagnostic coverage.">
+#
+# ## 13. Assertions
+#
+# <Summary of key SystemVerilog Assertions (SVA) used within or bound to the module, generated from `AI_TAG: ASSERTION`.>
+# * `<AssertionName>`: <Description from tag>. (Type: <from `AI_TAG: ASSERTION_TYPE`>, Severity: <from `AI_TAG: ASSERTION_SEVERITY`>, Coverage Link: <from `AI_TAG: ASSERTION_COVERAGE_LINK`>)
+# * `a_axi_protocol_check`: Ensures AXI4-Lite protocol compliance on the slave interface. (Type: Formal/Simulation, Severity: Error)
+# * ... [TODO: User to list or point to relevant assertion files/sections if not tagged.]
+#
+# ## 14. Assumptions, Limitations, and Dependencies
+#
+# * **Assumptions (from `AI_TAG: ASSUMPTION`):**
+#   * Input `xyz_i` must be stable for at least N clock cycles after assertion.
+# * **Limitations (from `AI_TAG: LIMITATION`):**
+#   * Maximum operating frequency is assumed to be X MHz with Y technology node. [TODO: User to verify/provide]
+#   * Throughput is limited by Z.
+# * **Dependencies (from `AI_TAG: DEPENDENCY`):**
+#   * Relies on external `ClockGenerator_IP` for `clk_main_i`.
+# * **Performance Metrics (from `AI_TAG: PERFORMANCE_METRIC`):**
+#   * Throughput: Target `1 Gpbs` when `P_DATA_WIDTH` is 64.
+#
+# ## 15. Synthesis Considerations
+#
+# * **Target Technology:** [e.g., ASIC Xnm / FPGA Family Y. TODO: User to specify, may be hinted by `// TARGET_TECHNOLOGY_PREF` header]
+# * **Critical Paths:** [Known or anticipated critical timing paths. TODO: User to specify after initial synthesis. Hints from `AI_TAG: SYNTHESIS_NOTE`.]
+# * **Resource Usage:** [Expected LUTs, FFs, BRAMs (for FPGA) or gate count (for ASIC). TODO: User to update after synthesis. Hints from `AI_TAG: AREA_ESTIMATE_NOTES`.]
+# * **Special Constraints (SDC):** [Any non-default SDC constraints required for this module. Hints from `AI_TAG: SDC_CONSTRAINT_GUIDE`.]
+# * **Tool Specific Notes:** [Generated from `AI_TAG: SYNTH_TOOL_NOTE`.]
+#
+# ## 16. Verification Notes
+#
+# * **Key Scenarios to Test (from `AI_TAG: VERIF_SCENARIO_KEY` and general knowledge):**
+#     * Reset functionality.
+#     * Back-to-back transactions on all interfaces.
+#     * Empty/full conditions for internal FIFOs/buffers.
+#     * All modes of operation defined by parameters/control registers.
+#     * Error conditions and recovery (especially those defined by `AI_TAG: ERROR_CONDITION`).
+#     * Clock domain crossing stability (if applicable, based on `AI_TAG: CDC_STRATEGY`).
+#     * Low power state entry/exit and functionality in low power states.
+#     * Security mechanism validation (e.g., correct encryption/decryption, access control).
+#     * Safety mechanism activation and reporting (e.g., ECC error injection, redundancy checks).
+# * **Verification Strategies (from `AI_TAG: VERIF_STRATEGY`):**
+#     * <e.g., Constrained random for normal operations, directed tests for error cases.>
+# * **Formal Verification Targets (from `AI_TAG: FORMAL_TARGET`):**
+#     * <e.g., All AXI interface properties, FSM deadlock/livelock freedom.>
+# * **Emulation Targets (from `AI_TAG: EMULATION_TARGET`):**
+#     * <e.g., System-level performance tests with realistic data streams.>
+# * **Coverage Goals:**
+#     * 100% statement/branch/condition/toggle coverage.
+#     * All FSM states and defined transitions.
+#     * Key functional scenarios covered by `covergroup`s. [TODO: User to point to specific covergroups.]
+#     * Notes on coverage focus: <from `AI_TAG: COVERAGE_GOAL_NOTE`>.
+# * **Relevant UVM Components (if applicable, from `AI_TAG: UVM_COMPONENT_LINK`):**
+#     * Agent: `<ModuleName>_agent`
+#     * Sequence: `<ModuleName>_base_seq`, `error_injection_seq`
+#     * [TODO: User to provide details or link to verification plan.]
+# * **Security Verification Notes (from `AI_TAG: SECURITY_VERIF_NOTE`):**
+#     * <e.g., Test unauthorized access attempts to secure registers.>
+# * **Safety Verification Notes (from `AI_TAG: SAFETY_VERIF_NOTE`):**
+#     * <e.g., Verify fault detection and reporting mechanisms for all safety features.>
+#
+# ## 17. Revision History
+#
+# | Version | Date       | Author         | Changes                                       |
+# |---------|------------|----------------|-----------------------------------------------|
+# | 1.0     | YYYY-MM-DD | <Author Name>  | Initial design document generation (may include `AI_TAG: REVISION_ENTRY`). |
+# | 1.1     | YYYY-MM-DD | [User Name]    | Added details on register map and theory of op. |
+# | ...     |            |                |                                               |
+#
+# ```
+#
+#-------------------------------------------------------------------------------
+# 10.X Structured Comment Tags for Automated Extraction
+#-------------------------------------------------------------------------------
+# To enable more complete auto-generation of documentation, the following
+# structured comment tags should be used within the SystemVerilog RTL code. [cite: 121]
+# The assistant will parse these tags to populate the relevant sections
+# of the Module Design Document. [cite: 121]
+#
+# General Tag Format: // AI_TAG: <KEYWORD> - <VALUE>
+# For multi-line values, subsequent lines should start with // AI_TAG_CONT: <VALUE_CONTINUED>
+#
+#-------------------------------------------------------------------------------
+# 10.X.0 Module Header Information (Populates document header and Section 1)
+# These standard comments are typically at the top of the SystemVerilog file.
+# // MODULE_NAME: <ModuleName>
+# // AUTHOR: <Author Name>
+# // VERSION: <X.Y.Z>
+# // DATE: <YYYY-MM-DD>
+# // DESCRIPTION: <Brief module description for the Overview section.>
+# // PRIMARY_PURPOSE: <Detailed purpose of the module.>
+# // ROLE_IN_SYSTEM: <How this module fits into a larger system, if known.>
+# // PROBLEM_SOLVED: <What specific problem this module addresses.>
+# // MODULE_TYPE: <e.g., RTL, Behavioral, Testbench_Component>
+# // TARGET_TECHNOLOGY_PREF: <ASIC/FPGA>
+# // RELATED_SPECIFICATION: <Document_Name_Or_Link_to_Spec>
+#
+### 10.X.1 Key Features (Populates Section 2)
+# Use this tag multiple times to list key features. [cite: 123]
+# // AI_TAG: FEATURE - <Detailed description of the feature.>
+# Example:
+# // AI_TAG: FEATURE - Implements AXI4-Lite slave interface for register access. [cite: 124]
+# // AI_TAG: FEATURE - Configurable FIFO depth via parameter P_FIFO_DEPTH. [cite: 124]
+#
+### 10.X.2 Block Diagram and Internal Blocks (Populates Section 3)
+# For textual representation of internal blocks. [cite: 125]
+# // AI_TAG: INTERNAL_BLOCK - <Block Name> - <Brief description.>
+# Example:
+# // AI_TAG: INTERNAL_BLOCK - InputSynchronizers - Synchronizes all asynchronous inputs. [cite: 126]
+# // AI_TAG: INTERNAL_BLOCK - MainFSM - Controls the primary operational flow. [cite: 127]
+#
+# For more detailed textual description of interconnections for the block diagram:
+# // AI_TAG: BLOCK_DIAGRAM_DESC - <Detailed textual description of interconnected blocks and data flow.>
+# Example:
+# // AI_TAG: BLOCK_DIAGRAM_DESC - Input data flows from data_i port to InputSynchronizers, then to the ProcessingPipe, and finally to OutputBuffer before exiting via data_o. Control signals are managed by MainFSM.
+#
+### 10.X.3 Parameter Descriptions (Populates Section 4)
+# Place comment immediately before or on the same line as the parameter. [cite: 128]
+# For Parameters:
+# parameter <type> PARAM_NAME = DEFAULT_VALUE; // AI_TAG: PARAM_DESC - <Description of parameter.>
+#                                             // AI_TAG: PARAM_TYPE - <Explicit type if 'type' keyword is used, e.g. 'logic [15:0]'>
+#                                             // AI_TAG: PARAM_USAGE - <How this parameter influences module behavior or resources.>
+#                                             // AI_TAG: PARAM_CONSTRAINTS - <Any constraints or interdependencies for this parameter.>
+# Example:
+# parameter integer DATA_WIDTH = 32; // AI_TAG: PARAM_DESC - Specifies the data width for the primary datapath. [cite: 130]
+#                                   // AI_TAG: PARAM_USAGE - Directly sets the bit-width of data_i, data_o, and internal processing registers.
+#                                   // AI_TAG: PARAM_CONSTRAINTS - Must be a multiple of 8.
+# parameter type T_ADDR = logic [15:0]; // AI_TAG: PARAM_DESC - Defines the address type for internal memory.
+#                                      // AI_TAG: PARAM_TYPE - logic [15:0]
+#                                      // AI_TAG: PARAM_USAGE - Sets the width of address buses to memory blocks.
+#
+### 10.X.4 Port Descriptions (Populates Section 5)
+# Place comment immediately before or on the same line as the port.
+# <direction> <type> <name>; // AI_TAG: PORT_DESC - <Description of port.>
+#                           // AI_TAG: PORT_CLK_DOMAIN - <Associated clock domain, 'async' if asynchronous, or primary clock if omitted.>
+#                           // AI_TAG: PORT_TIMING - <Expected timing characteristics, e.g., "Registered input", "Combinatorial output", "Multi-cycle path">
+#                           // AI_TAG: PORT_DEFAULT_STATE - <For outputs: state during reset or idle, e.g., "1'b0", "High-Z">
+#                           // AI_TAG: PORT_LOAD - <For outputs: expected fanout or load characteristics if critical.>
+# Example:
+# input logic [DATA_WIDTH-1:0] data_i; // AI_TAG: PORT_DESC - Primary data input. [cite: 132]
+#                                      // AI_TAG: PORT_CLK_DOMAIN - clk_i
+#                                      // AI_TAG: PORT_TIMING - Registered input, setup to clk_i rising edge.
+# input logic req_other_clk_i; // AI_TAG: PORT_DESC - Request signal from other clock domain. [cite: 133]
+#                                      // AI_TAG: PORT_CLK_DOMAIN - clk_other_i [cite: 134]
+#                                      // AI_TAG: PORT_TIMING - Asynchronous, synchronized internally.
+# output logic ready_o; // AI_TAG: PORT_DESC - Indicates module is ready for new input.
+#                       // AI_TAG: PORT_CLK_DOMAIN - clk_i
+#                       // AI_TAG: PORT_DEFAULT_STATE - 1'b0 (de-asserted during reset and when busy)
+#                       // AI_TAG: PORT_TIMING - Combinatorial output from internal state.
+#
+### 10.X.5 Interface Details (Populates Section 6)
+# Place comment immediately after an interface instantiation. [cite: 135]
+# <InterfaceType_if> <instance_name> (.*); // AI_TAG: IF_TYPE - <e.g., AXI4-Lite Slave, CustomStream Producer>
+#                                          // AI_TAG: IF_MODPORT - <Modport used by the module, if applicable>
+#                                          // AI_TAG: IF_PROTOCOL_VERSION - <e.g., AXI4, AHB5, APB4, CustomProto v1.2>
+#                                          // AI_TAG: IF_DESC - <Brief description of the interface's role.> [cite: 136]
+#                                          // AI_TAG: IF_DATA_WIDTHS - <Key data widths, e.g., "Data: 64-bit, Addr: 32-bit">
+#                                          // AI_TAG: IF_USER_SIGNALS - <List any user/sideband signals part of this instance and their purpose, e.g., "user_debug_signal (output): Provides internal FSM state for debug.">
+#                                          // AI_TAG: IF_CLOCKING - <Clock signal associated with this interface instance if different from main module clock.>
+#                                          // AI_TAG: IF_RESET - <Reset signal associated with this interface instance if different.>
+# Example:
+# axi4_lite_slave_if #( .DATA_WIDTH(32), .ADDR_WIDTH(12) ) ctrl_if (.*); // AI_TAG: IF_TYPE - AXI4-Lite Slave [cite: 137]
+#                                                               // AI_TAG: IF_MODPORT - slave_mp
+#                                                               // AI_TAG: IF_PROTOCOL_VERSION - AXI4-Lite
+#                                                               // AI_TAG: IF_DESC - Used for register access and control. [cite: 137]
+#                                                               // AI_TAG: IF_DATA_WIDTHS - "Data: 32-bit, Addr: 12-bit"
+#                                                               // AI_TAG: IF_CLOCKING - clk_axi_i
+#                                                               // AI_TAG: IF_RESET - rst_axi_ni
+#
+### 10.X.6 Clocking and Reset Details (Populates Section 7.1)
+# // AI_TAG: CLOCK_SOURCE - <clk_name> - <e.g., PLL output, External pin, Divided from clk_primary>
+# // AI_TAG: CLOCK_FREQUENCY_TARGET - <clk_name> - <Target frequency in MHz>
+# // AI_TAG: CDC_STRATEGY - <Source Clock> -> <Destination Clock>: <Description of CDC mechanism, e.g., 2-flop synchronizer for control_signal_sync, Async FIFO for data_buffer_cdc.>
+# // AI_TAG: RESET_STRATEGY_NOTE - <Specific notes about reset, e.g., rst_ni is asynchronously asserted and synchronously de-asserted to clk_i.>
+# // AI_TAG: RESET_SYNC_STAGES - <rst_name> - <Number of synchronizer stages for de-assertion, e.g., 2 for rst_ni to clk_i>
+# Example:
+# // AI_TAG: CLOCK_SOURCE - clk_i - External 100MHz oscillator.
+# // AI_TAG: CLOCK_FREQUENCY_TARGET - clk_i - 100 MHz.
+# // AI_TAG: CDC_STRATEGY - clk_fast_i -> clk_slow_i: Handled by dual_clk_fifo_inst for main data path. [cite: 139]
+# // AI_TAG: CDC_STRATEGY - clk_i -> clk_debug_i: req_debug_o uses a 3-flop synchronizer.
+# // AI_TAG: RESET_STRATEGY_NOTE - rst_ni is asynchronously asserted and synchronously de-asserted to clk_i. [cite: 139]
+# // AI_TAG: RESET_SYNC_STAGES - rst_ni - 2
+#
+### 10.X.7 Datapath and Pipeline Stages (Populates Section 7.2)
+# For overall datapath description:
+# // AI_TAG: DATAPATH_DESC - <High-level description of the data flow.>
+# Example: // AI_TAG: DATAPATH_DESC - Incoming data is buffered, processed by a 3-stage pipeline (Decode, Execute, Writeback), and then sent to an output FIFO.
+#
+# For explicit datapath element definition:
+# // AI_TAG: DATAPATH_ELEMENT - <Element Name> - <Type: e.g., ALU, Multiplier, Shifter, FIFO, Register File> - <Description>
+# Example: // AI_TAG: DATAPATH_ELEMENT - MainALU - ALU - Performs arithmetic and logical operations in Execute stage.
+#
+# For explicit pipeline stage definition if inference is not sufficient:
+# // AI_TAG: PIPELINE_STAGE - <Stage Index/Name> - <Description of operations in this stage.>
+# // AI_TAG: PIPELINE_REG_STYLE - <Associated with a stage or overall> - <e.g., Standard flops, Integrated Clock Gating (ICG) flops, Power-aware flops>
+# Example:
+# // AI_TAG: PIPELINE_STAGE - 0 (InputDecode) - Decodes incoming instruction and fetches operands. [cite: 141]
+# // AI_TAG: PIPELINE_REG_STYLE - 0 (InputDecode) - Standard flops
+# // AI_TAG: PIPELINE_STAGE - 1 (Execute) - Performs ALU operation. [cite: 142]
+# // AI_TAG: PIPELINE_REG_STYLE - 1 (Execute) - ICG flops for power saving.
+#
+### 10.X.8 FSM Details (Populates Section 7.3)
+# To explicitly define an FSM and its states if inference is not sufficient or for more detail. [cite: 143]
+# // AI_TAG: FSM_NAME - <fsm_variable_name>
+# // AI_TAG: FSM_PURPOSE - <fsm_variable_name> - <Overall purpose of this FSM.>
+# // AI_TAG: FSM_ENCODING - <fsm_variable_name> - <e.g., one-hot, binary, gray>
+# // AI_TAG: FSM_RESET_STATE - <fsm_variable_name> - <STATE_NAME_IN_CODE>
+# // AI_TAG: FSM_INPUT_CONDITIONS - <fsm_variable_name> - <List of key input signals affecting FSM transitions.>
+# // AI_TAG: FSM_STATE - <STATE_NAME_IN_CODE> - <Description of the state.>
+# // AI_TAG: FSM_OUTPUT_ACTIONS - <fsm_variable_name> - <STATE_NAME_IN_CODE> - <Description of outputs asserted/de-asserted or actions performed in this state.>
+# // AI_TAG: FSM_TRANSITION - <fsm_variable_name>: <CURRENT_STATE> -> <NEXT_STATE> when (<condition_description>). [cite: 144]
+# Example:
+# // AI_TAG: FSM_NAME - main_fsm_cs
+# // AI_TAG: FSM_PURPOSE - main_fsm_cs - Controls the overall flow of operations. [cite: 146]
+# // AI_TAG: FSM_ENCODING - main_fsm_cs - one-hot
+# // AI_TAG: FSM_RESET_STATE - main_fsm_cs - S_IDLE
+# // AI_TAG: FSM_INPUT_CONDITIONS - main_fsm_cs - start_i, data_ready_i, error_cond
+# // AI_TAG: FSM_STATE - S_IDLE - Waiting for start condition. [cite: 145]
+# // AI_TAG: FSM_OUTPUT_ACTIONS - main_fsm_cs - S_IDLE - module_ready_o is asserted; busy_o is de-asserted.
+# // AI_TAG: FSM_TRANSITION - main_fsm_cs: S_IDLE -> S_PROCESSING when (start_i && data_ready_i). [cite: 145]
+#
+### 10.X.9 Key Internal Registers/Storage (Populates Section 7.4)
+# For significant internal storage elements not part of a standard register map. [cite: 147]
+# // AI_TAG: INTERNAL_STORAGE - <Register/Memory Name> - <Description of its purpose.>
+# // AI_TAG: INTERNAL_STORAGE_TYPE - <Register/Memory Name> - <e.g., Flip-flop based, Distributed RAM, Block RAM, Shift Register>
+# // AI_TAG: INTERNAL_STORAGE_ACCESS - <Register/Memory Name> - <How it's accessed, e.g., "CPU write/read", "DMA access", "Internal FSM control">
+# Example:
+# // AI_TAG: INTERNAL_STORAGE - internal_config_regs_q - Stores runtime configuration. [cite: 149]
+# // AI_TAG: INTERNAL_STORAGE_TYPE - internal_config_regs_q - Flip-flop based
+# // AI_TAG: INTERNAL_STORAGE_ACCESS - internal_config_regs_q - Writable via AXI4-Lite interface, readable by core logic.
+#
+### 10.X.10 Theory of Operation Scenarios / Use Cases (Populates Section 8)
+# Define blocks of text that describe operational scenarios or use cases. [cite: 150]
+# // AI_TAG: SCENARIO_START - <Scenario Name, e.g., Processing a data packet>
+# // <Line 1 of scenario description.>
+# // <Line 2 of scenario description.>
+# // ...
+# // AI_TAG: SCENARIO_END
+# Example:
+# // AI_TAG: SCENARIO_START - Processing a data packet [cite: 151]
+# // 1. Module waits in S_IDLE state, din_ready_o is asserted.
+# // 2. External master provides din_data_i and asserts din_valid_i. [cite: 152]
+# // 3. Module transitions to S_PROCESSING, captures data, and de-asserts din_ready_o.
+# // AI_TAG: SCENARIO_END
+#
+# Alternatively, for more structured use cases:
+# // AI_TAG: USE_CASE_START - <Use Case Name / ID>
+# // AI_TAG_CONT: Setup: <Description of the use case setup>
+# // AI_TAG_CONT: Inputs: <Key inputs and their states/values>
+# // AI_TAG_CONT: Behavior: <Expected behavior of the module>
+# // AI_TAG_CONT: Outputs: <Key outputs and their expected states/values>
+# // AI_TAG: USE_CASE_END
+#
+# For error conditions:
+# // AI_TAG: ERROR_CONDITION - <Condition Name> - <Trigger> - <Expected Behavior/Recovery mechanism>
+# Example:
+# // AI_TAG: ERROR_CONDITION - FIFO_Overflow - Input data pushed when FIFO is full - Overflow flag asserted, incoming data dropped, interrupt generated if enabled.
+#
+### 10.X.11 Register Map (Populates Section 9)
+# To define registers if not using external tools like RALogen or IP-XACT. [cite: 153]
+# Place these comments near the register logic definition or in a dedicated block. [cite: 153]
+# // AI_TAG: REG_BLOCK_START - <Optional Name for this register block>
+# // AI_TAG: REG_BASE_ADDRESS - <Base address for this block, if applicable, e.g., 0x4000_0000>
+#
+# // AI_TAG: REG_DEF_START
+# // AI_TAG: REG_NAME - <REGISTER_SYMBOLIC_NAME>
+# // AI_TAG: REG_OFFSET - <Offset from base address, e.g., 0x00>
+# // AI_TAG: REG_WIDTH - <Width in bits, e.g., 32>
+# // AI_TAG: REG_ACCESS - <RW, RO, WO, RC (Read-Clear), RS (Read-Set), W1C (Write-1-to-Clear), W1S (Write-1-to-Set), W1T (Write-1-to-Toggle), etc.>
+# // AI_TAG: REG_RESET_VAL - <Reset value, e.g., 32'h0000_0000>
+# // AI_TAG: REG_DESC - <Description of the register.>
+# // AI_TAG: REG_VOLATILITY - <Volatile/Non-Volatile>
+# // AI_TAG: REG_SENSITIVITY - <e.g., "Sensitive to writes on other_reg.FIELD", "Updates on internal event X", "Mirrors HW state Y"> (For status/RO registers)
+#
+# // AI_TAG: FIELD_DEF_START
+# // AI_TAG: FIELD_NAME - <FIELD_SYMBOLIC_NAME>
+# // AI_TAG: FIELD_BITS - <Bit position or range, e.g., 0, [7:4], 15:8>
+# // AI_TAG: FIELD_ACCESS - <RW, RO, WO, RC, W1C, etc. - Can inherit from Reg or be more restrictive> [cite: 155]
+# // AI_TAG: FIELD_RESET_VAL - <Reset value, e.g., 1'b0>
+# // AI_TAG: FIELD_DESC - <Description of the field.>
+# // AI_TAG: FIELD_INTERRUPT - <Interrupt signal it contributes to, or "None">
+# // To define enumerations for a field:
+# // AI_TAG: FIELD_ENUM_DEF_START - <FIELD_SYMBOLIC_NAME> (Ensure this matches the field name)
+# // AI_TAG: FIELD_ENUM_VALUE - <Value, e.g., 2'b00> - <Description for this enumeration, e.g., Mode A>
+# // AI_TAG: FIELD_ENUM_VALUE - <Value, e.g., 2'b01> - <Description for this enumeration, e.g., Mode B>
+# // AI_TAG: FIELD_ENUM_DEF_END
+# // AI_TAG: FIELD_DEF_END
+# // (Repeat for more fields in the same register)
+# // AI_TAG: REG_DEF_END
+# // (Repeat for more registers)
+# // AI_TAG: REG_BLOCK_END
+# Example:
+# // AI_TAG: REG_DEF_START [cite: 156]
+# // AI_TAG: REG_NAME - CONFIG_REG
+# // AI_TAG: REG_OFFSET - 0x04
+# // AI_TAG: REG_WIDTH - 32
+# // AI_TAG: REG_ACCESS - RW
+# // AI_TAG: REG_RESET_VAL - 32'h0000_0010
+# // AI_TAG: REG_DESC - Configuration register for operational modes.
+# // AI_TAG: REG_VOLATILITY - Non-Volatile (assuming it's loaded from somewhere or retains value over some resets)
+#
+# // AI_TAG: FIELD_DEF_START [cite: 156]
+# // AI_TAG: FIELD_NAME - MODE_SELECT
+# // AI_TAG: FIELD_BITS - [1:0]
+# // AI_TAG: FIELD_ACCESS - RW
+# // AI_TAG: FIELD_RESET_VAL - 2'b10
+# // AI_TAG: FIELD_DESC - Selects the operational mode of the module.
+# // AI_TAG: FIELD_ENUM_DEF_START - MODE_SELECT
+# // AI_TAG: FIELD_ENUM_VALUE - 2'b00 - IDLE_MODE - Module is idle.
+# // AI_TAG: FIELD_ENUM_VALUE - 2'b01 - ACTIVE_MODE_A - Module operates in mode A.
+# // AI_TAG: FIELD_ENUM_VALUE - 2'b10 - ACTIVE_MODE_B - Module operates in mode B (default).
+# // AI_TAG: FIELD_ENUM_VALUE - 2'b11 - RESERVED_MODE - Reserved, do not use.
+# // AI_TAG: FIELD_ENUM_DEF_END
+# // AI_TAG: FIELD_DEF_END
+#
+# // AI_TAG: FIELD_DEF_START [cite: 156]
+# // AI_TAG: FIELD_NAME - INT_ENABLE
+# // AI_TAG: FIELD_BITS - 4
+# // AI_TAG: FIELD_ACCESS - RW
+# // AI_TAG: FIELD_RESET_VAL - 1'b0
+# // AI_TAG: FIELD_DESC - Enable for combined interrupt output. 1=Enable, 0=Disable. [cite: 157]
+# // AI_TAG: FIELD_INTERRUPT - module_interrupt_o
+# // AI_TAG: FIELD_DEF_END
+# // AI_TAG: REG_DEF_END
+#
+### 10.X.12 Low-Power Design Tags (Populates Section 10)
+# // AI_TAG: POWER_INTENT - <Overall description of power strategy, e.g., "Aggressive clock gating employed. RAMs support light sleep mode.">
+# // AI_TAG: CLOCK_GATING_LOGIC - <Signal/Condition controlling clock gate> - <Description of when clock is gated, and what logic it gates.>
+# // AI_TAG: POWER_GATING_DOMAIN - <Domain Name> - <Signals/logic within this power domain and its control.>
+# // AI_TAG: POWER_STATE - <State Name, e.g., Active, Idle, Sleep> - <Description of active logic, clock states, and power consumption characteristics for this state.>
+# Example:
+# // AI_TAG: POWER_INTENT - Module employs fine-grained clock gating on data path registers and supports a global sleep mode via `sleep_mode_i` signal.
+# // AI_TAG: CLOCK_GATING_LOGIC - !main_fsm_cs_is_S_PROCESSING - Gates clock to pipeline registers stage 1 and 2.
+# // AI_TAG: POWER_GATING_DOMAIN - SpecialAnalogBlock - Controlled by `pg_analog_en_i`, includes all analog comparators.
+# // AI_TAG: POWER_STATE - DEEPSLEEP - All clocks off, core logic power gated, retention RAMs active. Wakeup on `wake_up_event_i`.
+#
+### 10.X.13 Security Mechanism Tags (Populates Section 11)
+# // AI_TAG: SECURITY_ASSET - <Asset being protected, e.g., Key_storage_reg, Encrypted_data_path, Control_Flow_Integrity>
+# // AI_TAG: SECURITY_MECHANISM - <Mechanism_Name> - <Description of the mechanism and what it protects.>
+# // AI_TAG: SECURITY_VULNERABILITY_CONCERN - <Potential concern or area for security review, e.g., Side-channel leakage via power, Data remanence in registers after reset.>
+# Example:
+# // AI_TAG: SECURITY_ASSET - MasterKeyRegisterArray
+# // AI_TAG: SECURITY_MECHANISM - KeyScrambling - MasterKeyRegisterArray is scrambled with a TRNG value on power-up and before any read access if system is in debug mode.
+# // AI_TAG: SECURITY_VULNERABILITY_CONCERN - Ensure TRNG used for scrambling has sufficient entropy and is active during the critical window.
+#
+### 10.X.14 Safety Mechanism Tags (Populates Section 12)
+# // AI_TAG: SAFETY_HAZARD_MITIGATION - <Hazard_ID_or_Description> - <How this module/logic mitigates or detects the hazard.>
+# // AI_TAG: SAFETY_STANDARD_COMPLIANCE - <Standard, e.g., ISO26262 ASIL-B> - <Relevant aspects covered by this module or design choices made for compliance.>
+# Example:
+# // AI_TAG: SAFETY_HAZARD_MITIGATION - ControlFSM_StuckAtState - Redundant FSM (shadow_fsm_q) with output comparators and error flag (fsm_error_o).
+# // AI_TAG: SAFETY_STANDARD_COMPLIANCE - ISO26262 ASIL-C - Datapath elements use TMR (Triple Modular Redundancy) for critical calculations. Parity on internal RAMs.
+#
+### 10.X.15 Assertions (Populates Section 13)
+# Tag assertions that should be listed in the documentation.
+# <assertion_code>; // AI_TAG: ASSERTION - <Brief description of the assertion's purpose.>
+#                    // AI_TAG: ASSERTION_TYPE - <Formal / Simulation / Both>
+#                    // AI_TAG: ASSERTION_SEVERITY - <Error / Warning / Info>
+#                    // AI_TAG: ASSERTION_COVERAGE_LINK - <Link to related cover property or group if applicable, e.g., "Covers FSM state transitions from S_IDLE">
+# Example:
+# a_axi_awready_after_awvalid: assert property (@(posedge clk) disable iff (!rst_n) ...); // AI_TAG: ASSERTION - Ensures AXI AWREADY is asserted correctly within N cycles after AWVALID. [cite: 160]
+#                                                                                             // AI_TAG: ASSERTION_TYPE - Both
+#                                                                                             // AI_TAG: ASSERTION_SEVERITY - Error
+#                                                                                             // AI_TAG: ASSERTION_COVERAGE_LINK - axi_slave_protocol_cg.awready_response_cp
+#
+### 10.X.16 Assumptions, Limitations, and Dependencies (Populates Section 14)
+# // AI_TAG: ASSUMPTION - <Description of an assumption made by the design.>
+# // AI_TAG: LIMITATION - <Description of a known limitation.>
+# // AI_TAG: DEPENDENCY - <External module/IP/condition/signal this module relies on.>
+# // AI_TAG: PERFORMANCE_METRIC - <Metric_Name> - <Target_Value> - <Conditions_for_Target (optional)>
+# Example:
+# // AI_TAG: ASSUMPTION - Input control signals are synchronized by the upstream module. [cite: 162]
+# // AI_TAG: LIMITATION - Maximum FIFO depth is 1024 due to BRAM size. [cite: 162]
+# // AI_TAG: DEPENDENCY - Relies on `ext_pll_inst` to provide stable `clk_core_i`.
+# // AI_TAG: PERFORMANCE_METRIC - Latency - < 50ns for read operations - Assuming 100MHz clock and no stalls.
+#
+### 10.X.17 Synthesis and Verification Notes (Populates Sections 15 & 16)
+# While some parts of these sections are results of tools, some guiding notes can be added. [cite: 163]
+# // AI_TAG: SYNTHESIS_NOTE - <e.g., This module is timing-critical around path X. Consider using specific cell types for Y.>
+# // AI_TAG: AREA_ESTIMATE_NOTES - <Any notes on factors affecting area, e.g., "Area highly dependent on P_FIFO_DEPTH. Each increment of 16 in depth adds approx X gates.">
+# // AI_TAG: SDC_CONSTRAINT_GUIDE - <e.g., False path required between clk_a_i domain and async_status_o. Set_multicycle_path for control_reg_write_ack.>
+# // AI_TAG: SYNTH_TOOL_NOTE - <Tool e.g., Synopsys DC, Vivado> - <Specific directive or consideration for this tool, e.g., "Synopsys DC: Prefer ungrouping for this module to allow better optimization.">
+#
+# // AI_TAG: VERIF_SCENARIO_KEY - <Key scenario to be tested, e.g., Full FIFO backpressure with intermittent reads while error injection is active.>
+# // AI_TAG: VERIF_STRATEGY - <Specific strategy for a feature, e.g., "Constrained random for normal ops on AXI interface, directed tests for all error register bits.">
+# // AI_TAG: FORMAL_TARGET - <Property or aspect to be verified with formal methods, e.g., "AXI slave interface compliance", "Absence of deadlocks in main_fsm_cs".>
+# // AI_TAG: EMULATION_TARGET - <Scenario best suited for emulation, e.g., "Long-running system-level tests with video stream processing.">
+# // AI_TAG: UVM_COMPONENT_LINK - <e.g., Agent: my_module_agent, Sequence: my_module_critical_path_seq, Env: my_module_env_config>
+# // AI_TAG: COVERAGE_GOAL_NOTE - <e.g., Focus on cross-coverage of control_reg settings and FSM states. Ensure all ECC error types are injected and detected.>
+# // AI_TAG: SECURITY_VERIF_NOTE - <Specific check for potential security vulnerability, e.g., "Verify no data leakage path between secure_data_i and debug_status_o under all modes. Test access permissions to KEY_REG.">
+# // AI_TAG: SAFETY_VERIF_NOTE - <Specific check for safety mechanism, e.g., "Inject ECC errors and verify correction/reporting. Force FSM comparator mismatch and verify error flag.">
+#
+### 10.X.18 Revision History (Populates Section 17)
+# This tag can be used for the very first entry if the AI is creating the document from scratch. Subsequent entries are manual.
+# // AI_TAG: REVISION_ENTRY - <Version> - <Date> - <Author> - <Changes>
+# Example:
+# // AI_TAG: REVISION_ENTRY - 0.1 - 2024-05-24 - DesignAI - Initial auto-generation from RTL and AI_TAGS. User review pending.
+#
+#-------------------------------------------------------------------------------
+# 10.X.END - End of AI Tag Definitions
+#-------------------------------------------------------------------------------
+# 11. Maintaining Documentation:
+#-------------------------------------------------------------------------------
+# Design documentation should be treated as a living document. [cite: 118] It must be updated
+# whenever the RTL code undergoes significant changes to its interface,
+# functionality, or internal architecture. [cite: 118, 119] The Assistant can be asked to
+# re-generate sections of the documentation based on updated code and AI_TAGS, but user-provided
+
+# details and high-level descriptions will always need manual review and update. [cite: 119]

@@ -17,6 +17,7 @@
 // Dependencies:  riscv_core_pkg.sv
 //
 // Revision:
+// Revision 1.1.0 - Fixed operation type mapping to correctly match RISC-V RV32M specification
 // Revision 1.0.0 - File Created
 //
 ////////////////////////////////////////////////////////////////////////////////
@@ -41,7 +42,7 @@ module mult_unit
     input  word_t       operand_a_i,
     input  word_t       operand_b_i,
     // AI_TAG: PORT_DESC - op_type_i - Selects the multiplication type (funct3-derived).
-    input  logic [1:0]  op_type_i,
+    input  logic [2:0]  op_type_i,
 
     // AI_TAG: PORT_DESC - result_o - The 32-bit result of the operation.
     output word_t       result_o,
@@ -49,15 +50,17 @@ module mult_unit
     output logic        done_o
 );
 
-    // AI_TAG: TYPEDEF - Operation types for clarity, derived from funct3[1:0] of OP-family instructions.
-    localparam logic [1:0] OP_TYPE_MULH   = 2'b00; // signed * signed, upper
-    localparam logic [1:0] OP_TYPE_MULHSU = 2'b01; // signed * unsigned, upper
-    localparam logic [1:0] OP_TYPE_MULHU  = 2'b10; // unsigned * unsigned, upper
-    // Note: MUL uses the same calculation as MULH but takes the lower 32 bits.
+    // AI_TAG: TYPEDEF - Operation types for clarity, derived from funct3 of OP-family instructions.
+    // According to RISC-V RV32M specification:
+    // MUL: funct3 = 3'b000, MULH: funct3 = 3'b001, MULHSU: funct3 = 3'b010, MULHU: funct3 = 3'b011
+    localparam logic [2:0] OP_TYPE_MUL    = 3'b000; // signed * signed, lower
+    localparam logic [2:0] OP_TYPE_MULH   = 3'b001; // signed * signed, upper
+    localparam logic [2:0] OP_TYPE_MULHSU = 3'b010; // signed * unsigned, upper
+    localparam logic [2:0] OP_TYPE_MULHU  = 3'b011; // unsigned * unsigned, upper
 
     // AI_TAG: INTERNAL_STORAGE - Registers for pipelining the operation.
     word_t      operand_a_q, operand_b_q;
-    logic [1:0] op_type_q;
+    logic [2:0] op_type_q;
 
     // AI_TAG: INTERNAL_WIRE - Wires for the full 64-bit products.
     // AI_TAG: SYNTHESIS_NOTE - Using the '*' operator allows the synthesis tool to infer a
@@ -100,10 +103,11 @@ module mult_unit
         result_o = product_ss[31:0]; // Default to MUL result
 
         case (op_type_q)
-            OP_TYPE_MULH:   result_o = product_ss[63:32]; // MULH result
-            OP_TYPE_MULHSU: result_o = product_su[63:32]; // MULHSU result
-            OP_TYPE_MULHU:  result_o = product_uu[63:32]; // MULHU result
-            default:        result_o = product_ss[31:0];  // MUL result
+            OP_TYPE_MUL:    result_o = product_ss[31:0];  // MUL result (lower 32 bits of signed*signed)
+            OP_TYPE_MULH:   result_o = product_ss[63:32]; // MULH result (upper 32 bits of signed*signed)
+            OP_TYPE_MULHSU: result_o = product_su[63:32]; // MULHSU result (upper 32 bits of signed*unsigned)
+            OP_TYPE_MULHU:  result_o = product_uu[63:32]; // MULHU result (upper 32 bits of unsigned*unsigned)
+            default:        result_o = product_ss[31:0];  // MUL result (default case)
         endcase
     end
 
