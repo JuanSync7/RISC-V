@@ -81,7 +81,21 @@ module fetch_stage
     // AI_TAG: PORT_DESC - pc_f_o - The current value of the PC for use in control/hazard logic.
     output addr_t       pc_f_o,
     // AI_TAG: PORT_DESC - bp_prediction_o - Branch prediction result for the current instruction.
-    output branch_prediction_t bp_prediction_o
+    output branch_prediction_t bp_prediction_o,
+
+    // --- Performance Counters Interface ---
+    // AI_TAG: PORT_DESC - perf_hit_count_o - Total number of cache hits.
+    output logic [31:0] perf_hit_count_o,
+    // AI_TAG: PORT_DESC - perf_miss_count_o - Total number of cache misses.
+    output logic [31:0] perf_miss_count_o,
+    // AI_TAG: PORT_DESC - perf_flush_count_o - Total number of cache flushes.
+    output logic [31:0] perf_flush_count_o,
+    // AI_TAG: PORT_DESC - perf_total_requests_o - Total number of cache requests.
+    output logic [31:0] perf_total_requests_o,
+    // AI_TAG: PORT_DESC - perf_hit_rate_o - Cache hit rate (0-100, scaled by 100).
+    output logic [31:0] perf_hit_rate_o,
+    // AI_TAG: PORT_DESC - perf_counter_reset_i - Reset all performance counters.
+    input  logic        perf_counter_reset_i
 );
 
     // AI_TAG: RISC-V_SPEC - A NOP is encoded as `addi x0, x0, 0`.
@@ -168,7 +182,13 @@ module fetch_stage
         .mem_rsp_data_i(instr_rsp_data_i),
         .mem_rsp_ready_o(instr_rsp_ready_o),
         .flush_i(icache_flush),
-        .flush_done_o(icache_flush_done)
+        .flush_done_o(icache_flush_done),
+        .perf_hit_count_o(perf_hit_count_o),
+        .perf_miss_count_o(perf_miss_count_o),
+        .perf_flush_count_o(perf_flush_count_o),
+        .perf_total_requests_o(perf_total_requests_o),
+        .perf_hit_rate_o(perf_hit_rate_o),
+        .perf_counter_reset_i(perf_counter_reset_i)
     );
 
     // ICache flush logic (can be tied to reset or exception flush)

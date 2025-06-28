@@ -65,7 +65,21 @@ module riscv_core
     output logic [2:0]  d_arprot_o,
     input  logic        d_rvalid_i,
     output logic        d_rready_o,
-    input  word_t       d_rdata_i
+    input  word_t       d_rdata_i,
+
+    // --- Performance Counters Interface ---
+    // AI_TAG: PORT_DESC - perf_hit_count_o - Total number of cache hits.
+    output logic [31:0] perf_hit_count_o,
+    // AI_TAG: PORT_DESC - perf_miss_count_o - Total number of cache misses.
+    output logic [31:0] perf_miss_count_o,
+    // AI_TAG: PORT_DESC - perf_flush_count_o - Total number of cache flushes.
+    output logic [31:0] perf_flush_count_o,
+    // AI_TAG: PORT_DESC - perf_total_requests_o - Total number of cache requests.
+    output logic [31:0] perf_total_requests_o,
+    // AI_TAG: PORT_DESC - perf_hit_rate_o - Cache hit rate (0-100, scaled by 100).
+    output logic [31:0] perf_hit_rate_o,
+    // AI_TAG: PORT_DESC - perf_counter_reset_i - Reset all performance counters.
+    input  logic        perf_counter_reset_i
 );
 
     // AI_TAG: INTERNAL_WIRE - Pipeline Register Connections
@@ -209,7 +223,20 @@ module riscv_core
         .instr_rsp_error_i    ( instr_rsp_error      ),
         .if_id_reg_o          ( if_id_reg            ),
         .pc_f_o               ( /* unused */         ),
-        .bp_prediction_o      ( /* unused - available for monitoring */ )
+        .bp_prediction_o      ( /* unused - available for monitoring */ ),
+        // --- Performance Counters Interface ---
+        // AI_TAG: PORT_DESC - perf_hit_count_o - Total number of cache hits.
+        .perf_hit_count_o     ( perf_hit_count_o     ),
+        // AI_TAG: PORT_DESC - perf_miss_count_o - Total number of cache misses.
+        .perf_miss_count_o    ( perf_miss_count_o    ),
+        // AI_TAG: PORT_DESC - perf_flush_count_o - Total number of cache flushes.
+        .perf_flush_count_o   ( perf_flush_count_o   ),
+        // AI_TAG: PORT_DESC - perf_total_requests_o - Total number of cache requests.
+        .perf_total_requests_o( perf_total_requests_o),
+        // AI_TAG: PORT_DESC - perf_hit_rate_o - Cache hit rate (0-100, scaled by 100).
+        .perf_hit_rate_o      ( perf_hit_rate_o      ),
+        // AI_TAG: PORT_DESC - perf_counter_reset_i - Reset all performance counters.
+        .perf_counter_reset_i ( perf_counter_reset_i  )
     );
 
     decode_stage u_decode_stage (

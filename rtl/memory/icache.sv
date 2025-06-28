@@ -119,7 +119,44 @@ module icache #(
     // AI_TAG: PORT_CLK_DOMAIN - clk_i
     // AI_TAG: PORT_DEFAULT_STATE - 1'b0
     // AI_TAG: PORT_TIMING - Combinatorial
-    output logic        flush_done_o
+    output logic        flush_done_o,
+
+    // --- Performance Counters Interface ---
+    // AI_TAG: PORT_DESC - perf_hit_count_o - Total number of cache hits.
+    // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    // AI_TAG: PORT_DEFAULT_STATE - 32'h0
+    // AI_TAG: PORT_TIMING - Registered
+    output logic [31:0] perf_hit_count_o,
+    
+    // AI_TAG: PORT_DESC - perf_miss_count_o - Total number of cache misses.
+    // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    // AI_TAG: PORT_DEFAULT_STATE - 32'h0
+    // AI_TAG: PORT_TIMING - Registered
+    output logic [31:0] perf_miss_count_o,
+    
+    // AI_TAG: PORT_DESC - perf_flush_count_o - Total number of cache flushes.
+    // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    // AI_TAG: PORT_DEFAULT_STATE - 32'h0
+    // AI_TAG: PORT_TIMING - Registered
+    output logic [31:0] perf_flush_count_o,
+    
+    // AI_TAG: PORT_DESC - perf_total_requests_o - Total number of cache requests.
+    // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    // AI_TAG: PORT_DEFAULT_STATE - 32'h0
+    // AI_TAG: PORT_TIMING - Registered
+    output logic [31:0] perf_total_requests_o,
+    
+    // AI_TAG: PORT_DESC - perf_hit_rate_o - Cache hit rate (0-100, scaled by 100).
+    // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    // AI_TAG: PORT_DEFAULT_STATE - 32'h0
+    // AI_TAG: PORT_TIMING - Combinatorial
+    output logic [31:0] perf_hit_rate_o,
+    
+    // AI_TAG: PORT_DESC - perf_counter_reset_i - Reset all performance counters.
+    // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    // AI_TAG: PORT_DEFAULT_STATE - 1'b0
+    // AI_TAG: PORT_TIMING - Synchronous
+    input  logic        perf_counter_reset_i
 );
 
     // AI_TAG: INTERNAL_CALCULATION - Cache parameters
@@ -341,6 +378,70 @@ module icache #(
     
     // AI_TAG: INTERNAL_LOGIC - Flush completion signal
     assign flush_done_o = (cache_state_r == FLUSH_STATE);
+
+    // AI_TAG: INTERNAL_LOGIC - Performance counter signals
+    logic [31:0] hit_count_r;
+    logic [31:0] miss_count_r;
+    logic [31:0] flush_count_r;
+    logic [31:0] total_requests_r;
+    logic        hit_detected;
+    logic        miss_detected_perf;
+    logic        flush_detected;
+    
+    // AI_TAG: INTERNAL_LOGIC - Performance counter detection logic
+    assign hit_detected = any_hit && valid_i && (cache_state_r == IDLE);
+    assign miss_detected_perf = valid_i && !any_hit && (cache_state_r == IDLE);
+    assign flush_detected = flush_i && (cache_state_r == IDLE);
+    
+    // AI_TAG: INTERNAL_LOGIC - Performance counter update logic
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (!rst_ni) begin
+            hit_count_r <= 32'h0;
+            miss_count_r <= 32'h0;
+            flush_count_r <= 32'h0;
+            total_requests_r <= 32'h0;
+        end else if (perf_counter_reset_i) begin
+            hit_count_r <= 32'h0;
+            miss_count_r <= 32'h0;
+            flush_count_r <= 32'h0;
+            total_requests_r <= 32'h0;
+        end else begin
+            // Update hit counter
+            if (hit_detected) begin
+                hit_count_r <= hit_count_r + 1;
+            end
+            
+            // Update miss counter
+            if (miss_detected_perf) begin
+                miss_count_r <= miss_count_r + 1;
+            end
+            
+            // Update flush counter
+            if (flush_detected) begin
+                flush_count_r <= flush_count_r + 1;
+            end
+            
+            // Update total requests counter
+            if (valid_i && (cache_state_r == IDLE)) begin
+                total_requests_r <= total_requests_r + 1;
+            end
+        end
+    end
+    
+    // AI_TAG: INTERNAL_LOGIC - Performance counter outputs
+    assign perf_hit_count_o = hit_count_r;
+    assign perf_miss_count_o = miss_count_r;
+    assign perf_flush_count_o = flush_count_r;
+    assign perf_total_requests_o = total_requests_r;
+    
+    // AI_TAG: INTERNAL_LOGIC - Hit rate calculation (scaled by 100 for percentage)
+    always_comb begin
+        if (total_requests_r == 0) begin
+            perf_hit_rate_o = 32'h0;
+        end else begin
+            perf_hit_rate_o = (hit_count_r * 100) / total_requests_r;
+        end
+    end
 
 endmodule : icache
 

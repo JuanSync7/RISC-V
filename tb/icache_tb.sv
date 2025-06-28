@@ -39,6 +39,14 @@ module icache_tb;
     // Control
     logic        flush_i;
     logic        flush_done_o;
+    
+    // Performance counters
+    logic [31:0] perf_hit_count_o;
+    logic [31:0] perf_miss_count_o;
+    logic [31:0] perf_flush_count_o;
+    logic [31:0] perf_total_requests_o;
+    logic [31:0] perf_hit_rate_o;
+    logic        perf_counter_reset_i;
 
     // Instantiate ICache
     icache #(
@@ -61,7 +69,13 @@ module icache_tb;
         .mem_rdata_i(mem_rdata_i),
         .mem_rready_o(mem_rready_o),
         .flush_i(flush_i),
-        .flush_done_o(flush_done_o)
+        .flush_done_o(flush_done_o),
+        .perf_hit_count_o(perf_hit_count_o),
+        .perf_miss_count_o(perf_miss_count_o),
+        .perf_flush_count_o(perf_flush_count_o),
+        .perf_total_requests_o(perf_total_requests_o),
+        .perf_hit_rate_o(perf_hit_rate_o),
+        .perf_counter_reset_i(perf_counter_reset_i)
     );
 
     // Clock generation
@@ -251,6 +265,66 @@ module icache_tb;
         mem_arready_i = 1; repeat (LINE_SIZE/4) begin mem_rvalid_i = 1; mem_rdata_i = $random; @(posedge clk); end
         mem_rvalid_i = 0; mem_arready_i = 0; wait (ready_o);
         $display("[TB] Edge: Line refilled after flush during fill");
+
+        // Test 8: Performance Counters
+        $display("[TB] Test 8: Performance Counters");
+        $display("[TB] Initial counters - Hits: %d, Misses: %d, Flushes: %d, Total: %d, Hit Rate: %d%%", 
+                 perf_hit_count_o, perf_miss_count_o, perf_flush_count_o, perf_total_requests_o, perf_hit_rate_o);
+        
+        // Reset counters
+        perf_counter_reset_i = 1;
+        @(posedge clk);
+        perf_counter_reset_i = 0;
+        @(posedge clk);
+        
+        $display("[TB] After reset - Hits: %d, Misses: %d, Flushes: %d, Total: %d, Hit Rate: %d%%", 
+                 perf_hit_count_o, perf_miss_count_o, perf_flush_count_o, perf_total_requests_o, perf_hit_rate_o);
+        
+        // Generate some hits and misses
+        // Miss
+        pc_i = 32'h6000_0000;
+        valid_i = 1; @(posedge clk); valid_i = 0;
+        wait (mem_arvalid_o); mem_arready_i = 1; @(posedge clk); mem_arready_i = 0;
+        repeat (LINE_SIZE/4) begin mem_rvalid_i = 1; mem_rdata_i = $random; @(posedge clk); end
+        mem_rvalid_i = 0; wait (ready_o);
+        
+        // Hit
+        pc_i = 32'h6000_0000;
+        valid_i = 1; @(posedge clk); valid_i = 0; @(posedge clk);
+        
+        // Another miss
+        pc_i = 32'h7000_0000;
+        valid_i = 1; @(posedge clk); valid_i = 0;
+        wait (mem_arvalid_o); mem_arready_i = 1; @(posedge clk); mem_arready_i = 0;
+        repeat (LINE_SIZE/4) begin mem_rvalid_i = 1; mem_rdata_i = $random; @(posedge clk); end
+        mem_rvalid_i = 0; wait (ready_o);
+        
+        // Another hit
+        pc_i = 32'h7000_0000;
+        valid_i = 1; @(posedge clk); valid_i = 0; @(posedge clk);
+        
+        // Flush
+        flush_i = 1; @(posedge clk); flush_i = 0;
+        wait (flush_done_o);
+        
+        $display("[TB] After operations - Hits: %d, Misses: %d, Flushes: %d, Total: %d, Hit Rate: %d%%", 
+                 perf_hit_count_o, perf_miss_count_o, perf_flush_count_o, perf_total_requests_o, perf_hit_rate_o);
+        
+        // Verify counters
+        if (perf_hit_count_o == 2) $display("[TB] Performance: Hit counter correct");
+        else $display("[TB] ERROR: Performance: Hit counter incorrect, expected 2, got %d", perf_hit_count_o);
+        
+        if (perf_miss_count_o == 2) $display("[TB] Performance: Miss counter correct");
+        else $display("[TB] ERROR: Performance: Miss counter incorrect, expected 2, got %d", perf_miss_count_o);
+        
+        if (perf_flush_count_o == 1) $display("[TB] Performance: Flush counter correct");
+        else $display("[TB] ERROR: Performance: Flush counter incorrect, expected 1, got %d", perf_flush_count_o);
+        
+        if (perf_total_requests_o == 4) $display("[TB] Performance: Total requests counter correct");
+        else $display("[TB] ERROR: Performance: Total requests counter incorrect, expected 4, got %d", perf_total_requests_o);
+        
+        if (perf_hit_rate_o == 50) $display("[TB] Performance: Hit rate correct (50%%)");
+        else $display("[TB] ERROR: Performance: Hit rate incorrect, expected 50, got %d", perf_hit_rate_o);
 
         // Finish
         $display("[TB] All tests complete");
