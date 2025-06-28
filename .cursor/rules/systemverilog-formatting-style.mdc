@@ -181,11 +181,18 @@ alwaysApply: false
 #      - Every `.sv` and `.svh` file must start with a standard header:
 #        ```systemverilog
 #        //=============================================================================
-#        // File: <FileName.sv>
-#        // Project: <ProjectName>
-#        // Module: <ModuleName> (if applicable)
+#        // Company: <Company Name>
 #        // Author: <Author Name> (<author_email@company.com>)
 #        // Created: YYYY-MM-DD
+#        //
+#        // File: <FileName.sv>
+#        // Module: <ModuleName> (if applicable)
+#        //
+#        // Project Name: <ProjectName>
+#        // Target Devices: <Target Topology> (Usually ASIC or FPGA)
+#        // Tool Versions: <Tool Name> (default is VCS)
+#        // Verification Status: Not Verified/In Progress/Verified/Formally Verified
+#        // Quality Status: Draft/Reviewed/Approved/Released
 #        //
 #        // Description:
 #        //   <Brief, clear description of the file's/module's purpose and
@@ -195,14 +202,34 @@ alwaysApply: false
 # 4.1.1 File Footer:
 #      - Every `.sv` and `.svh` file must end with a standard footer:
 #        //=============================================================================
-#        // Dependencies: <list of all dependencies>
+#        // Dependencies: <list of dependencies>
 #        //
-#        //-----------------------------------------------------------------------------
+#        // Performance:
+#        //   - Critical Path: <expected critical path>
+#        //   - Max Frequency: <range of frequency>
+#        //   - Area: <rough estimate>
+#        //
+#        // Verification Coverage:
+#        //   - Code Coverage: <Coverage from tool>
+#        //   - Functional Coverage: <Coverage from tool>
+#        //   - Branch Coverage: <Coverage from tool>
+#        //
+#        // Synthesis:
+#        //   - Target Technology: ASIC/FPGA
+#        //   - Synthesis Tool: Design Compiler/Quartus
+#        //   - Clock Domains: <number of clk domain>
+#        //
+#        // Testing:
+#        //   - Testbench: <testbench name>
+#        //   - Test Vectors: <number of test vectors>
+#        //   - Simulation Time: <simualtion time>
+#        //
+#        //----------------------------------------------------------------------------
 #        // Revision History:
 #        // Version | Date       | Author             | Description
 #        //=============================================================================
-#        // 1.0     | YYYY-MM-DD | <Author Name>      | Initial release
-#        // 1.1     | YYYY-MM-DD | <Another Author>   | Added feature X, fixed bug Y
+#        // 1.1.0   | YYYY-MM-DD | <Author Name>      | Added X / Implemented Y (Summary of changes)
+#        // 1.0.0   | YYYY-MM-DD | <Author Name>      | Initial release
 #        //=============================================================================
 #        `timescale 1ns/1ps
 #        `default_nettype none // IMPORTANT: All signals must be explicitly typed
@@ -432,220 +459,4 @@ alwaysApply: false
 #                       Avoid latches by ensuring all paths assign to all outputs.
 #      - `always_ff`: For sequential logic (flip-flops). Must have a clock event.
 #                     `@(posedge clk_i or negedge rst_ni)` for async reset.
-#                     `@(posedge clk_i)` for sync reset (reset logic inside).
-#      - `always_latch`: For intentional latches (use with extreme caution, generally avoid in RTL).
-#      - `initial`: Generally for simulation stimulus, testbench setup, or memory loading.
-#                   Avoid in synthesizable RTL modules unless for specific initial values of `reg`
-#                   that are synthesis-tool dependent (prefer explicit resets).
-#      - Use `begin`/`end` for blocks with more than one statement. Name `begin`/`end` blocks for complex logic.
-#        ```systemverilog
-#        always_ff @(posedge clk_i or negedge rst_ni) begin : proc_my_register
-#            if (!rst_ni) begin
-#                my_reg_r <= '0;
-#            end else if (enable_i) begin
-#                my_reg_r <= data_i;
-#            end
-#        end
-#        ```
-#
-# 5.3. Reset Strategy:
-#      - Project-wide decision: Typically asynchronous active-low reset (`rst_ni`).
-#      - All flip-flops must be resettable, unless explicitly justified (e.g., certain data path registers
-#        where reset value doesn't matter and can save area, but must be carefully analyzed).
-#      - Reset synchronizers must be used when reset is asserted/de-asserted asynchronously to a clock domain.
-#
-# 5.4. Instantiation:
-#      - Use named port mapping exclusively for clarity and error prevention.
-#      - Parameter mapping should also be named.
-#        ```systemverilog
-#        MySubModule #(
-#            .DATA_WIDTH (LOCAL_DATA_WIDTH),
-#            .FIFO_DEPTH (32)
-#        ) u_my_sub_module (
-#            .clk_i        (clk_i),
-#            .rst_ni       (rst_ni),
-#            .data_in_i    (sub_data_in),
-#            .data_out_o   (sub_data_out)
-#            // Add comments for clarity if needed
-#        );
-#        ```
-#
-# 5.5. Operators:
-#      - Use parentheses to clarify operator precedence in complex expressions.
-#      - Be cautious with blocking (`=`) vs. non-blocking (`<=`) assignments:
-#        - Use `<=` in `always_ff`.
-#        - Use `=` in `always_comb` (and for variables in tasks/functions).
-#
-# 5.6. Generate Constructs:
-#      - Use `generate` for regularly structured, repetitive logic.
-#      - Always label generate blocks.
-#        ```systemverilog
-#        genvar i;
-#        generate
-#            for (i = 0; i < NUM_UNITS; i = i + 1) begin : gen_unit_logic
-#                UnitType u_unit (
-#                    .clk_i   (clk_i),
-#                    .rst_ni  (rst_ni),
-#                    .input_i (unit_inputs_i[i]),
-#                    .output_o(unit_outputs_o[i])
-#                );
-#            end
-#        endgenerate
-#        ```
-#
-# 5.7. Packages:
-#      - Group related parameters, constants, typedefs, tasks, and functions into packages.
-#      - Import specific items from packages (`import my_pkg::my_param;`) or use wildcard
-#        import (`import my_pkg::*;`) within modules/interfaces where needed. Avoid polluting global namespace.
-#
-# 5.8. Finite State Machines (FSMs):
-#      - Use `enum` for state encoding.
-#      - Clearly separate state register logic (`always_ff`) from next-state logic (`always_comb`)
-#        and output logic (`always_comb` or registered outputs).
-#      - Ensure all states are reachable and FSM can't get stuck. Define default transitions in `case` statements.
-#
-# 5.9. Clock Domain Crossing (CDC):
-#      - All CDC paths must use approved synchronizer circuits (e.g., 2-flop, 3-flop for data, MUX-based for data buses).
-#      - Clearly comment CDC logic and identify synchronizers.
-#      - Use dedicated CDC synchronizer modules.
-#      - Prefix synchronized signals (e.g., `src_domain_signal_sync`).
-#
-# 5.10. Power-Aware Design:
-#      - Implement clock gating using library cells or inferred via `always_ff` with enable.
-#      - `(* gclk *)` attribute may be used for clock signals if supported by tools for auto-gating.
-#      - Minimize switching activity.
-#
-#-------------------------------------------------------------------------------
-# 6. Assertions (SVA)
-#-------------------------------------------------------------------------------
-# 6.1. Placement:
-#      - Assertions can be inline within the RTL module or bound externally.
-#      - For module-internal properties directly tied to its logic, inline is often clearer.
-#      - For interface protocol checks or complex multi-module properties, bind files may be preferred.
-#
-# 6.2. Naming: (See section 2.9)
-#
-# 6.3. Style:
-#      - Assertions should be concise and check specific, verifiable properties.
-#      - Add messages to assertions to aid debugging on failure.
-#        `assert property (@(posedge clk_i) disable iff (!rst_ni) my_property) else $error("My property failed");`
-#      - Use `cover property` for functional coverage points.
-#
-#-------------------------------------------------------------------------------
-# 7. Verification & UVM (High-Level Guidelines for RTL Designers)
-#-------------------------------------------------------------------------------
-# 7.1. Design for Verification (DFV):
-#      - Provide observation points (ports or internal signals easily accessible via hierarchy) for critical internal states.
-#      - Ensure controllability of inputs and modes.
-#      - Design with clear interfaces and defined protocols.
-#
-# 7.2. Testbench Documentation Example (from your original file, slightly adapted):
-#    //-----------------------------------------------------------------------------
-#    // Testbench: ModuleName_tb
-#    // Author: <Author>
-#    // Date: YYYY-MM-DD
-#    // Purpose: Verify <specific functionality> and protocol compliance for ModuleName.
-#    //
-#    // Tests Covered:
-#    //   1. Test_ResetSequence: Verifies reset behavior (lines X-Y in test_reset.sv)
-#    //   2. Test_AxiWriteBurst: Checks AXI full write burst functionality (lines A-B in test_axi_writes.sv)
-#    //   3. Test_FifoOverflow: Validates FIFO overflow/underflow protection (lines C-D in test_fifo_corners.sv)
-#    //
-#    // Coverage Goals:
-#    //   - Functional Coverage: 100% for cg_bus_transactions (defined in ModuleName_if_cov.sv)
-#    //   - Code Coverage: Strive for >95% (Branch, Statement, Condition)
-#    //   - Key FSM transitions: All states and major transitions covered (see coverpoint "state_cp")
-#    //
-#    // Critical Checks (Assertions or Scoreboard):
-#    //   1. AXI_HANDSHAKE_TIMEOUT_ASSERT: Ensures AXI handshakes do not deadlock.
-#    //   2. FIFO_OVERFLOW_PROTECT_ASSERT: Verifies FIFO overflow protection.
-#    //   3. DATA_INTEGRITY_CHECK: Scoreboard validation for end-to-end data path.
-#    //-----------------------------------------------------------------------------
-#
-# 7.3. Coverage Tracking Example (from your original file, slightly adapted):
-#    // In an interface or a dedicated coverage package/module
-#    `ifdef SIMULATION
-#    covergroup cg_axi_transactions @(posedge clk_i);
-#        option.per_instance = 1;
-#        AWVALID_CP: coverpoint axi_if.awvalid iff (axi_if.awready) {
-#            bins hit = {1};
-#        }
-#        AWLEN_CP: coverpoint axi_if.awlen {
-#            bins single_beat = {0};
-#            bins burst_2_16  = {[1:15]}; // Example for AXI4-Lite max, adjust for full AXI
-#            bins max_burst   = {255};   // Example for AXI3/4
-#        }
-#        // Add more coverpoints for address, protection types, etc.
-#    endgroup : cg_axi_transactions
-#
-#    initial begin
-#        // Instantiation depends on where cg is defined.
-#        // If in an interface, it might be implicit or need `new` in a class wrapper.
-#        // MyBus_if.cg_axi_transactions axi_cg = new(); // if interface based
-#    end
-#    `endif
-#
-#-------------------------------------------------------------------------------
-# 8. Tool Directives & Scripts
-#-------------------------------------------------------------------------------
-# 8.1. Synthesis:
-#      - Use standard pragmas for synthesis control (e.g., `// synopsys full_case`, `// synopsys parallel_case`).
-#        Use with caution and understand their implications.
-#      - Constraints should be in separate SDC files.
-#
-# 8.2. Linting:
-#      - All RTL must be clean from critical lint warnings (e.g., SpyGlass, AscentLint).
-#      - Strive for zero warnings; any waived warnings must be justified and documented.
-#
-# 8.3. Example Tool Commands (from your original file, maintained for reference):
-#      // Synopsys VCS: Enable SVA
-#      // vcs -sverilog +v2k -assert svaext <other_options> <file_list>
-#
-#      // Cadence Xcelium: Waveform dumping
-#      // xrun -access +rwc -input dump_waves.tcl <other_options> <file_list>
-#      // (dump_waves.tcl would contain: `probe -create -depth all -tasks -functions -uvm -database my_waves -shm <top_module>`)
-#
-#-------------------------------------------------------------------------------
-# 9. Version Control
-#-------------------------------------------------------------------------------
-# 9.1. Commit Messages:
-#      - Use clear and concise commit messages.
-#      - Format: `<Type>: <Subject>` (e.g., `feat: Add new FIFO module for data buffering`)
-#        - Types: `feat` (new feature), `fix` (bug fix), `docs` (documentation),
-#                 `style` (formatting), `refactor`, `test`, `chore` (build/tool updates).
-#      - Body of commit message (optional) should explain "what" and "why", not "how".
-#
-# 9.2. Branching Strategy:
-#      - Follow project-defined branching strategy (e.g., feature branches, develop, main/master).
-#
-#-------------------------------------------------------------------------------
-# Appendix A: Forbidden Constructs in RTL
-#-------------------------------------------------------------------------------
-# - `assign` with `delay` (`#delay`).
-# - `initial` blocks for register initialization (use resets). Exception: ROM initialization if supported by synth tool.
-# - `fork-join_any`, `fork-join_none` in RTL.
-# - Non-blocking assignments (`<=`) in `always_comb` or functions.
-# - Blocking assignments (`=`) to the same variable from multiple `always` blocks.
-# - Mixing blocking and non-blocking assignments to the same variable.
-# - Events (`->`, `event`) directly in RTL logic (use for testbenches).
-#
-#-------------------------------------------------------------------------------
-# Appendix B: Checklist Summary (Quick Reference)
-#-------------------------------------------------------------------------------
-# [ ] File Header Present and Correct?
-# [ ] `timescale` and `default_nettype none` Used?
-# [ ] Naming Conventions Followed (files, modules, signals, params)?
-# [ ] ANSI-Style Ports & Named Instantiation?
-# [ ] Parameters Typed (e.g., `parameter integer ...`)?
-# [ ] Correct Procedural Blocks (`always_ff`, `always_comb`)?
-# [ ] Reset Strategy Applied Consistently?
-# [ ] Comments Clear and Sufficient? (`TODO`, `FIXME` used appropriately?)
-# [ ] Line Length and Indentation Correct?
-# [ ] No Forbidden Constructs?
-# [ ] CDC Handled Correctly with Synchronizers?
-# [ ] Simulation/Synthesis Directives Used Correctly?
-#
-################################################################################
-# End of Style Guide
-################################################################################
-
+#                     `@(posedge clk_i)`
