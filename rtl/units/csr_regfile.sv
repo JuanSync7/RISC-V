@@ -65,7 +65,23 @@ module csr_regfile
     // AI_TAG: PORT_DESC - mtvec_o - Output of MTVEC, the trap vector base address.
     output addr_t       mtvec_o,
     // AI_TAG: PORT_DESC - mstatus_o - Output of MSTATUS register.
-    output word_t       mstatus_o
+    output word_t       mstatus_o,
+
+    // AI_TAG: NEW_PORT - Enhanced CSR outputs for exception handling
+    // AI_TAG: PORT_DESC - mie_o - Machine interrupt enable register
+    output word_t       mie_o,
+    // AI_TAG: PORT_DESC - mip_o - Machine interrupt pending register
+    output word_t       mip_o,
+    // AI_TAG: PORT_DESC - mcause_o - Machine cause register
+    output word_t       mcause_o,
+    // AI_TAG: PORT_DESC - mtval_o - Machine trap value register
+    output word_t       mtval_o,
+    // AI_TAG: PORT_DESC - mstatus_mie_o - Machine interrupt enable bit from mstatus
+    output logic        mstatus_mie_o,
+    // AI_TAG: PORT_DESC - mtvec_mode_o - Trap vector mode from mtvec
+    output logic [1:0]  mtvec_mode_o,
+    // AI_TAG: PORT_DESC - mtvec_base_o - Trap vector base address from mtvec
+    output addr_t       mtvec_base_o
 );
 
     // AI_TAG: RISC-V_SPEC - CSR operation types from instruction's funct3 field.
@@ -160,6 +176,13 @@ module csr_regfile
     assign mepc_o    = mepc_q;
     assign mtvec_o   = mtvec_q;
     assign mstatus_o = mstatus_q;
+    assign mie_o      = mie_q;
+    assign mip_o      = mip_q;
+    assign mcause_o   = mcause_q;
+    assign mtval_o    = mtval_q;
+    assign mstatus_mie_o = mstatus_q[3];
+    assign mtvec_mode_o = mtvec_q[1:0];
+    assign mtvec_base_o = mtvec_q[31:2];
 
 endmodule : csr_regfile
 

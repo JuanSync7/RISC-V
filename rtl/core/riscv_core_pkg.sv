@@ -152,11 +152,13 @@ package riscv_core_pkg;
         ctrl_signals_t ctrl;
     } id_ex_reg_t;
 
+    // AI_TAG: TYPEDEF - Updated pipeline register structures with exception info
     typedef struct packed {
         word_t         alu_result;
         word_t         store_data;
         reg_addr_t     rd_addr;
         logic          alu_overflow;   // AI_TAG: NEW - Overflow flag from ALU for exception handling
+        exception_info_t exception;    // AI_TAG: NEW - Exception information
         ctrl_signals_t ctrl;
     } ex_mem_reg_t;
 
@@ -165,6 +167,7 @@ package riscv_core_pkg;
         reg_addr_t     rd_addr;
         logic          reg_write_en;
         wb_mux_sel_e   wb_mux_sel;
+        exception_info_t exception;    // AI_TAG: NEW - Exception information
     } mem_wb_reg_t;
 
 
@@ -207,6 +210,79 @@ package riscv_core_pkg;
     // AI_TAG: CONSTANT - BPU_DEFAULT_BHT_ENTRIES - Default BHT size
     parameter integer BPU_DEFAULT_BHT_ENTRIES = 256;
 
-endpackage : riscv_core_pkg
+    //---------------------------------------------------------------------------
+    // 9. Exception Handling Definitions
+    //---------------------------------------------------------------------------
+    // AI_TAG: TYPEDEF - exception_cause_t - Exception cause codes as per RISC-V spec
+    typedef logic [31:0] exception_cause_t;
 
-`default_nettype wire
+    // AI_TAG: CONSTANT - Exception Cause Codes (M-mode)
+    // Interrupts (bit 31 = 1)
+    parameter exception_cause_t EXC_CAUSE_M_SOFTWARE_INTERRUPT = 32'h80000003;
+    parameter exception_cause_t EXC_CAUSE_M_TIMER_INTERRUPT    = 32'h80000007;
+    parameter exception_cause_t EXC_CAUSE_M_EXTERNAL_INTERRUPT = 32'h8000000B;
+
+    // Exceptions (bit 31 = 0)
+    parameter exception_cause_t EXC_CAUSE_INSTR_ADDR_MISALIGNED = 32'h00000000;
+    parameter exception_cause_t EXC_CAUSE_INSTR_ACCESS_FAULT   = 32'h00000001;
+    parameter exception_cause_t EXC_CAUSE_ILLEGAL_INSTRUCTION  = 32'h00000002;
+    parameter exception_cause_t EXC_CAUSE_BREAKPOINT          = 32'h00000003;
+    parameter exception_cause_t EXC_CAUSE_LOAD_ADDR_MISALIGNED = 32'h00000004;
+    parameter exception_cause_t EXC_CAUSE_LOAD_ACCESS_FAULT   = 32'h00000005;
+    parameter exception_cause_t EXC_CAUSE_STORE_ADDR_MISALIGNED = 32'h00000006;
+    parameter exception_cause_t EXC_CAUSE_STORE_ACCESS_FAULT  = 32'h00000007;
+    parameter exception_cause_t EXC_CAUSE_ECALL_M            = 32'h0000000B;
+    parameter exception_cause_t EXC_CAUSE_INSTR_PAGE_FAULT   = 32'h0000000C;
+    parameter exception_cause_t EXC_CAUSE_LOAD_PAGE_FAULT    = 32'h0000000D;
+    parameter exception_cause_t EXC_CAUSE_STORE_PAGE_FAULT   = 32'h0000000F;
+
+    // AI_TAG: TYPEDEF - exception_type_e - Exception type enumeration
+    typedef enum logic [1:0] {
+        EXC_TYPE_NONE = 2'b00,
+        EXC_TYPE_INTERRUPT = 2'b01,
+        EXC_TYPE_EXCEPTION = 2'b10,
+        EXC_TYPE_RESERVED = 2'b11
+    } exception_type_e;
+
+    // AI_TAG: TYPEDEF - exception_priority_e - Exception priority encoding
+    typedef enum logic [3:0] {
+        PRIO_NONE = 4'd0,
+        PRIO_INTERRUPT = 4'd1,
+        PRIO_LOAD_FAULT = 4'd2,
+        PRIO_STORE_FAULT = 4'd3,
+        PRIO_INSTR_FAULT = 4'd4,
+        PRIO_BREAKPOINT = 4'd5,
+        PRIO_ECALL = 4'd6,
+        PRIO_MISALIGNED = 4'd7,
+        PRIO_ILLEGAL = 4'd8,
+        PRIO_DIV_ZERO = 4'd9,
+        PRIO_OVERFLOW = 4'd10
+    } exception_priority_e;
+
+    // AI_TAG: TYPEDEF - exception_info_t - Exception information structure
+    typedef struct packed {
+        logic              valid;           // Exception is valid
+        exception_type_e   exc_type;        // Exception type (interrupt/exception)
+        exception_cause_t  cause;           // Exception cause code
+        addr_t             pc;              // PC where exception occurred
+        word_t             tval;            // Exception-specific value
+        exception_priority_e priority;      // Exception priority
+    } exception_info_t;
+
+    // AI_TAG: TYPEDEF - interrupt_info_t - Interrupt information structure
+    typedef struct packed {
+        logic              m_software_interrupt;  // Machine software interrupt
+        logic              m_timer_interrupt;     // Machine timer interrupt
+        logic              m_external_interrupt;  // Machine external interrupt
+        logic              interrupt_pending;     // Any interrupt is pending
+        exception_cause_t  interrupt_cause;       // Highest priority interrupt cause
+    } interrupt_info_t;
+
+    // AI_TAG: TYPEDEF - trap_vector_t - Trap vector information
+    typedef struct packed {
+        addr_t             base_addr;       // Base address from mtvec
+        logic [1:0]        mode;            // Vector mode (00=direct, 01=vectored)
+        addr_t             vector_addr;     // Calculated vector address
+    } trap_vector_t;
+
+endpackage : riscv_core_pkg

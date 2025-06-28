@@ -130,7 +130,9 @@ alwaysApply: false
 #      - Prefix `LP_` for localparams if distinction is critical.
 #
 # 2.6. Type Definitions (typedefs, enums, structs):
-#      - snake_case with `_t` suffix (e.g., `address_t`, `state_type_t`, `config_bus_t`).
+#      - typedefs uses snake_case with `_t` suffix (e.g., `address_t`, `state_type_t`, `config_bus_t`).
+#      - enums uses snake_case with `_e` suffix (e.g., `color_e`, `machine_fsm_e`).
+#      - structs uses snake_case with `_s` suffix (e.g., `write_addr_s`, `read_resp_s`)
 #
 # 2.7. Instances:
 #      - `u_<ModuleName>` or `<module_name_instance_purpose>` (e.g., `u_data_fifo`, `data_path_fifo`). Be consistent.
@@ -189,6 +191,11 @@ alwaysApply: false
 #        //   <Brief, clear description of the file's/module's purpose and
 #        //    functionality.>
 #        //
+# 4.1.1 File Footer:
+#      - Every `.sv` and `.svh` file must end with a standard footer:
+#        //=============================================================================
+#        // Dependencies: <list of all dependencies>
+#        //
 #        //-----------------------------------------------------------------------------
 #        // Revision History:
 #        // Version | Date       | Author             | Description
@@ -205,6 +212,7 @@ alwaysApply: false
 #      - Parameters must explicitly be typed (e.g., `parameter integer DATA_WIDTH = 32`).
 #      - Group ports by logical function (e.g., clock/reset, data_if, control_if) if numerous.
 #      - Align port names, types, and comments for readability.
+#      - Only declare 1 port or signal name per line
 #
 #        ```systemverilog
 #        module MyModule #(
@@ -367,6 +375,7 @@ alwaysApply: false
 #
 # 4.3. Interface Definition: Similar header and clarity as modules.
 #      - Use modports to define perspectives (e.g., master, slave, monitor).
+#      - Only declare 1 port or signal name per line
 #
 #        ```systemverilog
 #        interface MyBus_if #(

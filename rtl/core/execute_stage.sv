@@ -65,7 +65,11 @@ module execute_stage
 
     // AI_TAG: NEW_PORT - Branch prediction update output
     // AI_TAG: PORT_DESC - bp_update_o - Branch prediction update information for the BPU.
-    output branch_update_t bp_update_o
+    output branch_update_t bp_update_o,
+
+    // AI_TAG: NEW_PORT - Exception detection output
+    // AI_TAG: PORT_DESC - exception_o - Exception information from execute stage
+    output exception_info_t exception_o
 );
 
     localparam logic [1:0] FWD_SEL_REG  = 2'b00;
@@ -86,6 +90,14 @@ module execute_stage
     word_t div_result;         // AI_TAG: NEW - Division result
     logic  div_done;           // AI_TAG: NEW - Division done flag
     word_t final_result; // AI_TAG: UPDATE - Muxed result from ALU, Multiplier, or Divider
+
+    // AI_TAG: INTERNAL_WIRE - Exception detection signals
+    logic illegal_instruction;
+    logic div_by_zero;
+    logic ecall_exception;
+    logic breakpoint_exception;
+    logic overflow_exception;
+    exception_info_t exception_detected;
 
     ex_mem_reg_t ex_mem_reg_q;
 
@@ -173,6 +185,106 @@ module execute_stage
         end
     end
 
+    // AI_TAG: INTERNAL_LOGIC - Exception Detection Logic
+    // Detect illegal instructions (unimplemented opcodes or invalid combinations)
+    always_comb begin
+        illegal_instruction = 1'b0;
+        
+        // Check for unimplemented opcodes
+        case (id_ex_reg_i.ctrl.alu_op)
+            ALU_OP_ADD, ALU_OP_SUB, ALU_OP_XOR, ALU_OP_OR, ALU_OP_AND,
+            ALU_OP_SLL, ALU_OP_SRL, ALU_OP_SRA, ALU_OP_SLT, ALU_OP_SLTU,
+            ALU_OP_LUI, ALU_OP_COPY_A, ALU_OP_COPY_B: illegal_instruction = 1'b0;
+            default: illegal_instruction = 1'b1;
+        endcase
+        
+        // Check for invalid CSR operations (if not a CSR instruction)
+        if (id_ex_reg_i.ctrl.csr_cmd_en && !id_ex_reg_i.ctrl.reg_write_en) begin
+            illegal_instruction = 1'b1;
+        end
+    end
+
+    // AI_TAG: INTERNAL_LOGIC - Division by Zero Detection
+    always_comb begin
+        div_by_zero = 1'b0;
+        if (id_ex_reg_i.ctrl.div_en && fwd_operand_b == '0) begin
+            div_by_zero = 1'b1;
+        end
+    end
+
+    // AI_TAG: INTERNAL_LOGIC - Overflow Detection
+    always_comb begin
+        overflow_exception = 1'b0;
+        // Check for arithmetic overflow in ADD/SUB operations
+        if ((id_ex_reg_i.ctrl.alu_op == ALU_OP_ADD || id_ex_reg_i.ctrl.alu_op == ALU_OP_SUB) &&
+            alu_overflow_flag) begin
+            overflow_exception = 1'b1;
+        end
+    end
+
+    // AI_TAG: INTERNAL_LOGIC - System Call Detection
+    always_comb begin
+        ecall_exception = 1'b0;
+        breakpoint_exception = 1'b0;
+        
+        // Check for ECALL instruction (SYSTEM opcode with specific immediate)
+        if (id_ex_reg_i.ctrl.csr_cmd_en && id_ex_reg_i.immediate[11:0] == 12'h000) begin
+            ecall_exception = 1'b1;
+        end
+        
+        // Check for EBREAK instruction (SYSTEM opcode with specific immediate)
+        if (id_ex_reg_i.ctrl.csr_cmd_en && id_ex_reg_i.immediate[11:0] == 12'h001) begin
+            breakpoint_exception = 1'b1;
+        end
+    end
+
+    // AI_TAG: INTERNAL_LOGIC - Exception Information Generation
+    always_comb begin
+        exception_detected = '0; // Default to no exception
+        
+        // Check for exceptions in priority order
+        if (div_by_zero) begin
+            exception_detected.valid = 1'b1;
+            exception_detected.exc_type = EXC_TYPE_EXCEPTION;
+            exception_detected.cause = EXC_CAUSE_LOAD_ACCESS_FAULT; // Use load fault as proxy for div by zero
+            exception_detected.pc = id_ex_reg_i.pc;
+            exception_detected.tval = fwd_operand_b; // The divisor value
+            exception_detected.priority = PRIO_DIV_ZERO;
+        end
+        else if (overflow_exception) begin
+            exception_detected.valid = 1'b1;
+            exception_detected.exc_type = EXC_TYPE_EXCEPTION;
+            exception_detected.cause = EXC_CAUSE_LOAD_ACCESS_FAULT; // Use load fault as proxy for overflow
+            exception_detected.pc = id_ex_reg_i.pc;
+            exception_detected.tval = alu_result; // The result that overflowed
+            exception_detected.priority = PRIO_OVERFLOW;
+        end
+        else if (ecall_exception) begin
+            exception_detected.valid = 1'b1;
+            exception_detected.exc_type = EXC_TYPE_EXCEPTION;
+            exception_detected.cause = EXC_CAUSE_ECALL_M;
+            exception_detected.pc = id_ex_reg_i.pc;
+            exception_detected.tval = '0; // ECALL doesn't have tval
+            exception_detected.priority = PRIO_ECALL;
+        end
+        else if (breakpoint_exception) begin
+            exception_detected.valid = 1'b1;
+            exception_detected.exc_type = EXC_TYPE_EXCEPTION;
+            exception_detected.cause = EXC_CAUSE_BREAKPOINT;
+            exception_detected.pc = id_ex_reg_i.pc;
+            exception_detected.tval = '0; // EBREAK doesn't have tval
+            exception_detected.priority = PRIO_BREAKPOINT;
+        end
+        else if (illegal_instruction) begin
+            exception_detected.valid = 1'b1;
+            exception_detected.exc_type = EXC_TYPE_EXCEPTION;
+            exception_detected.cause = EXC_CAUSE_ILLEGAL_INSTRUCTION;
+            exception_detected.pc = id_ex_reg_i.pc;
+            exception_detected.tval = id_ex_reg_i.immediate; // The instruction that caused the fault
+            exception_detected.priority = PRIO_ILLEGAL;
+        end
+    end
+
     // AI_TAG: INTERNAL_LOGIC - Branch Prediction Update Logic
     // Generate branch prediction updates for the BPU
     always_comb begin
@@ -201,17 +313,22 @@ module execute_stage
                 ex_mem_reg_q.ctrl.mem_read_en  <= 1'b0;
                 ex_mem_reg_q.ctrl.mem_write_en <= 1'b0;
                 ex_mem_reg_q.ctrl.mult_en      <= 1'b0;
+                ex_mem_reg_q.exception.valid   <= 1'b0; // AI_TAG: NEW - Clear exception on flush
             end else begin
                 // AI_TAG: UPDATE - Latch the muxed result into the pipeline register.
                 ex_mem_reg_q.alu_result <= final_result;
                 ex_mem_reg_q.store_data <= fwd_operand_b;
                 ex_mem_reg_q.rd_addr    <= id_ex_reg_i.rd_addr;
                 ex_mem_reg_q.alu_overflow <= alu_overflow_flag;  // AI_TAG: NEW - Latch overflow flag
+                ex_mem_reg_q.exception  <= exception_detected;   // AI_TAG: NEW - Latch exception info
                 ex_mem_reg_q.ctrl       <= id_ex_reg_i.ctrl;
             end
         end
     end
 
     assign ex_mem_reg_o = ex_mem_reg_q;
+
+    // AI_TAG: INTERNAL_LOGIC - Exception Output Assignment
+    assign exception_o = exception_detected;
 
 endmodule : execute_stage

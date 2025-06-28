@@ -68,7 +68,11 @@ module mem_stage
 
     // --- Output to Write-back Stage ---
     // AI_TAG: PORT_DESC - mem_wb_reg_o - The MEM/WB pipeline register data.
-    output mem_wb_reg_t mem_wb_reg_o
+    output mem_wb_reg_t mem_wb_reg_o,
+
+    // AI_TAG: NEW_PORT - Exception detection output
+    // AI_TAG: PORT_DESC - exception_o - Exception information from memory stage
+    output exception_info_t exception_o
 );
 
     // AI_TAG: INTERNAL_WIRE - Wires for data alignment and write-back data selection.
@@ -76,6 +80,13 @@ module mem_stage
     logic [3:0]  write_strobes;
     word_t       read_data_aligned;
     word_t       wb_data_d;
+
+    // AI_TAG: INTERNAL_WIRE - Exception detection signals
+    logic load_addr_misaligned;
+    logic store_addr_misaligned;
+    logic load_access_fault;
+    logic store_access_fault;
+    exception_info_t exception_detected;
 
     mem_wb_reg_t mem_wb_reg_q;
 
@@ -151,6 +162,98 @@ module mem_stage
         endcase
     end
 
+    // AI_TAG: INTERNAL_LOGIC - Memory Exception Detection
+    // Address misalignment detection
+    always_comb begin
+        load_addr_misaligned = 1'b0;
+        store_addr_misaligned = 1'b0;
+        
+        if (ex_mem_reg_i.ctrl.mem_read_en) begin
+            case (ex_mem_reg_i.ctrl.funct3)
+                3'b001: begin // LH/LHU - halfword alignment check
+                    load_addr_misaligned = ex_mem_reg_i.alu_result[0];
+                end
+                3'b010: begin // LW - word alignment check
+                    load_addr_misaligned = |ex_mem_reg_i.alu_result[1:0];
+                end
+                default: load_addr_misaligned = 1'b0; // Byte loads are always aligned
+            endcase
+        end
+        
+        if (ex_mem_reg_i.ctrl.mem_write_en) begin
+            case (ex_mem_reg_i.ctrl.funct3)
+                3'b001: begin // SH - halfword alignment check
+                    store_addr_misaligned = ex_mem_reg_i.alu_result[0];
+                end
+                3'b010: begin // SW - word alignment check
+                    store_addr_misaligned = |ex_mem_reg_i.alu_result[1:0];
+                end
+                default: store_addr_misaligned = 1'b0; // Byte stores are always aligned
+            endcase
+        end
+    end
+
+    // AI_TAG: INTERNAL_LOGIC - Memory Access Fault Detection
+    always_comb begin
+        load_access_fault = 1'b0;
+        store_access_fault = 1'b0;
+        
+        // Check for memory response errors
+        if (ex_mem_reg_i.ctrl.mem_read_en && data_rsp_valid_i && data_rsp_error_i) begin
+            load_access_fault = 1'b1;
+        end
+        
+        if (ex_mem_reg_i.ctrl.mem_write_en && data_rsp_valid_i && data_rsp_error_i) begin
+            store_access_fault = 1'b1;
+        end
+    end
+
+    // AI_TAG: INTERNAL_LOGIC - Memory Exception Information Generation
+    always_comb begin
+        exception_detected = '0; // Default to no exception
+        
+        // Check for memory exceptions in priority order
+        if (load_addr_misaligned) begin
+            exception_detected.valid = 1'b1;
+            exception_detected.exc_type = EXC_TYPE_EXCEPTION;
+            exception_detected.cause = EXC_CAUSE_LOAD_ADDR_MISALIGNED;
+            exception_detected.pc = ex_mem_reg_i.exception.pc; // Use PC from previous stage
+            exception_detected.tval = ex_mem_reg_i.alu_result; // The misaligned address
+            exception_detected.priority = PRIO_MISALIGNED;
+        end
+        else if (store_addr_misaligned) begin
+            exception_detected.valid = 1'b1;
+            exception_detected.exc_type = EXC_TYPE_EXCEPTION;
+            exception_detected.cause = EXC_CAUSE_STORE_ADDR_MISALIGNED;
+            exception_detected.pc = ex_mem_reg_i.exception.pc; // Use PC from previous stage
+            exception_detected.tval = ex_mem_reg_i.alu_result; // The misaligned address
+            exception_detected.priority = PRIO_MISALIGNED;
+        end
+        else if (load_access_fault) begin
+            exception_detected.valid = 1'b1;
+            exception_detected.exc_type = EXC_TYPE_EXCEPTION;
+            exception_detected.cause = EXC_CAUSE_LOAD_ACCESS_FAULT;
+            exception_detected.pc = ex_mem_reg_i.exception.pc; // Use PC from previous stage
+            exception_detected.tval = ex_mem_reg_i.alu_result; // The faulting address
+            exception_detected.priority = PRIO_LOAD_FAULT;
+        end
+        else if (store_access_fault) begin
+            exception_detected.valid = 1'b1;
+            exception_detected.exc_type = EXC_TYPE_EXCEPTION;
+            exception_detected.cause = EXC_CAUSE_STORE_ACCESS_FAULT;
+            exception_detected.pc = ex_mem_reg_i.exception.pc; // Use PC from previous stage
+            exception_detected.tval = ex_mem_reg_i.alu_result; // The faulting address
+            exception_detected.priority = PRIO_STORE_FAULT;
+        end
+        else begin
+            // Pass through exception from execute stage if no memory exception
+            exception_detected = ex_mem_reg_i.exception;
+        end
+    end
+
+    // AI_TAG: INTERNAL_LOGIC - Exception Output Assignment
+    assign exception_o = exception_detected;
+
     // AI_TAG: INTERNAL_LOGIC - MEM/WB Pipeline Register
     always_ff @(posedge clk_i or negedge rst_ni) begin
         if (!rst_ni) begin
@@ -158,6 +261,7 @@ module mem_stage
         end else if (!stall_w_i) begin
             if (flush_m_i) begin
                 mem_wb_reg_q.reg_write_en <= 1'b0; // Flush to a bubble
+                mem_wb_reg_q.exception.valid <= 1'b0; // AI_TAG: NEW - Clear exception on flush
             end else begin
                 // AI_TAG: DESIGN_NOTE - The wb_data is only valid if the instruction was a non-memory
                 // op OR it was a load and data_rsp_valid_i is asserted by the memory system.
@@ -166,6 +270,7 @@ module mem_stage
                 mem_wb_reg_q.rd_addr      <= ex_mem_reg_i.rd_addr;
                 mem_wb_reg_q.reg_write_en <= ex_mem_reg_i.ctrl.reg_write_en;
                 mem_wb_reg_q.wb_mux_sel   <= ex_mem_reg_i.ctrl.wb_mux_sel;
+                mem_wb_reg_q.exception    <= exception_detected; // AI_TAG: NEW - Latch exception info
             end
         end
         // If stall_w_i, register holds its value.

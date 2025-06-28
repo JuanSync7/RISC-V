@@ -83,6 +83,10 @@ module fetch_stage
     // AI_TAG: PORT_DESC - bp_prediction_o - Branch prediction result for the current instruction.
     output branch_prediction_t bp_prediction_o,
 
+    // AI_TAG: NEW_PORT - Exception detection output
+    // AI_TAG: PORT_DESC - exception_o - Exception information from fetch stage
+    output exception_info_t exception_o,
+
     // --- Performance Counters Interface ---
     // AI_TAG: PORT_DESC - perf_hit_count_o - Total number of cache hits.
     output logic [31:0] perf_hit_count_o,
@@ -111,6 +115,11 @@ module fetch_stage
     logic        bp_predict_taken;
     addr_t       bp_predict_target;
     logic        bp_btb_hit;
+
+    // AI_TAG: INTERNAL_WIRE - Exception detection signals
+    logic instr_addr_misaligned;
+    logic instr_access_fault;
+    exception_info_t exception_detected;
 
     // AI_TAG: INTERNAL_LOGIC - Branch Predictor instance
     branch_predictor #(
@@ -193,6 +202,50 @@ module fetch_stage
 
     // ICache flush logic (can be tied to reset or exception flush)
     assign icache_flush = flush_f_i;
+
+    // AI_TAG: INTERNAL_LOGIC - Instruction Exception Detection
+    // Instruction address misalignment detection (RISC-V requires 2-byte alignment)
+    always_comb begin
+        instr_addr_misaligned = 1'b0;
+        if (pc_q[0]) begin // Check if PC is not 2-byte aligned
+            instr_addr_misaligned = 1'b1;
+        end
+    end
+
+    // AI_TAG: INTERNAL_LOGIC - Instruction Access Fault Detection
+    always_comb begin
+        instr_access_fault = 1'b0;
+        // Check for instruction memory response errors
+        if (instr_rsp_valid_i && instr_rsp_error_i) begin
+            instr_access_fault = 1'b1;
+        end
+    end
+
+    // AI_TAG: INTERNAL_LOGIC - Fetch Exception Information Generation
+    always_comb begin
+        exception_detected = '0; // Default to no exception
+        
+        // Check for fetch exceptions in priority order
+        if (instr_addr_misaligned) begin
+            exception_detected.valid = 1'b1;
+            exception_detected.exc_type = EXC_TYPE_EXCEPTION;
+            exception_detected.cause = EXC_CAUSE_INSTR_ADDR_MISALIGNED;
+            exception_detected.pc = pc_q; // The misaligned PC
+            exception_detected.tval = pc_q; // The misaligned address
+            exception_detected.priority = PRIO_MISALIGNED;
+        end
+        else if (instr_access_fault) begin
+            exception_detected.valid = 1'b1;
+            exception_detected.exc_type = EXC_TYPE_EXCEPTION;
+            exception_detected.cause = EXC_CAUSE_INSTR_ACCESS_FAULT;
+            exception_detected.pc = pc_q; // The faulting PC
+            exception_detected.tval = pc_q; // The faulting address
+            exception_detected.priority = PRIO_INSTR_FAULT;
+        end
+    end
+
+    // AI_TAG: INTERNAL_LOGIC - Exception Output Assignment
+    assign exception_o = exception_detected;
 
     // IF/ID pipeline register now uses ICache output
     always_ff @(posedge clk_i or negedge rst_ni) begin

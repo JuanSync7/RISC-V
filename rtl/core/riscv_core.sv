@@ -79,45 +79,71 @@ module riscv_core
     // AI_TAG: PORT_DESC - perf_hit_rate_o - Cache hit rate (0-100, scaled by 100).
     output logic [31:0] perf_hit_rate_o,
     // AI_TAG: PORT_DESC - perf_counter_reset_i - Reset all performance counters.
-    input  logic        perf_counter_reset_i
+    input  logic        perf_counter_reset_i,
+
+    // --- Interrupt Interface ---
+    // AI_TAG: PORT_DESC - m_software_interrupt_i - Machine software interrupt
+    input  logic        m_software_interrupt_i,
+    // AI_TAG: PORT_DESC - m_timer_interrupt_i - Machine timer interrupt
+    input  logic        m_timer_interrupt_i,
+    // AI_TAG: PORT_DESC - m_external_interrupt_i - Machine external interrupt
+    input  logic        m_external_interrupt_i
 );
 
-    // AI_TAG: INTERNAL_WIRE - Pipeline Register Connections
+    // AI_TAG: INTERNAL_WIRE - Pipeline register signals
     if_id_reg_t  if_id_reg;
     id_ex_reg_t  id_ex_reg;
     ex_mem_reg_t ex_mem_reg;
     mem_wb_reg_t mem_wb_reg;
 
-    // AI_TAG: INTERNAL_WIRE - Hazard Unit Control Signals
-    logic        stall_f, stall_d, stall_m, stall_w;
-    logic        flush_f, flush_d, flush_e;
-    logic [1:0]  forward_a_sel, forward_b_sel;
-    logic        exec_stall_req;
+    // AI_TAG: INTERNAL_WIRE - Register file interface signals
+    reg_addr_t rs1_addr, rs2_addr;
+    word_t     rs1_data, rs2_data;
+    logic      rf_write_en;
+    reg_addr_t rf_rd_addr;
+    word_t     rf_rd_data;
 
-    // AI_TAG: INTERNAL_WIRE - Register File Interface
-    reg_addr_t  rs1_addr, rs2_addr;
-    word_t      rs1_data, rs2_data;
-    logic       rf_write_en;
-    reg_addr_t  rf_rd_addr;
-    word_t      rf_rd_data;
-
-    // AI_TAG: INTERNAL_WIRE - PC Redirect Path
+    // AI_TAG: INTERNAL_WIRE - Forwarding and hazard control signals
+    logic [1:0] forward_a_sel, forward_b_sel;
+    logic       stall_f, stall_d, stall_m, stall_w;
+    logic       flush_f, flush_d, flush_e;
     logic       pc_redirect;
     addr_t      pc_redirect_target;
+    logic       exec_stall_req;
 
-    // AI_TAG: INTERNAL_WIRE - Write-back and Forwarding Path
-    word_t      wb_data_fwd;
-    reg_addr_t  rd_addr_fwd;
-    logic       reg_write_en_fwd;
+    // AI_TAG: INTERNAL_WIRE - Write-back forwarding signals
+    word_t     wb_data_fwd;
+    reg_addr_t rd_addr_fwd;
+    logic      reg_write_en_fwd;
 
-    // AI_TAG: INTERNAL_WIRE - CSR Interface
-    logic       trap_en, mret_en;
-    word_t      csr_read_data;
-    addr_t      mepc_out, mtvec_out;
-    word_t      mstatus_out, mcause_in, mtval_in;
-
-    // AI_TAG: INTERNAL_WIRE - Branch Prediction Interface
+    // AI_TAG: INTERNAL_WIRE - Branch prediction signals
     branch_update_t bp_update;
+
+    // AI_TAG: INTERNAL_WIRE - CSR interface signals
+    word_t csr_read_data;
+
+    // AI_TAG: INTERNAL_WIRE - Exception handling signals
+    exception_info_t fetch_exception;
+    exception_info_t execute_exception;
+    exception_info_t memory_exception;
+    exception_info_t writeback_exception;
+    logic exception_valid;
+    exception_info_t exception_info;
+    addr_t trap_vector;
+    logic pipeline_flush;
+    interrupt_info_t interrupt_info;
+
+    // AI_TAG: INTERNAL_WIRE - Enhanced CSR output signals
+    word_t mie_out, mip_out, mcause_out, mtval_out;
+    logic mstatus_mie_out;
+    logic [1:0] mtvec_mode_out;
+    addr_t mtvec_base_out;
+
+    // AI_TAG: INTERNAL_WIRE - Exception PC redirect signals
+    logic pc_redirect_exception;
+    addr_t pc_redirect_target_exception;
+    logic pc_redirect_combined;
+    addr_t pc_redirect_target_combined;
 
     // AI_TAG: INTERNAL_WIRE - Memory Wrapper Interface
     logic        instr_req_valid;
@@ -224,6 +250,7 @@ module riscv_core
         .if_id_reg_o          ( if_id_reg            ),
         .pc_f_o               ( /* unused */         ),
         .bp_prediction_o      ( /* unused - available for monitoring */ ),
+        .exception_o          ( fetch_exception      ),
         // --- Performance Counters Interface ---
         // AI_TAG: PORT_DESC - perf_hit_count_o - Total number of cache hits.
         .perf_hit_count_o     ( perf_hit_count_o     ),
@@ -267,7 +294,8 @@ module riscv_core
         .exec_stall_req_o     ( exec_stall_req       ), // AI_TAG: UPDATE - New stall request connection
         .ex_mem_reg_o         ( ex_mem_reg           ),
         .overflow_o           ( /* unused - available for exception handling */ ),
-        .bp_update_o          ( bp_update            )
+        .bp_update_o          ( bp_update            ),
+        .exception_o          ( execute_exception    )
     );
 
     mem_stage u_mem_stage (
@@ -288,7 +316,8 @@ module riscv_core
         .data_rsp_ready_o ( data_rsp_ready ),
         .data_rsp_data_i  ( data_rsp_data  ),
         .data_rsp_error_i ( data_rsp_error ),
-        .mem_wb_reg_o ( mem_wb_reg   )
+        .mem_wb_reg_o ( mem_wb_reg   ),
+        .exception_o ( memory_exception )
     );
 
     writeback_stage u_writeback_stage (
@@ -324,7 +353,41 @@ module riscv_core
         .mtval_i        ( mtval_in                 ),
         .mepc_o         ( mepc_out                 ),
         .mtvec_o        ( mtvec_out                ),
-        .mstatus_o      ( mstatus_out              )
+        .mstatus_o      ( mstatus_out              ),
+        .mie_o          ( mie_out                  ),
+        .mip_o          ( mip_out                  ),
+        .mcause_o       ( mcause_out               ),
+        .mtval_o        ( mtval_out                ),
+        .mstatus_mie_o  ( mstatus_mie_out          ),
+        .mtvec_mode_o   ( mtvec_mode_out           ),
+        .mtvec_base_o   ( mtvec_base_out           )
+    );
+
+    // AI_TAG: NEW_MODULE - Exception Handler Instantiation
+    exception_handler u_exception_handler (
+        .clk_i                    ( clk_i                    ),
+        .rst_ni                   ( rst_ni                   ),
+        .fetch_exception_i        ( fetch_exception          ),
+        .execute_exception_i      ( execute_exception        ),
+        .memory_exception_i       ( memory_exception         ),
+        .writeback_exception_i    ( writeback_exception      ),
+        .m_software_interrupt_i   ( m_software_interrupt_i   ),
+        .m_timer_interrupt_i      ( m_timer_interrupt_i      ),
+        .m_external_interrupt_i   ( m_external_interrupt_i   ),
+        .mstatus_mie_i            ( mstatus_mie_out          ),
+        .mie_msie_i               ( mie_out[3]               ),
+        .mie_mtie_i               ( mie_out[7]               ),
+        .mie_meie_i               ( mie_out[11]              ),
+        .mip_msip_i               ( mip_out[3]               ),
+        .mip_mtip_i               ( mip_out[7]               ),
+        .mip_meip_i               ( mip_out[11]              ),
+        .mtvec_base_i             ( mtvec_base_out           ),
+        .mtvec_mode_i             ( mtvec_mode_out           ),
+        .exception_valid_o        ( exception_valid          ),
+        .exception_info_o         ( exception_info           ),
+        .trap_vector_o            ( trap_vector              ),
+        .pipeline_flush_o         ( pipeline_flush           ),
+        .interrupt_info_o         ( interrupt_info           )
     );
 
     //==========================================================================
@@ -355,12 +418,24 @@ module riscv_core
         .forward_b_sel_o  ( forward_b_sel        )
     );
 
-    // AI_TAG: INTERNAL_LOGIC - Top-level Trap and MRET logic
-    // TODO: This is a simplified implementation. A full implementation would decode
-    // mcause and handle various exception types and interrupts.
-    assign trap_en   = id_ex_reg.ctrl.csr_cmd_en && (id_ex_reg.immediate == 12'h001); // ECALL
-    assign mret_en   = id_ex_reg.ctrl.csr_cmd_en && (id_ex_reg.immediate == 12'h302); // MRET
-    assign mcause_in = 32'd11; // Machine ECALL cause code
-    assign mtval_in  = '0;     // Not used for ECALL/MRET
+    // AI_TAG: INTERNAL_LOGIC - Enhanced Exception and Trap Logic
+    // Use the exception handler output for trap detection and handling
+    assign trap_en = exception_valid;
+    assign mret_en = id_ex_reg.ctrl.csr_cmd_en && (id_ex_reg.immediate[11:0] == 12'h302); // MRET
+    assign mcause_in = exception_info.cause;
+    assign mtval_in = exception_info.tval;
+
+    // AI_TAG: INTERNAL_LOGIC - PC Redirect for Exceptions
+    // Override normal PC redirect when exception is taken
+    assign pc_redirect_exception = exception_valid;
+    assign pc_redirect_target_exception = trap_vector;
+    
+    // Combine normal PC redirect with exception redirect
+    assign pc_redirect_combined = pc_redirect || pc_redirect_exception;
+    assign pc_redirect_target_combined = pc_redirect_exception ? pc_redirect_target_exception : pc_redirect_target;
+    
+    // Update fetch stage connections
+    assign pc_redirect = pc_redirect_combined;
+    assign pc_redirect_target = pc_redirect_target_combined;
 
 endmodule : riscv_core
