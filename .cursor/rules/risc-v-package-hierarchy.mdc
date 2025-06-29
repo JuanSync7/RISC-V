@@ -1,0 +1,111 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# RISC-V Package Hierarchy and Import Order
+
+## Package Dependency Structure
+
+The RISC-V design uses a strict hierarchical package system that MUST be followed:
+
+```
+riscv_config_pkg (Base Configuration)
+    ↓
+riscv_types_pkg (Core Types)
+    ↓
+Specialized Packages:
+├── riscv_exception_pkg
+├── riscv_cache_types_pkg  
+├── riscv_bp_types_pkg
+├── riscv_mem_types_pkg
+├── riscv_ooo_types_pkg
+├── riscv_protocol_types_pkg
+├── riscv_inter_core_types_pkg
+└── riscv_verif_types_pkg
+    ↓
+riscv_core_pkg (Top-level Package)
+```
+
+## Mandatory Import Order
+
+**Rule 1**: ALWAYS import `riscv_config_pkg` first
+```systemverilog
+import riscv_config_pkg::*;  // Must be first - contains all parameters
+```
+
+**Rule 2**: Import core types second
+```systemverilog
+import riscv_types_pkg::*;   // Core types that depend on config
+```
+
+**Rule 3**: Import specialized packages as needed
+```systemverilog
+import riscv_exception_pkg::*;   // Only if module handles exceptions
+import riscv_ooo_types_pkg::*;   // Only for out-of-order modules
+// ... other specialized packages
+```
+
+## Critical Configuration Parameters
+
+Always use centralized parameters from [riscv_config_pkg](mdc:rtl/core/riscv_config_pkg.sv):
+
+| Parameter | Description | Usage |
+|-----------|-------------|-------|
+| `DEFAULT_EXECUTION_MODE` | "IN_ORDER" or "OUT_OF_ORDER" | Configure execution pipeline |
+| `DEFAULT_BRANCH_PREDICTOR_TYPE` | "STATIC", "DYNAMIC", "TOURNAMENT" | Branch predictor selection |
+| `XLEN` | Architecture width (32/64) | All data width parameters |
+| `DEFAULT_NUM_CORES` | Multi-core configuration | Core array sizing |
+| `DEFAULT_RESET_VECTOR` | Boot address | Reset logic |
+
+## ❌ Wrong - Hard-coded Parameters
+
+```systemverilog
+// DON'T hardcode values
+parameter integer DATA_WIDTH = 32;  // Should use XLEN
+parameter string EXEC_MODE = "IN_ORDER";  // Should use DEFAULT_EXECUTION_MODE
+```
+
+## ✅ Correct - Use Configuration Parameters
+
+```systemverilog
+import riscv_config_pkg::*;  // Import config first
+
+// Use parameterized values  
+parameter integer DATA_WIDTH = XLEN;
+parameter string EXEC_MODE = DEFAULT_EXECUTION_MODE;
+```
+
+## Module Creation Guidelines
+
+Reference the comprehensive [RTL Module Creation Guide](mdc:docs/implementation/RTL_MODULE_CREATION_GUIDE.md) for:
+- Package dependency verification process
+- Parameter usage best practices  
+- Module instantiation with proper imports
+- Common dependency issues and solutions
+
+## Package Locations
+
+Core packages are located in `rtl/core/`:
+- [riscv_config_pkg.sv](mdc:rtl/core/riscv_config_pkg.sv) - Base configuration
+- [riscv_types_pkg.sv](mdc:rtl/core/riscv_types_pkg.sv) - Core types
+- [riscv_core_pkg.sv](mdc:rtl/core/riscv_core_pkg.sv) - Top-level package
+
+## Compilation Order
+
+Packages MUST be compiled in dependency order:
+1. Configuration package first
+2. Core types second  
+3. Specialized packages third
+4. Interfaces fourth
+5. RTL modules last
+
+Example compilation sequence:
+```bash
+vlog rtl/core/riscv_config_pkg.sv     # 1. Config first
+vlog rtl/core/riscv_types_pkg.sv      # 2. Core types  
+vlog rtl/core/riscv_*_pkg.sv          # 3. Specialized packages
+vlog rtl/interfaces/*.sv              # 4. Interfaces
+vlog rtl/units/*.sv rtl/memory/*.sv   # 5. RTL modules
+```
+

@@ -82,17 +82,9 @@ module chi_adapter #(
 
     // AI_TAG: DATAPATH_DESC - Memory requests are converted to CHI requests, responses are tracked and converted back
     
-    //-----
-    // CHI Opcodes (CHI-B Specification)
-    //-----
-    localparam logic [6:0] CHI_ReadNoSnp         = 7'h01;  // Non-snooping read
-    localparam logic [6:0] CHI_WriteNoSnpPtl     = 7'h20;  // Non-snooping partial write
-    localparam logic [6:0] CHI_WriteNoSnpFull    = 7'h18;  // Non-snooping full write
-    
-    localparam logic [4:0] CHI_CompData          = 5'h04;  // Complete with data
-    localparam logic [4:0] CHI_Comp              = 5'h0C;  // Complete without data
-    
-    localparam logic [3:0] CHI_NonCopyBackWrData = 4'h6;   // Non-copyback write data
+    // Import protocol constants package for CHI opcodes
+    import riscv_protocol_constants_pkg::*;
+    import riscv_qos_pkg::*;
 
     //-----
     // Transaction Tracking
@@ -312,6 +304,27 @@ module chi_adapter #(
                 chi_if.req_addr = mem_if.req.addr;
                 chi_if.req_srcid = 7'd1; // Source node ID (this adapter)
                 chi_if.req_tgtid = 7'd0; // Target node ID (home node)
+                
+                // QoS Assignment Logic - Dynamic based on transaction type
+                logic [3:0] dynamic_qos_level;
+                qos_transaction_type_e transaction_type;
+                
+                // Determine transaction type based on address and access pattern
+                if (mem_if.req.addr >= 32'h0000_0000 && mem_if.req.addr < 32'h0000_1000) begin
+                    transaction_type = QOS_TYPE_EXCEPTION;  // Exception vectors
+                end else if (!mem_if.req.write && (mem_if.req.addr[1:0] == 2'b00)) begin
+                    transaction_type = QOS_TYPE_INSTR_FETCH; // Likely instruction fetch
+                end else if (mem_if.req.write || mem_if.req.strb != 4'hF) begin
+                    transaction_type = QOS_TYPE_DATA_ACCESS; // Data access
+                end else if (mem_if.req.addr >= 32'hF000_0000) begin
+                    transaction_type = QOS_TYPE_PERIPHERAL;  // Peripheral space
+                end else begin
+                    transaction_type = QOS_TYPE_CACHE_FILL;  // Default to cache fill
+                end
+                
+                // Dynamic QoS level assignment
+                dynamic_qos_level = get_qos_level(transaction_type);
+                chi_if.req_qos = dynamic_qos_level;    // CHI QoS
                 
                 // Map memory request size to CHI size encoding
                 case (mem_if.req.size)

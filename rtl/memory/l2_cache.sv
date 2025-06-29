@@ -140,7 +140,21 @@ module l2_cache #(
     always_ff @(posedge clk_i or negedge rst_ni) begin
         if (!rst_ni) begin
             current_state_r <= IDLE;
-            // TODO: Add reset logic for cache arrays
+            // Reset all cache arrays
+            for (int i = 0; i < NUM_SETS; i++) begin
+                for (int j = 0; j < NUM_WAYS; j++) begin
+                    l2_tags_q[i][j] <= '0;
+                    l2_data_q[i][j] <= '0;
+                    l2_state_q[i][j] <= I; // Invalid state
+                end
+                l2_lru_q[i] <= '0;
+            end
+            // Reset FSM registers
+            active_req_r <= '0;
+            active_core_id_r <= '0;
+            hit_way_r <= '0;
+            is_hit_r <= '0;
+            victim_way_r <= '0;
         end else begin
             current_state_r <= next_state_c;
             if (lru_update_en_c) begin
@@ -249,7 +263,75 @@ module l2_cache #(
             end
         endcase
     end
-    // TODO: Add snoop handling logic
+    
+    //------------------------------------------------------------------------- 
+    // Snoop Handling Logic for Cache Coherency
+    //-------------------------------------------------------------------------
+    // AI_TAG: SNOOP_HANDLER - Handles coherency snoops from other caches
+    // AI_TAG: FEATURE - MESI protocol snoop response handling
+    always_ff @(posedge clk_i or negedge rst_ni) begin : proc_snoop_handler
+        if (!rst_ni) begin
+            // Reset snoop response
+            for (int i = 0; i < NUM_CORES; i++) begin
+                coherency_if.snoop_rsp_valid[i] <= 1'b0;
+                coherency_if.snoop_rsp_data_valid[i] <= 1'b0;
+                coherency_if.snoop_rsp_data[i] <= '0;
+            end
+        end else begin
+            // Handle snoop requests from cache coherency controller
+            for (int i = 0; i < NUM_CORES; i++) begin
+                if (coherency_if.snoop_valid[i]) begin
+                    logic [INDEX_BITS-1:0] snoop_index = coherency_if.snoop_addr[i][OFFSET_BITS +: INDEX_BITS];
+                    logic [TAG_BITS-1:0] snoop_tag = coherency_if.snoop_addr[i][ADDR_WIDTH-1 -: TAG_BITS];
+                    logic snoop_hit = 1'b0;
+                    logic [WAY_BITS-1:0] snoop_way = '0;
+                    
+                    // Check for hit in all ways
+                    for (int j = 0; j < NUM_WAYS; j++) begin
+                        if (l2_tags_q[snoop_index][j] == snoop_tag && l2_state_q[snoop_index][j] != I) begin
+                            snoop_hit = 1'b1;
+                            snoop_way = j;
+                            break;
+                        end
+                    end
+                    
+                    // Process snoop based on type
+                    case (coherency_if.snoop_type[i])
+                        COHERENCY_REQ_INVALIDATE: begin
+                            if (snoop_hit) begin
+                                l2_state_q[snoop_index][snoop_way] <= I; // Invalidate line
+                            end
+                            coherency_if.snoop_rsp_valid[i] <= 1'b1;
+                            coherency_if.snoop_rsp_data_valid[i] <= 1'b0;
+                        end
+                        
+                        COHERENCY_REQ_READ: begin
+                            if (snoop_hit) begin
+                                coherency_if.snoop_rsp_data[i] <= l2_data_q[snoop_index][snoop_way];
+                                coherency_if.snoop_rsp_data_valid[i] <= 1'b1;
+                                // Downgrade state if in Modified
+                                if (l2_state_q[snoop_index][snoop_way] == M) begin
+                                    l2_state_q[snoop_index][snoop_way] <= S;
+                                end
+                            end else begin
+                                coherency_if.snoop_rsp_data_valid[i] <= 1'b0;
+                            end
+                            coherency_if.snoop_rsp_valid[i] <= 1'b1;
+                        end
+                        
+                        default: begin
+                            coherency_if.snoop_rsp_valid[i] <= 1'b1;
+                            coherency_if.snoop_rsp_data_valid[i] <= 1'b0;
+                        end
+                    endcase
+                end else begin
+                    // Clear response when no snoop
+                    coherency_if.snoop_rsp_valid[i] <= 1'b0;
+                    coherency_if.snoop_rsp_data_valid[i] <= 1'b0;
+                end
+            end
+        end
+    end
 endmodule : l2_cache
 
 //=============================================================================

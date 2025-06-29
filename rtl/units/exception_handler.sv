@@ -23,6 +23,7 @@
 
 import riscv_types_pkg::*;
 import riscv_exception_pkg::*;
+import riscv_qos_pkg::*;  // Add QoS package import
 
 module exception_handler
 (
@@ -79,7 +80,32 @@ module exception_handler
 
     // --- Interrupt Outputs ---
     // AI_TAG: PORT_DESC - interrupt_info_o - Current interrupt state
-    output interrupt_info_t interrupt_info_o
+    output interrupt_info_t interrupt_info_o,
+
+    // --- QoS-Enhanced Memory Interface for Exception Handling ---
+    output logic                mem_req_valid_o,
+    output memory_req_t         mem_req_o,
+    output qos_config_t         mem_qos_config_o,     // QoS for exception memory access
+    input  logic                mem_req_ready_i,
+    
+    input  logic                mem_rsp_valid_i,
+    input  memory_rsp_t         mem_rsp_i,
+    output logic                mem_rsp_ready_o,
+
+    // --- Debug Interface with QoS ---
+    input  logic                debug_req_i,          // Debug request
+    input  logic [31:0]         debug_addr_i,         // Debug address
+    input  logic                debug_write_i,        // Debug write
+    input  word_t               debug_wdata_i,        // Debug write data
+    output logic                debug_req_ready_o,    // Debug ready
+    
+    output logic                debug_rsp_valid_o,    // Debug response valid
+    output word_t               debug_rdata_o,        // Debug read data
+    output logic                debug_error_o,        // Debug error
+    
+    // --- QoS Configuration ---
+    input  logic                qos_enable_i,         // Global QoS enable
+    output logic [31:0]         qos_violations_o      // QoS violations count
 );
 
     // AI_TAG: INTERNAL_WIRE - Internal exception and interrupt signals
@@ -202,6 +228,193 @@ module exception_handler
     assign exception_valid_o = selected_exception.valid;
     assign exception_info_o = selected_exception;
     assign pipeline_flush_o = selected_exception.valid;
+
+    //---------------------------------------------------------------------------
+    // QoS Configuration for Exception Handling
+    //---------------------------------------------------------------------------
+    function automatic qos_config_t get_exception_qos_config(
+        input exception_info_t exc_info,
+        input logic is_debug,
+        input logic is_interrupt
+    );
+        qos_config_t qos_config;
+        
+        // Base configuration for all exceptions
+        qos_config.urgent = 1'b1;                    // All exceptions are urgent
+        qos_config.guaranteed_bw = 1'b1;             // Guarantee bandwidth
+        qos_config.weight = QOS_WEIGHT_CRITICAL;     // Maximum weight
+        qos_config.bandwidth_percent = 8'd50;        // 50% bandwidth allocation
+        qos_config.preemptable = 1'b0;              // Cannot be preempted
+        qos_config.real_time = 1'b1;                // Real-time requirement
+        qos_config.retry_limit = 3'd0;              // No retries for exceptions
+        qos_config.ordered = 1'b1;                  // Maintain ordering
+        qos_config.core_id = 4'h0;                  // Core ID
+        
+        // QoS level and type based on exception type
+        if (is_debug) begin
+            // Debug access - highest priority
+            qos_config.qos_level = QOS_LEVEL_CRITICAL;
+            qos_config.transaction_type = QOS_TYPE_DEBUG;
+            qos_config.max_latency_cycles = 16'd5;   // 5 cycles max for debug
+        end else if (is_interrupt) begin
+            // Interrupt handling - critical priority
+            qos_config.qos_level = QOS_LEVEL_CRITICAL;
+            qos_config.transaction_type = QOS_TYPE_EXCEPTION;
+            qos_config.max_latency_cycles = 16'd10;  // 10 cycles max for interrupts
+        end else begin
+            // Exception handling based on type
+            case (exc_info.cause)
+                EXC_CAUSE_INSTR_ACCESS_FAULT,
+                EXC_CAUSE_LOAD_ACCESS_FAULT,
+                EXC_CAUSE_STORE_ACCESS_FAULT: begin
+                    qos_config.qos_level = QOS_LEVEL_CRITICAL;
+                    qos_config.transaction_type = QOS_TYPE_EXCEPTION;
+                    qos_config.max_latency_cycles = 16'd10;
+                end
+                
+                EXC_CAUSE_BREAKPOINT: begin
+                    qos_config.qos_level = QOS_LEVEL_CRITICAL;
+                    qos_config.transaction_type = QOS_TYPE_DEBUG;
+                    qos_config.max_latency_cycles = 16'd5;
+                end
+                
+                EXC_CAUSE_ECALL_M: begin
+                    qos_config.qos_level = QOS_LEVEL_HIGH;
+                    qos_config.transaction_type = QOS_TYPE_EXCEPTION;
+                    qos_config.max_latency_cycles = 16'd15;
+                end
+                
+                default: begin
+                    qos_config.qos_level = QOS_LEVEL_HIGH;
+                    qos_config.transaction_type = QOS_TYPE_EXCEPTION;
+                    qos_config.max_latency_cycles = 16'd20;
+                end
+            endcase
+        end
+        
+        return qos_config;
+    endfunction
+
+    //---------------------------------------------------------------------------
+    // QoS-Enhanced Memory Access for Exception Handling
+    //---------------------------------------------------------------------------
+    logic exception_memory_access_needed;
+    logic debug_memory_access_needed;
+    logic [31:0] qos_violation_counter;
+    qos_config_t exception_qos_config;
+    qos_config_t debug_qos_config;
+    
+    always_comb begin : proc_exception_memory_qos
+        // Determine if memory access is needed for exception handling
+        exception_memory_access_needed = selected_exception.valid && (
+            // Vectored mode needs table lookup
+            (mtvec_mode_i == 2'b01) ||
+            // Memory access faults need investigation
+            (selected_exception.cause == EXC_CAUSE_LOAD_ACCESS_FAULT) ||
+            (selected_exception.cause == EXC_CAUSE_STORE_ACCESS_FAULT) ||
+            (selected_exception.cause == EXC_CAUSE_INSTR_ACCESS_FAULT)
+        );
+        
+        // Configure QoS for exception handling
+        exception_qos_config = get_exception_qos_config(
+            selected_exception,
+            1'b0,  // Not debug
+            interrupt_detected.valid
+        );
+        
+        // Debug memory access
+        debug_memory_access_needed = debug_req_i;
+        debug_qos_config = get_exception_qos_config(
+            '0,    // No exception info for debug
+            1'b1,  // Is debug
+            1'b0   // Not interrupt
+        );
+    end
+
+    //---------------------------------------------------------------------------
+    // QoS Memory Interface Arbitration
+    //---------------------------------------------------------------------------
+    always_comb begin : proc_qos_memory_arbitration
+        // Default outputs
+        mem_req_valid_o = 1'b0;
+        mem_req_o = '0;
+        mem_qos_config_o = '0;
+        debug_req_ready_o = 1'b0;
+        
+        // Prioritize debug access over exception access (both are critical)
+        if (debug_memory_access_needed && qos_enable_i) begin
+            mem_req_valid_o = 1'b1;
+            mem_req_o.addr = debug_addr_i;
+            mem_req_o.write = debug_write_i;
+            mem_req_o.data = debug_wdata_i;
+            mem_req_o.strb = 4'hF; // Full word access
+            mem_qos_config_o = debug_qos_config;
+            debug_req_ready_o = mem_req_ready_i;
+        end else if (exception_memory_access_needed && qos_enable_i) begin
+            mem_req_valid_o = 1'b1;
+            
+            // Calculate exception memory address
+            if (mtvec_mode_i == 2'b01) begin
+                // Vectored mode - calculate table entry address
+                mem_req_o.addr = {mtvec_base_i[31:2], 2'b00} + (selected_exception.cause << 2);
+            end else begin
+                // Direct mode - use base address
+                mem_req_o.addr = {mtvec_base_i[31:2], 2'b00};
+            end
+            
+            mem_req_o.write = 1'b0; // Exception handling typically reads
+            mem_req_o.data = '0;
+            mem_req_o.strb = 4'hF; // Full word access
+            mem_qos_config_o = exception_qos_config;
+        end
+    end
+
+    //---------------------------------------------------------------------------
+    // QoS Violation Monitoring
+    //---------------------------------------------------------------------------
+    always_ff @(posedge clk_i or negedge rst_ni) begin : proc_qos_monitoring
+        if (!rst_ni) begin
+            qos_violation_counter <= 0;
+        end else begin
+            // Monitor for QoS violations in exception/debug access
+            if (mem_req_valid_o && !mem_req_ready_i) begin
+                // Memory not ready for critical access - potential violation
+                qos_violation_counter <= qos_violation_counter + 1;
+            end
+            
+            // Monitor debug access latency
+            if (debug_req_i && !debug_req_ready_o) begin
+                // Debug access delayed - critical violation
+                qos_violation_counter <= qos_violation_counter + 1;
+            end
+        end
+    end
+
+    //---------------------------------------------------------------------------
+    // Debug Response Handling
+    //---------------------------------------------------------------------------
+    always_ff @(posedge clk_i or negedge rst_ni) begin : proc_debug_response
+        if (!rst_ni) begin
+            debug_rsp_valid_o <= 1'b0;
+            debug_rdata_o <= '0;
+            debug_error_o <= 1'b0;
+        end else begin
+            if (mem_rsp_valid_i && debug_memory_access_needed) begin
+                debug_rsp_valid_o <= 1'b1;
+                debug_rdata_o <= mem_rsp_i.data;
+                debug_error_o <= mem_rsp_i.error;
+            end else begin
+                debug_rsp_valid_o <= 1'b0;
+                debug_error_o <= 1'b0;
+            end
+        end
+    end
+
+    //---------------------------------------------------------------------------
+    // Additional Output Assignments
+    //---------------------------------------------------------------------------
+    assign qos_violations_o = qos_violation_counter;
+    assign mem_rsp_ready_o = 1'b1; // Always ready to accept responses
 
 endmodule : exception_handler
 

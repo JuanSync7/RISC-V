@@ -86,16 +86,9 @@ module tilelink_adapter #(
 
     // AI_TAG: DATAPATH_DESC - Memory requests are converted to TileLink A-channel requests, D-channel responses are converted back
 
-    //-----
-    // TileLink Opcodes (TL-UL subset)
-    //-----
-    localparam logic [2:0] TL_PutFullData    = 3'h0;  // Full cache line write
-    localparam logic [2:0] TL_PutPartialData = 3'h1;  // Partial write with mask
-    localparam logic [2:0] TL_Get            = 3'h4;  // Read request
-    
-    // Response opcodes
-    localparam logic [2:0] TL_AccessAck      = 3'h0;  // Write acknowledgment
-    localparam logic [2:0] TL_AccessAckData  = 3'h1;  // Read data response
+    // Import protocol constants package for TileLink opcodes
+    import riscv_protocol_constants_pkg::*;
+    import riscv_qos_pkg::*;
 
     //-----
     // Transaction Tracking
@@ -291,18 +284,40 @@ module tilelink_adapter #(
                 if (mem_if.req.write) begin
                     // Determine if full or partial write based on strobe pattern
                     if (mem_if.req.strb == {(DATA_WIDTH/8){1'b1}}) begin
-                        tl_if.a_opcode = TL_PutFullData;
+                        tl_if.a_opcode = TL_A_PutFullData;
                     end else begin
-                        tl_if.a_opcode = TL_PutPartialData;
+                        tl_if.a_opcode = TL_A_PutPartialData;
                     end
                     tl_if.a_data = mem_if.req.data;
                 end else begin
-                    tl_if.a_opcode = TL_Get;
-                    tl_if.a_data = '0;
+                    tl_if.a_opcode = TL_A_Get;
+                    tl_if.a_data = RESET_VALUE_32BIT;
                 end
                 
                 // Set default parameters
-                tl_if.a_param = 3'h0;  // No specific parameters for TL-UL
+                tl_if.a_param = TL_PARAM_NO_PARAM;  // No specific parameters for TL-UL
+                
+                // QoS Assignment Logic - TileLink priority mapping
+                logic [3:0] dynamic_qos_level;
+                qos_transaction_type_e transaction_type;
+                
+                // Determine transaction type based on address and access pattern
+                if (mem_if.req.addr >= 32'h0000_0000 && mem_if.req.addr < 32'h0000_1000) begin
+                    transaction_type = QOS_TYPE_EXCEPTION;  // Exception vectors
+                end else if (!mem_if.req.write && (mem_if.req.addr[1:0] == 2'b00)) begin
+                    transaction_type = QOS_TYPE_INSTR_FETCH; // Likely instruction fetch
+                end else if (mem_if.req.write || mem_if.req.strb != 4'hF) begin
+                    transaction_type = QOS_TYPE_DATA_ACCESS; // Data access
+                end else if (mem_if.req.addr >= 32'hF000_0000) begin
+                    transaction_type = QOS_TYPE_PERIPHERAL;  // Peripheral space
+                end else begin
+                    transaction_type = QOS_TYPE_CACHE_FILL;  // Default to cache fill
+                end
+                
+                // Dynamic QoS level assignment (embedded in user field for TileLink)
+                dynamic_qos_level = get_qos_level(transaction_type);
+                tl_if.a_user[3:0] = dynamic_qos_level;   // QoS in user field
+                tl_if.a_user[7:4] = 4'h0; // Reserved user bits
                 
                 if (tl_if.a_ready) begin
                     next_state_c = WAIT_RESPONSE;

@@ -19,6 +19,7 @@
 //=============================================================================
 
 `timescale 1ns/1ps
+`default_nettype none
 
 // AI_TAG: PACKAGE - Inter-core communication and synchronization types
 // AI_TAG: FEATURE - Message passing interface definitions

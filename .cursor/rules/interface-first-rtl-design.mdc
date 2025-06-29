@@ -1,0 +1,81 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Interface-First RTL Design Rule
+
+## CRITICAL: Mandatory SystemVerilog Interface Usage
+
+**#1 Rule for RTL Design**: NEVER hardcode protocol signals. ALWAYS use SystemVerilog interfaces with proper modports for ALL protocol communications.
+
+## Why This Matters
+
+- **Type Safety**: Prevents connection errors and protocol violations
+- **Maintainability**: Interface changes propagate automatically 
+- **Verification**: Enables proper protocol checking and monitoring
+- **Scalability**: Supports multi-core and multi-protocol designs
+- **Tool Support**: Better synthesis, timing analysis, and debugging
+
+## Required Interface Usage
+
+| Protocol Type | Required Interface | Correct Modport |
+|---------------|-------------------|-----------------|
+| **Memory Operations** | `memory_req_rsp_if` | `.master` (initiator)<br/>`.slave` (responder) |
+| **AXI4 Protocol** | `axi4_if` | `.master`<br/>`.slave` |
+| **CHI Protocol** | `chi_if` | `.rn` (Request Node)<br/>`.sn` (Slave Node) |
+| **TileLink Protocol** | `tilelink_if` | `.manager`<br/>`.client` |
+| **Cache Coherency** | `cache_coherency_if` | `.l1_cache_port`<br/>`.coherency_controller_port` |
+| **Inter-Core Comm** | `inter_core_comm_if` | `.core`<br/>`.manager` |
+
+## Implementation Guide
+
+Follow the comprehensive guidance in [RTL Module Creation Guide](mdc:docs/implementation/RTL_MODULE_CREATION_GUIDE.md) for:
+- Interface selection and modport usage
+- Module creation checklist with interface requirements
+- Design patterns using interfaces
+- Common pitfalls to avoid
+
+## Reference Implementations
+
+Study these properly implemented interface-based modules:
+- [AXI4 Adapter](mdc:rtl/protocols/axi4_adapter.sv) - Clean AXI4 interface usage
+- [CHI Adapter](mdc:rtl/protocols/chi_adapter.sv) - Proper CHI protocol implementation  
+- [TileLink Adapter](mdc:rtl/protocols/tilelink_adapter.sv) - TileLink interface example
+- [Protocol Factory](mdc:rtl/protocols/protocol_factory.sv) - Multi-protocol switching
+
+## Interface Definitions
+
+Reference these interface definitions:
+- [AXI4 Interface](mdc:rtl/interfaces/axi4_if.sv)
+- [CHI Interface](mdc:rtl/interfaces/chi_if.sv)  
+- [TileLink Interface](mdc:rtl/interfaces/tilelink_if.sv)
+
+## ❌ NEVER DO THIS - Hardcoded Signals
+
+```systemverilog
+module bad_example (
+    // DON'T hardcode protocol signals
+    output logic        axi_awvalid,
+    input  logic        axi_awready,
+    output logic [31:0] axi_awaddr,
+    // ... 50+ more signals
+);
+```
+
+## ✅ ALWAYS DO THIS - Use Interfaces
+
+```systemverilog
+module good_example (
+    // Clean interface usage
+    axi4_if.master axi_if
+);
+```
+
+## Enforcement
+
+- All new RTL modules MUST use interfaces for protocol communications
+- No hardcoded protocol signals will be accepted in code reviews
+- Interface usage is verified during compilation and lint checks
+- Refer to [Protocol Interface Migration](mdc:docs/implementation/PROTOCOL_INTERFACE_MIGRATION.md) for migration examples
+

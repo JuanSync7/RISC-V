@@ -110,21 +110,83 @@ module axi4_adapter #(
     assign axi_if.aclk = clk_i;
     assign axi_if.aresetn = rst_ni;
     
-    // AI_TAG: INTERNAL_LOGIC - AXI4 signal assignments for fixed values
-    assign axi_if.awlen = 8'h00;     // Single beat transfers
-    assign axi_if.arlen = 8'h00;     // Single beat transfers
-    assign axi_if.awburst = 2'b01;   // INCR burst type
-    assign axi_if.arburst = 2'b01;   // INCR burst type
-    assign axi_if.awlock = 1'b0;     // Normal access
-    assign axi_if.arlock = 1'b0;     // Normal access
-    assign axi_if.awqos = 4'h0;      // No QoS
-    assign axi_if.arqos = 4'h0;      // No QoS
-    assign axi_if.awregion = 4'h0;   // No region
-    assign axi_if.arregion = 4'h0;   // No region
-    assign axi_if.awuser = {USER_WIDTH{1'b0}};  // Default user signal
-    assign axi_if.aruser = {USER_WIDTH{1'b0}};  // Default user signal
-    assign axi_if.wuser = {USER_WIDTH{1'b0}};   // Default user signal
-    assign axi_if.wlast = 1'b1;      // Single beat transfers
+    // Import protocol constants package
+    import riscv_protocol_constants_pkg::*;
+    import riscv_qos_pkg::*;
+    
+    // AI_TAG: INTERNAL_LOGIC - AXI4 signal assignments using parameterized constants
+    assign axi_if.awlen = AXI4_LEN_SINGLE_BEAT;     // Single beat transfers
+    assign axi_if.arlen = AXI4_LEN_SINGLE_BEAT;     // Single beat transfers
+    assign axi_if.awburst = AXI4_BURST_INCR;        // INCR burst type
+    assign axi_if.arburst = AXI4_BURST_INCR;        // INCR burst type
+    assign axi_if.awlock = AXI4_LOCK_NORMAL;        // Normal access
+    assign axi_if.arlock = AXI4_LOCK_NORMAL;        // Normal access
+    assign axi_if.awregion = AXI4_REGION_DEFAULT;   // No region
+    assign axi_if.arregion = AXI4_REGION_DEFAULT;   // No region
+    assign axi_if.awuser = {USER_WIDTH{RESET_VALUE_1BIT}};  // Default user signal
+    assign axi_if.aruser = {USER_WIDTH{RESET_VALUE_1BIT}};  // Default user signal
+    assign axi_if.wuser = {USER_WIDTH{RESET_VALUE_1BIT}};   // Default user signal
+    assign axi_if.wlast = AXI4_LAST_TRANSFER;       // Single beat transfers
+    
+    // QoS Assignment Logic - Differentiated for reads vs writes
+    logic [3:0] read_qos_level, write_qos_level;
+    qos_transaction_type_e read_transaction_type, write_transaction_type;
+    
+    // Determine read transaction type based on address and access pattern
+    always_comb begin : proc_read_transaction_type_detection
+        if (mem_if.req.addr >= 32'h0000_0000 && mem_if.req.addr < 32'h0000_1000) begin
+            read_transaction_type = QOS_TYPE_EXCEPTION;  // Exception vectors - critical
+        end else if (mem_if.req.addr[1:0] == 2'b00) begin
+            read_transaction_type = QOS_TYPE_INSTR_FETCH; // Likely instruction fetch - high priority
+        end else if (mem_if.req.addr >= 32'hF000_0000) begin
+            read_transaction_type = QOS_TYPE_PERIPHERAL;  // Peripheral space - best effort
+        end else begin
+            read_transaction_type = QOS_TYPE_DATA_ACCESS; // Data read - medium-high priority
+        end
+    end
+    
+    // Determine write transaction type based on address and access pattern  
+    always_comb begin : proc_write_transaction_type_detection
+        if (mem_if.req.addr >= 32'h0000_0000 && mem_if.req.addr < 32'h0000_1000) begin
+            write_transaction_type = QOS_TYPE_EXCEPTION;  // Exception vectors - critical
+        end else if (mem_if.req.strb != 4'hF) begin
+            write_transaction_type = QOS_TYPE_DATA_ACCESS; // Partial write - data access
+        end else if (mem_if.req.addr >= 32'hF000_0000) begin
+            write_transaction_type = QOS_TYPE_PERIPHERAL;  // Peripheral space - best effort
+        end else if ((mem_if.req.addr & 32'hFFFF_FF00) == 32'hFFFF_FF00) begin
+            write_transaction_type = QOS_TYPE_CACHE_WB;   // Cache writeback region - lower priority
+        end else begin
+            write_transaction_type = QOS_TYPE_DATA_ACCESS; // Regular data write
+        end
+    end
+    
+    // Differentiated QoS level assignment with operation-specific tuning
+    always_comb begin : proc_qos_level_assignment
+        // Base QoS levels from transaction types
+        logic [3:0] base_read_qos = get_qos_level(read_transaction_type);
+        logic [3:0] base_write_qos = get_qos_level(write_transaction_type);
+        
+        // Read QoS adjustments - reads typically higher priority for performance
+        case (read_transaction_type)
+            QOS_TYPE_INSTR_FETCH: read_qos_level = QOS_LEVEL_HIGH;        // Keep instruction fetches high
+            QOS_TYPE_DATA_ACCESS: read_qos_level = QOS_LEVEL_MEDIUM_HIGH; // Data reads important for performance
+            QOS_TYPE_CACHE_FILL:  read_qos_level = QOS_LEVEL_MEDIUM;      // Cache fills medium priority
+            default:              read_qos_level = base_read_qos;         // Use base level
+        endcase
+        
+        // Write QoS adjustments - writes can be slightly lower priority 
+        case (write_transaction_type)
+            QOS_TYPE_EXCEPTION:   write_qos_level = QOS_LEVEL_CRITICAL;   // Exception writes critical
+            QOS_TYPE_DATA_ACCESS: write_qos_level = QOS_LEVEL_MEDIUM;     // Data writes medium (posted)
+            QOS_TYPE_CACHE_WB:    write_qos_level = QOS_LEVEL_MEDIUM_LOW; // Writebacks lower priority
+            QOS_TYPE_PERIPHERAL:  write_qos_level = QOS_LEVEL_LOW;        // Peripheral writes low priority
+            default:              write_qos_level = base_write_qos;       // Use base level
+        endcase
+    end
+    
+    // Final QoS assignment - context-sensitive
+    assign axi_if.awqos = write_qos_level;  // Write QoS - optimized for write operations
+    assign axi_if.arqos = read_qos_level;   // Read QoS - optimized for read operations
     
     // AI_TAG: FSM_TRANSITION - axi4_state_fsm: IDLE -> READ_ADDR when (!pending_write_r && mem_if.req_valid)
     // AI_TAG: FSM_TRANSITION - axi4_state_fsm: IDLE -> WRITE_ADDR when (pending_write_r && mem_if.req_valid)

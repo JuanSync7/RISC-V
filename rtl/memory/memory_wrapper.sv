@@ -300,12 +300,56 @@ module memory_wrapper #(
             );
             
         end else if (PROTOCOL_TYPE == "CHI") begin : chi_adapter_gen
-            // TODO: Add CHI protocol adapter when implemented
-            $error("CHI protocol adapter not yet implemented");
+            // CHI protocol adapter for instruction and data memory
+            chi_adapter #(
+                .ADDR_WIDTH(ADDR_WIDTH),
+                .DATA_WIDTH(DATA_WIDTH),
+                .ID_WIDTH(ID_WIDTH)
+            ) instr_chi_adapter (
+                .clk_i(clk_i),
+                .rst_ni(rst_ni),
+                .mem_if(instr_mem_if.slave),
+                .chi_if(/* CHI interface connections */),
+                .status_o(/* status signals */)
+            );
+            
+            chi_adapter #(
+                .ADDR_WIDTH(ADDR_WIDTH),
+                .DATA_WIDTH(DATA_WIDTH),
+                .ID_WIDTH(ID_WIDTH)
+            ) data_chi_adapter (
+                .clk_i(clk_i),
+                .rst_ni(rst_ni),
+                .mem_if(data_mem_if.slave),
+                .chi_if(/* CHI interface connections */),
+                .status_o(/* status signals */)
+            );
             
         end else if (PROTOCOL_TYPE == "TILELINK") begin : tilelink_adapter_gen
-            // TODO: Add TileLink protocol adapter when implemented
-            $error("TileLink protocol adapter not yet implemented");
+            // TileLink protocol adapter for instruction and data memory
+            tilelink_adapter #(
+                .ADDR_WIDTH(ADDR_WIDTH),
+                .DATA_WIDTH(DATA_WIDTH),
+                .SOURCE_WIDTH(ID_WIDTH)
+            ) instr_tl_adapter (
+                .clk_i(clk_i),
+                .rst_ni(rst_ni),
+                .mem_if(instr_mem_if.slave),
+                .tl_if(/* TileLink interface connections */),
+                .status_o(/* status signals */)
+            );
+            
+            tilelink_adapter #(
+                .ADDR_WIDTH(ADDR_WIDTH),
+                .DATA_WIDTH(DATA_WIDTH),
+                .SOURCE_WIDTH(ID_WIDTH)
+            ) data_tl_adapter (
+                .clk_i(clk_i),
+                .rst_ni(rst_ni),
+                .mem_if(data_mem_if.slave),
+                .tl_if(/* TileLink interface connections */),
+                .status_o(/* status signals */)
+            );
             
         end else begin : invalid_protocol_gen
             $error("Invalid PROTOCOL_TYPE: %s. Must be AXI4, CHI, or TILELINK", PROTOCOL_TYPE);

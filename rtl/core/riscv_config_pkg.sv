@@ -275,4 +275,151 @@ package riscv_config_pkg;
     parameter integer LARGE_NUM_MULT_UNITS = 2;
     parameter integer LARGE_NUM_DIV_UNITS = 2;
 
-endpackage : riscv_config_pkg 
+    //---------------------------------------------------------------------------
+    // 14. Enhanced Multi-Core Configuration
+    //---------------------------------------------------------------------------
+    parameter integer MAX_CORES_SUPPORTED = 8;          // Maximum cores hardware can support
+    parameter integer CORE_ID_WIDTH_MAX = $clog2(MAX_CORES_SUPPORTED);
+    parameter integer DEFAULT_MSG_WIDTH = 32;           // Inter-core message width
+    parameter integer DEFAULT_NUM_BARRIERS = 8;         // Hardware barrier count
+    parameter integer DEFAULT_BARRIER_TIMEOUT = 10000;  // Barrier timeout cycles
+    
+    // Core topology configuration
+    parameter string DEFAULT_TOPOLOGY = "RING";         // "RING", "MESH", "TORUS", "XBAR"
+    parameter integer MESH_WIDTH = 2;                   // For mesh topology
+    parameter integer MESH_HEIGHT = 2;                  // For mesh topology
+    
+    //---------------------------------------------------------------------------
+    // 15. Enhanced Cache Configuration
+    //---------------------------------------------------------------------------
+    // L1 Cache detailed configuration
+    parameter integer DEFAULT_L1_ICACHE_SIZE = 32*1024;     // 32KB instruction cache
+    parameter integer DEFAULT_L1_DCACHE_SIZE = 32*1024;     // 32KB data cache
+    parameter integer DEFAULT_L1_ICACHE_WAYS = 2;           // I-cache associativity
+    parameter integer DEFAULT_L1_DCACHE_WAYS = 2;           // D-cache associativity
+    parameter integer DEFAULT_L1_ICACHE_LINE_SIZE = 64;     // I-cache line size
+    parameter integer DEFAULT_L1_DCACHE_LINE_SIZE = 64;     // D-cache line size
+    
+    // Cache replacement policies
+    parameter string DEFAULT_L1_REPLACEMENT = "LRU";        // "LRU", "RANDOM", "FIFO"
+    parameter string DEFAULT_L2_REPLACEMENT = "LRU";        // L2 replacement policy
+    parameter string DEFAULT_L3_REPLACEMENT = "LRU";        // L3 replacement policy
+    
+    // Cache coherency configuration
+    parameter string DEFAULT_COHERENCY_PROTOCOL = "MESI";   // "MESI", "MOESI", "MSI"
+    parameter integer DEFAULT_SNOOP_FILTER_SIZE = 1024;     // Snoop filter entries
+    
+    // Cache performance tuning
+    parameter integer DEFAULT_CACHE_MISS_PENALTY = 100;     // Cycles for cache miss
+    parameter integer DEFAULT_COHERENCY_LATENCY = 10;       // Coherency operation latency
+    parameter integer DEFAULT_WRITEBACK_LATENCY = 50;       // Writeback latency
+    
+    //---------------------------------------------------------------------------
+    // 16. Enhanced Protocol Configuration
+    //---------------------------------------------------------------------------
+    // Protocol selection and capabilities
+    parameter string DEFAULT_MEMORY_PROTOCOL = "AXI4";      // Default memory protocol
+    parameter logic  ENABLE_AXI4_PROTOCOL = 1'b1;           // Enable AXI4 support
+    parameter logic  ENABLE_CHI_PROTOCOL = 1'b1;            // Enable CHI support
+    parameter logic  ENABLE_TILELINK_PROTOCOL = 1'b1;       // Enable TileLink support
+    parameter logic  ENABLE_PROTOCOL_SWITCHING = 1'b1;      // Dynamic protocol switching
+    
+    // Protocol-specific parameters
+    parameter integer DEFAULT_AXI4_MAX_OUTSTANDING = 16;    // AXI4 outstanding transactions
+    parameter integer DEFAULT_CHI_MAX_OUTSTANDING = 32;     // CHI outstanding transactions
+    parameter integer DEFAULT_TL_MAX_OUTSTANDING = 16;      // TileLink outstanding transactions
+    
+    // CHI-specific configuration
+    parameter integer DEFAULT_CHI_NODE_ID = 1;              // CHI node ID
+    parameter integer DEFAULT_CHI_HOME_NODE_ID = 0;         // CHI home node ID
+    parameter string  DEFAULT_CHI_VERSION = "CHI_B";        // CHI specification version
+    
+    // TileLink-specific configuration  
+    parameter integer DEFAULT_TL_SOURCE_ID_BASE = 0;        // TileLink source ID base
+    parameter string  DEFAULT_TL_VERSION = "TL_UL";         // TileLink version (TL-UL/TL-UH/TL-C)
+    
+    //---------------------------------------------------------------------------
+    // 17. Enhanced Performance Configuration
+    //---------------------------------------------------------------------------
+    // Performance monitoring
+    parameter integer DEFAULT_PERF_COUNTERS = 16;           // Number of performance counters
+    parameter integer DEFAULT_PERF_COUNTER_WIDTH = 64;      // Performance counter width
+    parameter logic   ENABLE_PERF_MONITORING = 1'b1;        // Enable performance monitoring
+    parameter integer DEFAULT_PERF_SAMPLE_RATE = 1000;      // Performance sampling rate
+    
+    // Bandwidth and latency targets
+    parameter integer TARGET_MEMORY_BANDWIDTH_GBPS = 10;    // Target memory bandwidth (Gbps)
+    parameter integer TARGET_CACHE_LATENCY_CYCLES = 2;      // Target cache access latency
+    parameter integer TARGET_COHERENCY_LATENCY_CYCLES = 10; // Target coherency latency
+    
+    // Power management
+    parameter logic   ENABLE_CLOCK_GATING = 1'b1;           // Enable clock gating
+    parameter logic   ENABLE_POWER_GATING = 1'b0;           // Enable power gating
+    parameter integer DEFAULT_IDLE_TIMEOUT = 1000;          // Idle timeout for power management
+    
+    //---------------------------------------------------------------------------
+    // 18. Enhanced Debug and Verification Configuration
+    //---------------------------------------------------------------------------
+    // Debug capabilities
+    parameter logic   ENABLE_DEBUG_MODULE = 1'b1;           // Enable debug module
+    parameter integer DEFAULT_DEBUG_ADDRESS_BASE = 32'h1000; // Debug module base address
+    parameter integer DEFAULT_DEBUG_ROM_SIZE = 4096;        // Debug ROM size
+    parameter logic   ENABLE_TRACE_UNIT = 1'b1;             // Enable trace unit
+    parameter integer DEFAULT_TRACE_BUFFER_SIZE = 8192;     // Trace buffer size
+    
+    // Verification configuration
+    parameter logic   ENABLE_ASSERTIONS = 1'b1;             // Enable SVA assertions
+    parameter logic   ENABLE_COVERAGE = 1'b1;               // Enable coverage collection
+    parameter integer DEFAULT_SIM_TIMEOUT = 100000;         // Simulation timeout cycles
+    parameter logic   ENABLE_RANDOM_DELAYS = 1'b0;          // Enable random delays in testbench
+    
+    // Test configuration
+    parameter integer DEFAULT_TEST_ITERATIONS = 1000;       // Default test iterations
+    parameter integer DEFAULT_STRESS_TEST_TIME = 1000000;   // Stress test duration
+    parameter logic   ENABLE_DIRECTED_TESTS = 1'b1;         // Enable directed tests
+    parameter logic   ENABLE_RANDOM_TESTS = 1'b1;           // Enable random tests
+    
+    //---------------------------------------------------------------------------
+    // 19. Enhanced Memory System Configuration  
+    //---------------------------------------------------------------------------
+    // Memory hierarchy configuration
+    parameter integer DEFAULT_MEMORY_CHANNELS = 1;          // Number of memory channels
+    parameter integer DEFAULT_MEMORY_RANKS = 1;             // Memory ranks per channel
+    parameter integer DEFAULT_MEMORY_BANKS = 8;             // Memory banks per rank
+    parameter integer DEFAULT_MEMORY_PAGE_SIZE = 4096;      // Memory page size
+    
+    // Memory timing parameters
+    parameter integer DEFAULT_MEMORY_LATENCY = 100;         // Memory access latency
+    parameter integer DEFAULT_MEMORY_REFRESH_PERIOD = 7800; // Refresh period (ns)
+    parameter integer DEFAULT_MEMORY_ROW_CYCLE_TIME = 50;   // Row cycle time
+    parameter integer DEFAULT_MEMORY_COLUMN_CYCLE_TIME = 15; // Column cycle time
+    
+    // Address mapping configuration
+    parameter string  DEFAULT_ADDRESS_MAPPING = "ROW_BANK_COL"; // Address mapping scheme
+    parameter logic   ENABLE_ADDRESS_SCRAMBLING = 1'b0;     // Enable address scrambling
+    parameter integer DEFAULT_INTERLEAVE_SIZE = 64;         // Interleave size (bytes)
+    
+    //---------------------------------------------------------------------------
+    // 20. FPGA vs ASIC Configuration
+    //---------------------------------------------------------------------------
+    // Target-specific configuration
+    parameter string  DEFAULT_TARGET = "ASIC";               // "ASIC" or "FPGA"
+    parameter logic   FPGA_OPTIMIZATIONS = 1'b0;            // Enable FPGA-specific optimizations
+    parameter logic   ASIC_OPTIMIZATIONS = 1'b1;            // Enable ASIC-specific optimizations
+    
+    // FPGA-specific parameters
+    parameter integer FPGA_MAX_FREQUENCY_MHZ = 100;         // Maximum FPGA frequency
+    parameter logic   FPGA_USE_BLOCK_RAM = 1'b1;            // Use FPGA block RAM
+    parameter logic   FPGA_USE_DSP_SLICES = 1'b1;           // Use FPGA DSP slices
+    parameter string  FPGA_FAMILY = "ULTRASCALE_PLUS";      // FPGA family
+    
+    // ASIC-specific parameters  
+    parameter integer ASIC_MAX_FREQUENCY_MHZ = 1000;        // Maximum ASIC frequency
+    parameter string  ASIC_PROCESS_NODE = "7nm";            // Process node
+    parameter string  ASIC_LIBRARY = "TYPICAL";             // Library corner
+    parameter integer ASIC_VOLTAGE_MV = 800;                // Operating voltage (mV)
+    parameter integer ASIC_TEMPERATURE_C = 25;              // Operating temperature (C)
+
+endpackage : riscv_config_pkg
+
+`default_nettype wire 

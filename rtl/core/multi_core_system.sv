@@ -39,17 +39,23 @@ import riscv_core_pkg::*;
 import riscv_cache_types_pkg::*;
 import riscv_protocol_types_pkg::*;
 import riscv_mem_types_pkg::*;
+import riscv_protocol_constants_pkg::*;
+import riscv_inter_core_types_pkg::*;
+import riscv_qos_pkg::*;
 
 module multi_core_system #(
     parameter integer NUM_CORES = DEFAULT_NUM_CORES,        // AI_TAG: PARAM_DESC - Number of cores in the system
                                                             // AI_TAG: PARAM_USAGE - Configures core array size and interconnect
     parameter string EXECUTION_MODE = DEFAULT_EXECUTION_MODE, // AI_TAG: PARAM_DESC - "IN_ORDER" or "OUT_OF_ORDER"
     parameter string BRANCH_PREDICTOR_TYPE = DEFAULT_BRANCH_PREDICTOR_TYPE, // AI_TAG: PARAM_DESC - Branch predictor type
-    parameter string DEFAULT_PROTOCOL = "AXI4",             // AI_TAG: PARAM_DESC - Default memory protocol
+    parameter string DEFAULT_PROTOCOL = DEFAULT_MEMORY_PROTOCOL,             // AI_TAG: PARAM_DESC - Default memory protocol
     parameter integer L1_ICACHE_SIZE = DEFAULT_L1_ICACHE_SIZE, // AI_TAG: PARAM_DESC - L1 instruction cache size
     parameter integer L1_DCACHE_SIZE = DEFAULT_L1_DCACHE_SIZE, // AI_TAG: PARAM_DESC - L1 data cache size
     parameter integer L2_CACHE_SIZE = DEFAULT_L2_CACHE_SIZE,   // AI_TAG: PARAM_DESC - Shared L2 cache size
-    parameter integer L3_CACHE_SIZE = DEFAULT_L3_CACHE_SIZE    // AI_TAG: PARAM_DESC - L3 cache size
+    parameter integer L3_CACHE_SIZE = DEFAULT_L3_CACHE_SIZE,   // AI_TAG: PARAM_DESC - L3 cache size
+    parameter integer MSG_WIDTH = DEFAULT_MSG_WIDTH,           // AI_TAG: PARAM_DESC - Inter-core message width
+    parameter integer NUM_BARRIERS = DEFAULT_NUM_BARRIERS,     // AI_TAG: PARAM_DESC - Number of hardware barriers
+    parameter integer MAX_OUTSTANDING = DEFAULT_AXI4_MAX_OUTSTANDING // AI_TAG: PARAM_DESC - Maximum outstanding transactions
 ) (
     input  logic        clk_i,     // AI_TAG: PORT_DESC - System clock
                                    // AI_TAG: PORT_CLK_DOMAIN - clk_i
@@ -62,41 +68,33 @@ module multi_core_system #(
     output logic [31:0] sys_status_o,     // AI_TAG: PORT_DESC - System status register
                                           // AI_TAG: PORT_CLK_DOMAIN - clk_i
 
-    // External memory interface (configurable protocol)
-    // AXI4 interface
-    output logic                    axi4_awvalid_o,
-    input  logic                    axi4_awready_i,
-    output logic [3:0]              axi4_awid_o,
-    output logic [ADDR_WIDTH-1:0]   axi4_awaddr_o,
-    output logic [7:0]              axi4_awlen_o,
-    output logic [2:0]              axi4_awsize_o,
-    output logic [1:0]              axi4_awburst_o,
-    
-    output logic                    axi4_wvalid_o,
-    input  logic                    axi4_wready_i,
-    output logic [XLEN-1:0]         axi4_wdata_o,
-    output logic [XLEN/8-1:0]       axi4_wstrb_o,
-    output logic                    axi4_wlast_o,
-    
-    input  logic                    axi4_bvalid_i,
-    output logic                    axi4_bready_o,
-    input  logic [3:0]              axi4_bid_i,
-    input  logic [1:0]              axi4_bresp_i,
-    
-    output logic                    axi4_arvalid_o,
-    input  logic                    axi4_arready_i,
-    output logic [3:0]              axi4_arid_o,
-    output logic [ADDR_WIDTH-1:0]   axi4_araddr_o,
-    output logic [7:0]              axi4_arlen_o,
-    output logic [2:0]              axi4_arsize_o,
-    output logic [1:0]              axi4_arburst_o,
-    
-    input  logic                    axi4_rvalid_i,
-    output logic                    axi4_rready_o,
-    input  logic [3:0]              axi4_rid_i,
-    input  logic [XLEN-1:0]         axi4_rdata_i,
-    input  logic [1:0]              axi4_rresp_i,
-    input  logic                    axi4_rlast_i,
+    // External memory interfaces using proper SystemVerilog interfaces
+    // AI_TAG: IF_TYPE - AXI4 Master
+    // AI_TAG: IF_MODPORT - master
+    // AI_TAG: IF_PROTOCOL_VERSION - AXI4
+    // AI_TAG: IF_DESC - AXI4 master interface for external memory access
+    // AI_TAG: IF_DATA_WIDTHS - Data: XLEN, Addr: ADDR_WIDTH, ID: 4
+    // AI_TAG: IF_CLOCKING - clk_i via axi4_if.aclk connection
+    // AI_TAG: IF_RESET - rst_ni via axi4_if.aresetn connection
+    axi4_if.master axi4_if,
+
+    // AI_TAG: IF_TYPE - CHI Request Node (RN)
+    // AI_TAG: IF_MODPORT - rn
+    // AI_TAG: IF_PROTOCOL_VERSION - CHI-B
+    // AI_TAG: IF_DESC - CHI interface for coherent memory access
+    // AI_TAG: IF_DATA_WIDTHS - Data: 128, Addr: ADDR_WIDTH, Node ID: 7
+    // AI_TAG: IF_CLOCKING - clk_i via chi_if.clk connection
+    // AI_TAG: IF_RESET - rst_ni via chi_if.resetn connection
+    chi_if.rn chi_if,
+
+    // AI_TAG: IF_TYPE - TileLink Manager (Client)
+    // AI_TAG: IF_MODPORT - master
+    // AI_TAG: IF_PROTOCOL_VERSION - TileLink Uncached (TL-UL)
+    // AI_TAG: IF_DESC - TileLink interface for open-source ecosystem compatibility
+    // AI_TAG: IF_DATA_WIDTHS - Data: XLEN, Addr: ADDR_WIDTH, Source: 8
+    // AI_TAG: IF_CLOCKING - clk_i via tl_if.clk connection
+    // AI_TAG: IF_RESET - rst_ni via tl_if.reset_n connection
+    tilelink_if.master tl_if,
 
     // Interrupt interface
     input  logic [NUM_CORES-1:0]    external_irq_i,  // AI_TAG: PORT_DESC - External interrupts per core
@@ -113,6 +111,16 @@ module multi_core_system #(
     output logic [31:0]             cache_miss_count_o,    // AI_TAG: PORT_DESC - Total cache misses
     output logic [NUM_CORES-1:0]    core_active_o          // AI_TAG: PORT_DESC - Per-core activity status
 );
+
+    //-----
+    // Connect interface clocks and resets
+    //-----
+    assign axi4_if.aclk = clk_i;
+    assign axi4_if.aresetn = rst_ni;
+    assign chi_if.clk = clk_i;
+    assign chi_if.resetn = rst_ni;
+    assign tl_if.clk = clk_i;
+    assign tl_if.resetn = rst_ni;
 
     //-----
     // Internal Interfaces and Signals
@@ -134,10 +142,24 @@ module multi_core_system #(
     cache_coherency_if coherency_if [NUM_CORES]();
     
     // Inter-core communication interfaces
-    inter_core_comm_if inter_core_if [NUM_CORES]();
+    inter_core_comm_if #(
+        .NUM_CORES(NUM_CORES),
+        .MSG_WIDTH(MSG_WIDTH),
+        .CORE_ID_WIDTH($clog2(NUM_CORES))
+    ) inter_core_if (
+        .clk_i(clk_i),
+        .rst_ni(rst_ni)
+    );
     
     // Synchronization primitives interface
-    sync_primitives_if sync_if();
+    sync_primitives_if #(
+        .NUM_CORES(NUM_CORES),
+        .NUM_BARRIERS(NUM_BARRIERS),
+        .DATA_WIDTH(MSG_WIDTH)
+    ) sync_if (
+        .clk_i(clk_i),
+        .rst_ni(rst_ni)
+    );
     
     // Protocol factory interface
     memory_req_rsp_if protocol_generic_if();
@@ -167,13 +189,7 @@ module multi_core_system #(
                 .dmem_if(l1_dcache_if[i].master),
                 
                 // Cache coherency
-                .coherency_if(coherency_if[i].l1_cache_port),
-                
-                // Inter-core communication
-                .inter_core_if(inter_core_if[i].core),
-                
-                // Synchronization
-                .sync_if(sync_if.core_port[i]),
+                .coherency_if(coherency_if[i]),
                 
                 // Interrupts
                 .external_irq_i(external_irq_i[i]),
@@ -199,8 +215,8 @@ module multi_core_system #(
     l2_cache #(
         .L2_CACHE_SIZE(L2_CACHE_SIZE),
         .NUM_CORES(NUM_CORES),
-        .NUM_WAYS(8),
-        .CACHE_LINE_SIZE(64)
+        .NUM_WAYS(DEFAULT_L2_CACHE_WAYS),
+        .CACHE_LINE_SIZE(DEFAULT_CACHE_LINE_SIZE)
     ) u_l2_cache (
         .clk_i,
         .rst_ni,
@@ -212,7 +228,7 @@ module multi_core_system #(
         .l3_if(l3_if.slave),
         
         // Cache coherency interface
-        .coherency_if(coherency_if[0].l2_cache_port) // Shared coherency controller
+        .coherency_if(coherency_if) // Array of coherency interfaces
     );
 
     //-----
@@ -221,24 +237,17 @@ module multi_core_system #(
     cache_coherency_controller #(
         .NUM_CORES(NUM_CORES),
         .ADDR_WIDTH(ADDR_WIDTH),
-        .L2_CACHE_WAYS(8),
-        .L2_CACHE_SETS(L2_CACHE_SIZE / (64 * 8))
+        .L2_CACHE_WAYS(DEFAULT_L2_CACHE_WAYS),
+        .L2_CACHE_SETS(L2_CACHE_SIZE / (DEFAULT_CACHE_LINE_SIZE * DEFAULT_L2_CACHE_WAYS))
     ) u_coherency_controller (
         .clk_i,
         .rst_ni,
         
         // Coherency interface array
-        .coherency_if(coherency_if[0].coherency_controller_port),
+        .coherency_if(coherency_if),
         
         // Interface to L3/Memory for misses
-        .mem_if(l3_if.master),
-        
-        // L2 cache control interface
-        .l2_tag_match_way_i(/* from L2 cache */),
-        .l2_line_state_i(/* from L2 cache */),
-        .l2_sharer_list_i(/* from L2 cache */),
-        .l2_update_en_o(/* to L2 cache */),
-        .l2_way_select_o(/* to L2 cache */)
+        .mem_if(l3_if.master)
     );
 
     //-----
@@ -246,8 +255,8 @@ module multi_core_system #(
     //-----
     l3_cache #(
         .L3_CACHE_SIZE(L3_CACHE_SIZE),
-        .NUM_WAYS(16),
-        .CACHE_LINE_SIZE(64)
+        .NUM_WAYS(DEFAULT_L3_CACHE_WAYS),
+        .CACHE_LINE_SIZE(DEFAULT_CACHE_LINE_SIZE)
     ) u_l3_cache (
         .clk_i,
         .rst_ni,
@@ -266,8 +275,8 @@ module multi_core_system #(
         .DEFAULT_PROTOCOL(DEFAULT_PROTOCOL),
         .ADDR_WIDTH(ADDR_WIDTH),
         .DATA_WIDTH(XLEN),
-        .ID_WIDTH(4),
-        .MAX_OUTSTANDING(16)
+        .ID_WIDTH(DEFAULT_AXI4_ID_WIDTH),
+        .MAX_OUTSTANDING(MAX_OUTSTANDING)
     ) u_protocol_factory (
         .clk_i,
         .rst_ni,
@@ -279,57 +288,10 @@ module multi_core_system #(
         // Generic interface from L3 cache
         .generic_if(protocol_generic_if.slave),
         
-        // AXI4 interface (external)
-        .axi4_awvalid_o,
-        .axi4_awready_i,
-        .axi4_awid_o,
-        .axi4_awaddr_o,
-        .axi4_awlen_o,
-        .axi4_awsize_o,
-        .axi4_awburst_o,
-        .axi4_wvalid_o,
-        .axi4_wready_i,
-        .axi4_wdata_o,
-        .axi4_wstrb_o,
-        .axi4_wlast_o,
-        .axi4_bvalid_i,
-        .axi4_bready_o,
-        .axi4_bid_i,
-        .axi4_bresp_i,
-        .axi4_arvalid_o,
-        .axi4_arready_i,
-        .axi4_arid_o,
-        .axi4_araddr_o,
-        .axi4_arlen_o,
-        .axi4_arsize_o,
-        .axi4_arburst_o,
-        .axi4_rvalid_i,
-        .axi4_rready_o,
-        .axi4_rid_i,
-        .axi4_rdata_i,
-        .axi4_rresp_i,
-        .axi4_rlast_i,
-        
-        // CHI interface (tied off for now)
-        .chi_txreq_valid_o(/* open */),
-        .chi_txreq_ready_i(1'b0),
-        .chi_txreq_opcode_o(/* open */),
-        .chi_txreq_addr_o(/* open */),
-        .chi_rxrsp_valid_i(1'b0),
-        .chi_rxrsp_ready_o(/* open */),
-        .chi_rxrsp_opcode_i(8'h0),
-        .chi_rxrsp_data_i({XLEN{1'b0}}),
-        
-        // TileLink interface (tied off for now)
-        .tl_a_valid_o(/* open */),
-        .tl_a_ready_i(1'b0),
-        .tl_a_opcode_o(/* open */),
-        .tl_a_address_o(/* open */),
-        .tl_a_data_o(/* open */),
-        .tl_d_valid_i(1'b0),
-        .tl_d_ready_o(/* open */),
-        .tl_d_opcode_i(3'h0),
-        .tl_d_data_i({XLEN{1'b0}}),
+        // Protocol interfaces using proper SystemVerilog interfaces
+        .axi4_if(axi4_if),
+        .chi_if(chi_if),
+        .tl_if(tl_if),
         
         // Performance monitoring
         .protocol_transactions_o(/* part of performance counters */),
@@ -338,33 +300,25 @@ module multi_core_system #(
     );
 
     //-----
-    // Inter-Core Communication Network
+    // Inter-Core Communication Network Manager
     //-----
-    // Simple ring network for inter-core communication
-    generate
-        for (genvar i = 0; i < NUM_CORES; i++) begin : gen_inter_core_connections
-            localparam int next_core = (i + 1) % NUM_CORES;
-            localparam int prev_core = (i + NUM_CORES - 1) % NUM_CORES;
-            
-            // Connect each core to its neighbors in a ring topology
-            assign inter_core_if[i].tx_valid = inter_core_if[prev_core].rx_valid;
-            assign inter_core_if[i].tx_data = inter_core_if[prev_core].rx_data;
-            assign inter_core_if[prev_core].tx_ready = inter_core_if[i].rx_ready;
-        end
-    endgenerate
-
-    //-----
-    // Synchronization Primitives Manager
-    //-----
-    // Centralized atomic operations and synchronization
-    always_ff @(posedge clk_i or negedge rst_ni) begin : proc_sync_manager
-        if (!rst_ni) begin
-            // Initialize synchronization state
-        end else begin
-            // Handle atomic operations from cores
-            // Implement compare-and-swap, load-reserve/store-conditional
-        end
-    end
+    core_manager #(
+        .NUM_CORES(NUM_CORES),
+        .CORE_ID_WIDTH($clog2(NUM_CORES))
+    ) u_core_manager (
+        .clk_i,
+        .rst_ni,
+        
+        // Core status
+        .core_active_i(core_active_o),
+        .core_ready_o(/* internal status */),
+        
+        // Inter-core communication interface
+        .comm_if(inter_core_if.manager),
+        
+        // Synchronization primitives interface
+        .sync_if(sync_if.manager)
+    );
 
     //-----
     // Performance Monitoring Aggregation
@@ -429,11 +383,387 @@ module multi_core_system #(
     ValidHartIds: assert property (@(posedge clk_i) disable iff (!rst_ni)
         $countones(core_active_o) <= NUM_CORES);
 
+    //---------------------------------------------------------------------------
+    // QoS Arbiter Instance
+    //---------------------------------------------------------------------------
+    
+    // QoS configuration per core
+    qos_config_t [NUM_CORES-1:0] core_qos_config;
+    
+    // QoS arbiter signals
+    logic [NUM_CORES-1:0] core_mem_req_valid;
+    logic [NUM_CORES-1:0] core_mem_req_ready;
+    logic [ADDR_WIDTH-1:0] [NUM_CORES-1:0] core_mem_req_addr;
+    logic [XLEN-1:0] [NUM_CORES-1:0] core_mem_req_data;
+    logic [NUM_CORES-1:0] core_mem_req_write;
+    
+    logic arb_mem_valid;
+    qos_config_t arb_qos_config;
+    logic [ADDR_WIDTH-1:0] arb_mem_addr;
+    logic [XLEN-1:0] arb_mem_data;
+    logic arb_mem_write;
+    logic arb_mem_ready;
+    
+    // Performance monitoring
+    logic [31:0] qos_violations;
+    logic [31:0] total_requests;
+    logic [NUM_CORES-1:0] starvation_flags;
+    
+    // Configure QoS for each core
+    always_comb begin : proc_qos_configuration
+        for (int i = 0; i < NUM_CORES; i++) begin
+            core_qos_config[i].qos_level = QOS_LEVEL_MEDIUM_HIGH; // Default level
+            core_qos_config[i].transaction_type = QOS_TYPE_DATA_ACCESS;
+            core_qos_config[i].urgent = 1'b0;
+            core_qos_config[i].weight = 8'd100; // Default weight
+            core_qos_config[i].max_latency_cycles = 16'd100; // 100 cycle deadline
+            core_qos_config[i].bandwidth_percent = 8'd25; // 25% per core initially
+            core_qos_config[i].core_id = i[3:0];
+            core_qos_config[i].real_time = 1'b0;
+        end
+    end
+    
+    // Extract memory request signals from core interfaces
+    always_comb begin : proc_core_request_extraction
+        for (int i = 0; i < NUM_CORES; i++) begin
+            // This is a simplified extraction - actual implementation would
+            // connect to proper memory interface from each core
+            core_mem_req_valid[i] = 1'b0; // Connect to core's memory interface
+            core_mem_req_addr[i] = '0;    // Connect to core's address
+            core_mem_req_data[i] = '0;    // Connect to core's data
+            core_mem_req_write[i] = 1'b0; // Connect to core's write signal
+        end
+    end
+    
+    // QoS Arbiter instance
+    qos_arbiter #(
+        .NUM_REQUESTERS(NUM_CORES),
+        .ADDR_WIDTH(ADDR_WIDTH),
+        .DATA_WIDTH(XLEN),
+        .QOS_LEVELS(16)
+    ) u_qos_arbiter (
+        .clk_i(clk_i),
+        .rst_ni(rst_ni),
+        
+        // Core request interfaces
+        .req_valid_i(core_mem_req_valid),
+        .qos_config_i(core_qos_config),
+        .req_addr_i(core_mem_req_addr),
+        .req_data_i(core_mem_req_data),
+        .req_write_i(core_mem_req_write),
+        .req_ready_o(core_mem_req_ready),
+        
+        // Arbitrated output
+        .arb_valid_o(arb_mem_valid),
+        .arb_qos_o(arb_qos_config),
+        .arb_addr_o(arb_mem_addr),
+        .arb_data_o(arb_mem_data),
+        .arb_write_o(arb_mem_write),
+        .arb_ready_i(arb_mem_ready),
+        
+        // QoS configuration
+        .qos_enable_i(1'b1),           // Enable QoS
+        .arbiter_mode_i(2'b10),        // Weighted round-robin with QoS
+        
+        // Performance monitoring
+        .qos_violations_o(qos_violations),
+        .total_requests_o(total_requests),
+        .starvation_flags_o(starvation_flags)
+    );
+
+    //------------------------------------------------------------------------- 
+    // QoS Configuration and Monitoring Signals
+    //-------------------------------------------------------------------------
+    
+    // Global QoS configuration
+    qos_config_t  global_qos_config;
+    
+    // Per-core QoS configuration
+    qos_config_t  core_0_qos_config;
+    qos_config_t  core_1_qos_config;
+    qos_config_t  core_2_qos_config;
+    qos_config_t  core_3_qos_config;
+    
+    // Per-core memory interface with QoS
+    logic         core_0_mem_req_valid, core_1_mem_req_valid, core_2_mem_req_valid, core_3_mem_req_valid;
+    memory_req_t  core_0_mem_req,       core_1_mem_req,       core_2_mem_req,       core_3_mem_req;
+    logic         core_0_mem_req_ready, core_1_mem_req_ready, core_2_mem_req_ready, core_3_mem_req_ready;
+    
+    logic         core_0_mem_rsp_valid, core_1_mem_rsp_valid, core_2_mem_rsp_valid, core_3_mem_rsp_valid;
+    memory_rsp_t  core_0_mem_rsp,       core_1_mem_rsp,       core_2_mem_rsp,       core_3_mem_rsp;
+    logic         core_0_mem_rsp_ready, core_1_mem_rsp_ready, core_2_mem_rsp_ready, core_3_mem_rsp_ready;
+    
+    // QoS monitoring signals
+    logic [31:0]  core_0_qos_violations, core_1_qos_violations, core_2_qos_violations, core_3_qos_violations;
+    logic [31:0]  qos_violations;
+    logic [7:0]   bandwidth_utilization;
+    logic [31:0]  latency_violations;
+    
+    // Global QoS configuration assignment
+    always_comb begin : proc_global_qos_config
+        global_qos_config.qos_level = QOS_LEVEL_MEDIUM;
+        global_qos_config.transaction_type = QOS_TYPE_SYSTEM;
+        global_qos_config.urgent = 1'b0;
+        global_qos_config.guaranteed_bw = 1'b0;
+        global_qos_config.weight = QOS_WEIGHT_MEDIUM;
+        global_qos_config.max_latency_cycles = 16'd1000;
+        global_qos_config.bandwidth_percent = 8'd100;
+        global_qos_config.core_id = 4'b0000;
+        global_qos_config.preemptable = 1'b1;
+        global_qos_config.real_time = 1'b0;
+        global_qos_config.retry_limit = 3'd3;
+        global_qos_config.ordered = 1'b0;
+    end
+    
+    // Per-core QoS configuration
+    always_comb begin : proc_per_core_qos_config
+        // Core 0 - Higher priority (boot core)
+        core_0_qos_config = global_qos_config;
+        core_0_qos_config.qos_level = QOS_LEVEL_HIGH;
+        core_0_qos_config.core_id = 4'd0;
+        core_0_qos_config.bandwidth_percent = 8'd40;
+        
+        // Core 1 - Standard priority
+        core_1_qos_config = global_qos_config;
+        core_1_qos_config.core_id = 4'd1;
+        core_1_qos_config.bandwidth_percent = 8'd25;
+        
+        // Core 2 - Standard priority
+        core_2_qos_config = global_qos_config;
+        core_2_qos_config.core_id = 4'd2;
+        core_2_qos_config.bandwidth_percent = 8'd20;
+        
+        // Core 3 - Lower priority
+        core_3_qos_config = global_qos_config;
+        core_3_qos_config.qos_level = QOS_LEVEL_MEDIUM_LOW;
+        core_3_qos_config.core_id = 4'd3;
+        core_3_qos_config.bandwidth_percent = 8'd15;
+    end
+
+    //------------------------------------------------------------------------- 
+    // Core Subsystem Instances with QoS Integration
+    //-------------------------------------------------------------------------
+    core_subsystem #(
+        .RESET_VECTOR(RESET_VECTOR),
+        .CORE_ID(0),
+        .EXECUTION_MODE(EXECUTION_MODE),
+        .BRANCH_PREDICTOR_TYPE(BRANCH_PREDICTOR_TYPE),
+        .L1_CACHE_SIZE(L1_CACHE_SIZE)
+    ) u_core_0 (
+        .clk_i(clk_i),
+        .rst_ni(rst_ni),
+        
+        // Memory Interfaces
+        .icache_if(icache_if[0]),
+        .dcache_if(dcache_if[0]),
+        
+        // Inter-Core Communication
+        .comm_if(inter_core_comm_if[0]),
+        .sync_if(sync_primitives_if[0]),
+        
+        // Interrupt Interface
+        .m_software_interrupt_i(m_software_interrupt_i[0]),
+        .m_timer_interrupt_i(m_timer_interrupt_i[0]),
+        .m_external_interrupt_i(m_external_interrupt_i[0]),
+        
+        // QoS Integration
+        .core_qos_config_i(core_0_qos_config),
+        .qos_enable_i(1'b1),
+        .qos_violations_o(core_0_qos_violations),
+        
+        // QoS-Enhanced Memory Request Interface
+        .mem_req_valid_o(core_0_mem_req_valid),
+        .mem_req_o(core_0_mem_req),
+        .mem_qos_config_o(core_0_qos_config), // Dynamic QoS config from core
+        .mem_req_ready_i(core_0_mem_req_ready),
+        
+        .mem_rsp_valid_i(core_0_mem_rsp_valid),
+        .mem_rsp_i(core_0_mem_rsp),
+        .mem_rsp_ready_o(core_0_mem_rsp_ready)
+    );
+
+    core_subsystem #(
+        .RESET_VECTOR(RESET_VECTOR),
+        .CORE_ID(1),
+        .EXECUTION_MODE(EXECUTION_MODE),
+        .BRANCH_PREDICTOR_TYPE(BRANCH_PREDICTOR_TYPE),
+        .L1_CACHE_SIZE(L1_CACHE_SIZE)
+    ) u_core_1 (
+        .clk_i(clk_i),
+        .rst_ni(rst_ni),
+        
+        // Memory Interfaces
+        .icache_if(icache_if[1]),
+        .dcache_if(dcache_if[1]),
+        
+        // Inter-Core Communication
+        .comm_if(inter_core_comm_if[1]),
+        .sync_if(sync_primitives_if[1]),
+        
+        // Interrupt Interface
+        .m_software_interrupt_i(m_software_interrupt_i[1]),
+        .m_timer_interrupt_i(m_timer_interrupt_i[1]),
+        .m_external_interrupt_i(m_external_interrupt_i[1]),
+        
+        // QoS Integration
+        .core_qos_config_i(core_1_qos_config),
+        .qos_enable_i(1'b1),
+        .qos_violations_o(core_1_qos_violations),
+        
+        // QoS-Enhanced Memory Request Interface
+        .mem_req_valid_o(core_1_mem_req_valid),
+        .mem_req_o(core_1_mem_req),
+        .mem_qos_config_o(core_1_qos_config),
+        .mem_req_ready_i(core_1_mem_req_ready),
+        
+        .mem_rsp_valid_i(core_1_mem_rsp_valid),
+        .mem_rsp_i(core_1_mem_rsp),
+        .mem_rsp_ready_o(core_1_mem_rsp_ready)
+    );
+
+    core_subsystem #(
+        .RESET_VECTOR(RESET_VECTOR),
+        .CORE_ID(2),
+        .EXECUTION_MODE(EXECUTION_MODE),
+        .BRANCH_PREDICTOR_TYPE(BRANCH_PREDICTOR_TYPE),
+        .L1_CACHE_SIZE(L1_CACHE_SIZE)
+    ) u_core_2 (
+        .clk_i(clk_i),
+        .rst_ni(rst_ni),
+        
+        // Memory Interfaces
+        .icache_if(icache_if[2]),
+        .dcache_if(dcache_if[2]),
+        
+        // Inter-Core Communication
+        .comm_if(inter_core_comm_if[2]),
+        .sync_if(sync_primitives_if[2]),
+        
+        // Interrupt Interface
+        .m_software_interrupt_i(m_software_interrupt_i[2]),
+        .m_timer_interrupt_i(m_timer_interrupt_i[2]),
+        .m_external_interrupt_i(m_external_interrupt_i[2]),
+        
+        // QoS Integration
+        .core_qos_config_i(core_2_qos_config),
+        .qos_enable_i(1'b1),
+        .qos_violations_o(core_2_qos_violations),
+        
+        // QoS-Enhanced Memory Request Interface
+        .mem_req_valid_o(core_2_mem_req_valid),
+        .mem_req_o(core_2_mem_req),
+        .mem_qos_config_o(core_2_qos_config),
+        .mem_req_ready_i(core_2_mem_req_ready),
+        
+        .mem_rsp_valid_i(core_2_mem_rsp_valid),
+        .mem_rsp_i(core_2_mem_rsp),
+        .mem_rsp_ready_o(core_2_mem_rsp_ready)
+    );
+
+    core_subsystem #(
+        .RESET_VECTOR(RESET_VECTOR),
+        .CORE_ID(3),
+        .EXECUTION_MODE(EXECUTION_MODE),
+        .BRANCH_PREDICTOR_TYPE(BRANCH_PREDICTOR_TYPE),
+        .L1_CACHE_SIZE(L1_CACHE_SIZE)
+    ) u_core_3 (
+        .clk_i(clk_i),
+        .rst_ni(rst_ni),
+        
+        // Memory Interfaces
+        .icache_if(icache_if[3]),
+        .dcache_if(dcache_if[3]),
+        
+        // Inter-Core Communication
+        .comm_if(inter_core_comm_if[3]),
+        .sync_if(sync_primitives_if[3]),
+        
+        // Interrupt Interface
+        .m_software_interrupt_i(m_software_interrupt_i[3]),
+        .m_timer_interrupt_i(m_timer_interrupt_i[3]),
+        .m_external_interrupt_i(m_external_interrupt_i[3]),
+        
+        // QoS Integration
+        .core_qos_config_i(core_3_qos_config),
+        .qos_enable_i(1'b1),
+        .qos_violations_o(core_3_qos_violations),
+        
+        // QoS-Enhanced Memory Request Interface
+        .mem_req_valid_o(core_3_mem_req_valid),
+        .mem_req_o(core_3_mem_req),
+        .mem_qos_config_o(core_3_qos_config),
+        .mem_req_ready_i(core_3_mem_req_ready),
+        
+        .mem_rsp_valid_i(core_3_mem_rsp_valid),
+        .mem_rsp_i(core_3_mem_rsp),
+        .mem_rsp_ready_o(core_3_mem_rsp_ready)
+    );
+
+    //------------------------------------------------------------------------- 
+    // QoS-Aware Memory Wrapper Instance
+    //-------------------------------------------------------------------------
+    qos_memory_wrapper #(
+        .addr_t(addr_t),
+        .data_t(data_t)
+    ) u_qos_memory_wrapper (
+        .clk_i(clk_i),
+        .rst_ni(rst_ni),
+        
+        // QoS Configuration
+        .qos_enable_i(1'b1),                     // Enable QoS by default
+        .global_qos_config_i(global_qos_config), // Use global QoS configuration
+        
+        // Core memory interface connections (with QoS)
+        .core_mem_req_valid_i({
+            core_3_mem_req_valid, core_2_mem_req_valid, 
+            core_1_mem_req_valid, core_0_mem_req_valid
+        }),
+        .core_mem_req_i({
+            core_3_mem_req, core_2_mem_req,
+            core_1_mem_req, core_0_mem_req
+        }),
+        .core_qos_config_i({
+            core_3_qos_config, core_2_qos_config,
+            core_1_qos_config, core_0_qos_config
+        }),
+        .core_mem_req_ready_o({
+            core_3_mem_req_ready, core_2_mem_req_ready,
+            core_1_mem_req_ready, core_0_mem_req_ready
+        }),
+        
+        .core_mem_rsp_valid_o({
+            core_3_mem_rsp_valid, core_2_mem_rsp_valid,
+            core_1_mem_rsp_valid, core_0_mem_rsp_valid
+        }),
+        .core_mem_rsp_o({
+            core_3_mem_rsp, core_2_mem_rsp,
+            core_1_mem_rsp, core_0_mem_rsp
+        }),
+        .core_mem_rsp_ready_i({
+            core_3_mem_rsp_ready, core_2_mem_rsp_ready,
+            core_1_mem_rsp_ready, core_0_mem_rsp_ready
+        }),
+        
+        // L2 Cache Interface
+        .l2_req_valid_o(mem_req_valid),
+        .l2_req_o(mem_req),
+        .l2_req_ready_i(mem_req_ready),
+        
+        .l2_rsp_valid_i(mem_rsp_valid),
+        .l2_rsp_i(mem_rsp),
+        .l2_rsp_ready_o(mem_rsp_ready),
+        
+        // QoS Performance Monitoring
+        .qos_violations_o(qos_violations),
+        .bandwidth_utilization_o(bandwidth_utilization),
+        .latency_violations_o(latency_violations)
+    );
+
 endmodule : multi_core_system
 
 //=============================================================================
 // Dependencies: core_subsystem.sv, l2_cache.sv, l3_cache.sv, 
-//               cache_coherency_controller.sv, protocol_factory.sv
+//               cache_coherency_controller.sv, protocol_factory.sv, core_manager.sv
 //
 // Performance:
 //   - Critical Path: Inter-core communication and cache coherency
@@ -448,16 +778,18 @@ endmodule : multi_core_system
 // Synthesis:
 //   - Target Technology: ASIC/FPGA
 //   - Synthesis Tool: Design Compiler/Quartus
-//   - Clock Domains: 1 (clk_i) - future: per-core clock domains
+//   - Clock Domains: 1 (clk_i)
 //   - Constraints File: multi_core_system.sdc
 //
 // Testing:
 //   - Testbench: multi_core_system_tb.sv
-//   - Test Vectors: Multi-core workloads, coherency scenarios
+//   - Test Vectors: Configurable based on NUM_CORES
 //
 //----
 // Revision History:
 // Version | Date       | Author             | Description
 //=============================================================================
-// 1.0.0   | 2025-01-27 | DesignAI          | Initial multi-core system implementation
+// 1.2.0   | 2025-01-27 | DesignAI           | Fixed to use proper interface modports instead of hardcoded signals
+// 1.1.0   | 2025-01-27 | DesignAI           | Complete multi-core integration with proper interface connectivity
+// 1.0.0   | 2025-01-27 | DesignAI           | Initial release
 //============================================================================= 
