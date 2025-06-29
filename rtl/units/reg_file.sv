@@ -21,8 +21,14 @@
 `timescale 1ns/1ps
 `default_nettype none
 
-module reg_file
-    import riscv_core_pkg::*;
+import riscv_types_pkg::*;
+import riscv_config_pkg::*;
+
+module reg_file #(
+    parameter integer DATA_WIDTH = XLEN,
+    parameter integer REG_COUNT = REG_COUNT,
+    parameter integer REG_ADDR_WIDTH = REG_ADDR_WIDTH
+)
 (
     input  logic        clk_i,
     input  logic        rst_ni,
@@ -104,7 +110,7 @@ module reg_file
 endmodule : reg_file
 
 //=============================================================================
-// Dependencies: riscv_core_pkg.sv
+// Dependencies: riscv_types_pkg.sv
 //
 // Performance:
 //   - Critical Path: Register read to output

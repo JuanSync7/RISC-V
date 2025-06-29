@@ -22,15 +22,19 @@
 `timescale 1ns/1ps
 `default_nettype none
 
+import riscv_config_pkg::*;
+import riscv_types_pkg::*;
+import riscv_bp_types_pkg::*;
+
 module fetch_stage
     import riscv_core_pkg::*;
 #(
     // AI_TAG: PARAMETER - RESET_VECTOR - The address where the core begins execution after reset.
-    parameter addr_t RESET_VECTOR = 32'h0000_0000,
+    parameter addr_t RESET_VECTOR = DEFAULT_RESET_VECTOR,
     // AI_TAG: PARAMETER - BTB_ENTRIES - Number of entries in the Branch Target Buffer.
-    parameter integer BTB_ENTRIES = BPU_DEFAULT_BTB_ENTRIES,
+    parameter integer BTB_ENTRIES = DEFAULT_BTB_ENTRIES,
     // AI_TAG: PARAMETER - BHT_ENTRIES - Number of entries in the Branch History Table.
-    parameter integer BHT_ENTRIES = BPU_DEFAULT_BHT_ENTRIES
+    parameter integer BHT_ENTRIES = DEFAULT_BHT_ENTRIES
 )
 (
     input  logic        clk_i,
@@ -96,9 +100,6 @@ module fetch_stage
     // AI_TAG: PORT_DESC - perf_counter_reset_i - Reset all performance counters.
     input  logic        perf_counter_reset_i
 );
-
-    // AI_TAG: RISC-V_SPEC - A NOP is encoded as `addi x0, x0, 0`.
-    localparam word_t NOP_INSTRUCTION = 32'h00000013;
 
     // AI_TAG: INTERNAL_STORAGE - Program Counter register.
     addr_t pc_q, pc_d;
@@ -269,7 +270,7 @@ module fetch_stage
 endmodule : fetch_stage
 
 //=============================================================================
-// Dependencies: riscv_core_pkg.sv, branch_predictor.sv, icache.sv
+// Dependencies: riscv_config_pkg, riscv_types_pkg, riscv_bp_types_pkg
 //
 // Performance:
 //   - Critical Path: PC update to instruction fetch

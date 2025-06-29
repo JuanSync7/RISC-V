@@ -20,9 +20,12 @@
 `timescale 1ns/1ps
 `default_nettype none
 
-module alu
-    import riscv_core_pkg::*;
-(
+import riscv_types_pkg::*;
+import riscv_config_pkg::*;
+
+module alu #(
+    parameter integer DATA_WIDTH = XLEN
+)(
     // AI_TAG: PORT_DESC - alu_op_i - Control signal selecting the ALU operation to perform.
     input  alu_op_e alu_op_i,
     // AI_TAG: PORT_DESC - operand_a_i - First 32-bit data operand (e.g., from rs1 or PC).
