@@ -21,6 +21,8 @@
 `timescale 1ns/1ps
 `default_nettype none
 
+import riscv_types_pkg::*;
+
 module branch_predictor #(
     // AI_TAG: PARAM_DESC - BTB_ENTRIES - Number of entries in the Branch Target Buffer.
     // AI_TAG: PARAM_USAGE - Determines the number of branch targets that can be cached.

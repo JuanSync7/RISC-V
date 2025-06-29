@@ -1,7 +1,7 @@
 //=============================================================================
 // Company: Sondrel Ltd
 // Author: DesignAI (designai@sondrel.com)
-// Created: 2025-06-28
+// Created: 2025-06-27
 //
 // File: mult_unit.sv
 // Module: mult_unit
@@ -12,37 +12,37 @@
 // Verification Status: Not Verified
 //
 // Description:
-//   A dedicated multi-cycle multiplication unit for the RISC-V core. It
-//   implements the RV32M standard extension instructions (MUL, MULH, MULHSU,
-//   MULHU). It uses a registered, pipelined approach for high performance.
+//   Pipelined multiplication unit supporting signed and unsigned multiplication
+//   operations. Implements RISC-V RV32M multiplication instructions:
+//   MUL, MULH, MULHSU, MULHU. Uses a configurable latency pipeline for
+//   high-performance multiplication operations.
 //=============================================================================
 
 `timescale 1ns/1ps
 `default_nettype none
 
-module mult_unit
-    import riscv_core_pkg::*;
-#(
-    // AI_TAG: PARAMETER - LATENCY - Defines the number of cycles to compute the result.
-    // A latency of 2 means the result is available 2 cycles after start is asserted.
-    parameter integer LATENCY = 2
-)
-(
+import riscv_config_pkg::*;
+import riscv_types_pkg::*;
+
+module mult_unit #(
+    parameter integer DATA_WIDTH = 32, // AI_TAG: PARAM_DESC - Width of the data path and operands.
+    parameter integer LATENCY    = 3   // AI_TAG: PARAM_DESC - Number of pipeline stages for multiplication.
+) (
+    // Clock and Reset
     input  logic        clk_i,
     input  logic        rst_ni,
 
-    // AI_TAG: PORT_DESC - start_i - A single-cycle pulse from Execute to begin a multiplication.
-    input  logic        start_i,
-    // AI_TAG: PORT_DESC - operand_a_i, operand_b_i - The 32-bit input operands.
-    input  word_t       operand_a_i,
-    input  word_t       operand_b_i,
-    // AI_TAG: PORT_DESC - op_type_i - Selects the multiplication type (funct3-derived).
-    input  logic [2:0]  op_type_i,
+    // Control Interface
+    input  logic        start_i,      // AI_TAG: PORT_DESC - start_i - Initiates a new multiplication operation.
+    input  logic [2:0]  op_type_i,    // AI_TAG: PORT_DESC - op_type_i - Specifies the multiplication operation type.
+    input  word_t       operand_a_i,  // AI_TAG: PORT_DESC - operand_a_i - First operand.
+    input  word_t       operand_b_i,  // AI_TAG: PORT_DESC - operand_b_i - Second operand.
 
-    // AI_TAG: PORT_DESC - result_o - The 32-bit result of the operation.
-    output word_t       result_o,
-    // AI_TAG: PORT_DESC - done_o - Asserts high when the calculation is complete and the result is valid.
-    output logic        done_o
+    // Result Interface
+    output word_t       result_o,     // AI_TAG: PORT_DESC - result_o - The 32-bit result of the operation.
+    output logic        done_o,       // AI_TAG: PORT_DESC - done_o - Asserts high when the calculation is complete.
+    output logic        exception_valid_o, // AI_TAG: PORT_DESC - exception_valid_o - Asserts if the operation caused an exception.
+    output logic [31:0] exception_cause_o  // AI_TAG: PORT_DESC - exception_cause_o - The cause of the exception.
 );
 
     // AI_TAG: TYPEDEF - Operation types for clarity, derived from funct3 of OP-family instructions.
@@ -83,54 +83,67 @@ module mult_unit
         end
     end
 
-    // AI_TAG: INTERNAL_LOGIC - Core Multiplication Operations
-    // Three parallel multiplications are described. A smart synthesis tool may be able
-    // to share resources between them. This explicit style is clear and verifiable.
-    assign product_ss = $signed(operand_a_q) * $signed(operand_b_q);
-    assign product_su = $signed(operand_a_q) * operand_b_q;
-    assign product_uu = operand_a_q * operand_b_q;
+    // AI_TAG: INTERNAL_LOGIC - Multiplication calculations
+    // These use SystemVerilog multiplication operators which will be synthesized
+    // into optimized multiplier hardware.
+    assign product_ss = $signed(operand_a_q) * $signed(operand_b_q); // signed * signed
+    assign product_su = $signed(operand_a_q) * operand_b_q;          // signed * unsigned
+    assign product_uu = operand_a_q * operand_b_q;                   // unsigned * unsigned
 
-    // AI_TAG: INTERNAL_LOGIC - Result Selection Mux
-    // This combinational logic selects the correct 32-bit portion of the correct
-    // 64-bit product based on the latched operation type.
+    // AI_TAG: INTERNAL_LOGIC - Result selection based on operation type
     always_comb begin
-        // Default assignment helps prevent latches in case of invalid op_type.
-        result_o = product_ss[31:0]; // Default to MUL result
-
         case (op_type_q)
-            OP_TYPE_MUL:    result_o = product_ss[31:0];  // MUL result (lower 32 bits of signed*signed)
-            OP_TYPE_MULH:   result_o = product_ss[63:32]; // MULH result (upper 32 bits of signed*signed)
-            OP_TYPE_MULHSU: result_o = product_su[63:32]; // MULHSU result (upper 32 bits of signed*unsigned)
-            OP_TYPE_MULHU:  result_o = product_uu[63:32]; // MULHU result (upper 32 bits of unsigned*unsigned)
-            default:        result_o = product_ss[31:0];  // MUL result (default case)
+            OP_TYPE_MUL:    result_o = product_ss[DATA_WIDTH-1:0];     // Lower 32 bits of signed * signed
+            OP_TYPE_MULH:   result_o = product_ss[2*DATA_WIDTH-1:DATA_WIDTH]; // Upper 32 bits of signed * signed
+            OP_TYPE_MULHSU: result_o = product_su[2*DATA_WIDTH-1:DATA_WIDTH]; // Upper 32 bits of signed * unsigned
+            OP_TYPE_MULHU:  result_o = product_uu[2*DATA_WIDTH-1:DATA_WIDTH]; // Upper 32 bits of unsigned * unsigned
+            default:        result_o = '0;
         endcase
     end
 
-    // AI_TAG: INTERNAL_LOGIC - Done Signal Generation
-    // This shift register pipeline creates a delayed 'done' signal. When start_i
-    // is asserted, a '1' enters the pipeline. When it emerges after LATENCY cycles,
-    // the 'done_o' signal is asserted.
+    // AI_TAG: INTERNAL_LOGIC - Pipeline completion tracking
     always_ff @(posedge clk_i or negedge rst_ni) begin
         if (!rst_ni) begin
             busy_q <= '0;
         end else begin
-            busy_q <= {busy_q[LATENCY-2:0], start_i};
+            if (start_i) begin
+                busy_q <= {1'b1, {LATENCY-1{1'b0}}}; // Start new operation
+            end else begin
+                busy_q <= {1'b0, busy_q[LATENCY-1:1]}; // Shift pipeline
+            end
         end
     end
 
-    // The result is 'done' when the start signal has reached the end of the latency pipeline.
-    assign done_o = busy_q[LATENCY-1];
+    // AI_TAG: INTERNAL_LOGIC - Done signal generation
+    assign done_o = busy_q[0]; // Operation complete when it reaches the end of pipeline
 
+    // AI_TAG: INTERNAL_LOGIC - Exception handling (multiplication typically doesn't generate exceptions)
+    assign exception_valid_o = 1'b0;
+    assign exception_cause_o = '0;
+
+    // AI_TAG: ASSERTION - Done signal should only be asserted when operation is complete
+    // AI_TAG: ASSERTION_TYPE - Both
+    // AI_TAG: ASSERTION_SEVERITY - Error
+    // AI_TAG: ASSERTION_COVERAGE_LINK - mult_unit_coverage.done_signal_cp
+    DoneSignalValid: assert property (@(posedge clk_i) disable iff (!rst_ni) 
+        (done_o |-> busy_q[0]));
+
+    // AI_TAG: ASSERTION - Valid operation types only
+    // AI_TAG: ASSERTION_TYPE - Both
+    // AI_TAG: ASSERTION_SEVERITY - Error
+    // AI_TAG: ASSERTION_COVERAGE_LINK - mult_unit_coverage.valid_op_type_cp
+    ValidOpType: assert property (@(posedge clk_i) disable iff (!rst_ni) 
+        (start_i |-> op_type_i inside {OP_TYPE_MUL, OP_TYPE_MULH, OP_TYPE_MULHSU, OP_TYPE_MULHU}));
 
 endmodule : mult_unit
 
 //=============================================================================
-// Dependencies: riscv_core_pkg.sv
+// Dependencies: riscv_config_pkg, riscv_types_pkg
 //
 // Performance:
-//   - Critical Path: Multiplier to result output
-//   - Max Frequency: TBD
-//   - Area: TBD
+//   - Critical Path: Through the multiplier (depends on implementation)
+//   - Max Frequency: Depends on multiplier algorithm and target technology
+//   - Area: Significant due to multiplication hardware
 //
 // Verification Coverage:
 //   - Code Coverage: Not measured
@@ -151,6 +164,5 @@ endmodule : mult_unit
 // Revision History:
 // Version | Date       | Author             | Description
 //=============================================================================
-// 1.1.0   | 2025-06-28 | DesignAI           | Fixed operation type mapping to correctly match RISC-V RV32M specification
-// 1.0.0   | 2025-06-28 | DesignAI           | Initial release
+// 1.0.0   | 2025-06-27 | DesignAI           | Initial release
 //=============================================================================

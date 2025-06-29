@@ -21,8 +21,10 @@
 `timescale 1ns/1ps
 `default_nettype none
 
+import riscv_types_pkg::*;
+import riscv_exception_pkg::*;
+
 module exception_handler
-    import riscv_core_pkg::*;
 (
     input  logic        clk_i,
     input  logic        rst_ni,

@@ -21,13 +21,39 @@ from typing import List, Dict, Any
 class TestRunner:
     """Test runner for RISC-V unit tests."""
     
-    def __init__(self, project_root: str, simulator: str = "vcs"):
-        self.project_root = Path(project_root)
-        self.simulator = simulator
+    def __init__(self, test_filter: str = "*"):
+        self.project_root = Path(__file__).parent.parent.parent
         self.tb_dir = self.project_root / "tb"
         self.rtl_dir = self.project_root / "rtl"
         self.results = {}
-        
+        self.test_filter = test_filter
+
+        # Define the RTL compilation order once
+        self.rtl_sources = [
+            # Configuration package (must be compiled first - all others depend on it)
+            str(self.rtl_dir / "core" / "riscv_config_pkg.sv"),
+            # Exception package (depends on config)
+            str(self.rtl_dir / "core" / "riscv_exception_pkg.sv"),
+            # Core types package (depends on config and exception)
+            str(self.rtl_dir / "core" / "riscv_types_pkg.sv"),
+            # Memory types package (depends on core types)
+            str(self.rtl_dir / "core" / "riscv_mem_types_pkg.sv"),
+            # Cache types package (depends on memory types)
+            str(self.rtl_dir / "core" / "riscv_cache_types_pkg.sv"),
+            # Branch predictor types package (depends on core types)
+            str(self.rtl_dir / "core" / "riscv_bp_types_pkg.sv"),
+            # Protocol types package (depends on core types)
+            str(self.rtl_dir / "core" / "riscv_protocol_types_pkg.sv"),
+            # Out-of-order types package (depends on exception types)
+            str(self.rtl_dir / "core" / "riscv_ooo_types_pkg.sv"),
+            # Verification types package (depends on core types)
+            str(self.rtl_dir / "core" / "riscv_verif_types_pkg.sv"),
+            # Main core package (depends on all others)
+            str(self.rtl_dir / "core" / "riscv_core_pkg.sv"),
+        ]
+        # Add other RTL files, preferably in dependency order or by globbing
+        self.rtl_sources.extend([str(p) for p in self.rtl_dir.glob("**/*.sv") if p not in self.rtl_sources])
+
     def find_testbenches(self) -> List[Path]:
         """Find all unit testbenches in the project."""
         testbenches = []
@@ -47,7 +73,7 @@ class TestRunner:
             # Common utilities
             str(self.tb_dir / "common" / "test_utils.sv"),
             # RTL files (add specific dependencies based on testbench)
-            str(self.rtl_dir / "core" / "riscv_core_pkg.sv"),
+            *self.rtl_sources,
         ]
         
         # Add specific RTL files based on testbench name

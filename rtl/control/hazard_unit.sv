@@ -21,8 +21,9 @@
 `timescale 1ns/1ps
 `default_nettype none
 
+import riscv_types_pkg::*;
+
 module hazard_unit
-    import riscv_core_pkg::*;
 (
     // --- Pipeline Register State Inputs ---
     input  reg_addr_t   rs1_addr_d_i,       // rs1 address from instruction currently in Decode

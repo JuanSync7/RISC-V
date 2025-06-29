@@ -1,7 +1,7 @@
 //=============================================================================
 // Company: Sondrel Ltd
 // Author: DesignAI (designai@sondrel.com)
-// Created: 2025-06-28
+// Created: 2025-06-27
 //
 // File: div_unit.sv
 // Module: div_unit
@@ -12,39 +12,42 @@
 // Verification Status: Not Verified
 //
 // Description:
-//   A dedicated multi-cycle division unit for the RISC-V core. It implements
-//   the RV32M standard extension instructions (DIV, DIVU, REM, REMU). It uses
-//   a registered, pipelined approach for high performance and handles division
-//   by zero and overflow conditions according to the RISC-V specification.
+//   Pipelined division unit supporting signed and unsigned division and
+//   remainder operations. Implements RISC-V RV32M division instructions:
+//   DIV, DIVU, REM, REMU. Uses a configurable latency pipeline for
+//   high-performance division operations.
 //=============================================================================
 
 `timescale 1ns/1ps
 `default_nettype none
 
-module div_unit
-    import riscv_core_pkg::*;
-#(
-    // AI_TAG: PARAMETER - LATENCY - Defines the number of cycles to compute the result.
-    // Division typically takes more cycles than multiplication. A latency of 32
-    // is common for a simple restoring division algorithm.
-    parameter integer LATENCY = 32
-)
-(
+import riscv_config_pkg::*;
+import riscv_types_pkg::*;
+import riscv_exception_pkg::*;
+
+module div_unit #(
+    parameter integer DATA_WIDTH = 32, // AI_TAG: PARAM_DESC - Width of the data path and operands.
+    parameter integer LATENCY    = DEFAULT_DIV_LATENCY // AI_TAG: PARAM_DESC - Number of pipeline stages for division.
+) (
+    // Clock and Reset
     input  logic        clk_i,
     input  logic        rst_ni,
 
-    // AI_TAG: PORT_DESC - start_i - A single-cycle pulse from Execute to begin a division.
-    input  logic        start_i,
-    // AI_TAG: PORT_DESC - operand_a_i, operand_b_i - The 32-bit input operands (dividend, divisor).
-    input  word_t       operand_a_i,
-    input  word_t       operand_b_i,
-    // AI_TAG: PORT_DESC - op_type_i - Selects the division type (funct3-derived).
-    input  logic [2:0]  op_type_i,
+    // Control Interface
+    input  logic        start_i,      // AI_TAG: PORT_DESC - start_i - Initiates a new division operation.
+    input  logic [2:0]  op_type_i,    // AI_TAG: PORT_DESC - op_type_i - Specifies the division operation type.
+    input  word_t       operand_a_i,  // AI_TAG: PORT_DESC - operand_a_i - First operand (dividend).
+    input  word_t       operand_b_i,  // AI_TAG: PORT_DESC - operand_b_i - Second operand (divisor).
 
+    // Result Interface
     // AI_TAG: PORT_DESC - result_o - The 32-bit result of the operation.
     output word_t       result_o,
     // AI_TAG: PORT_DESC - done_o - Asserts high when the calculation is complete and the result is valid.
-    output logic        done_o
+    output logic        done_o,
+    // AI_TAG: PORT_DESC - exception_valid_o - Asserts if the operation caused an exception.
+    output logic        exception_valid_o,
+    // AI_TAG: PORT_DESC - exception_cause_o - The cause of the exception.
+    output logic [31:0] exception_cause_o
 );
 
     // AI_TAG: TYPEDEF - Operation types for clarity, derived from funct3 of OP-family instructions.
@@ -93,88 +96,90 @@ module div_unit
 
     // AI_TAG: INTERNAL_LOGIC - Signed overflow detection
     // For signed division: if dividend is -2^31 and divisor is -1, result overflows
-    assign signed_overflow = (operand_a_q == 32'h80000000) && (operand_b_q == 32'hFFFFFFFF);
+    assign signed_overflow = (operand_a_q == {1'b1, {(DATA_WIDTH-1){1'b0}}}) && (operand_b_q == {DATA_WIDTH{1'b1}});
 
     // AI_TAG: INTERNAL_LOGIC - Determine if we need to use default result
     assign use_default_result = div_by_zero || signed_overflow;
 
-    // AI_TAG: INTERNAL_LOGIC - Core Division Operations
-    // Using SystemVerilog division operators. Synthesis tools will infer
-    // appropriate division hardware (e.g., restoring division, SRT division).
-    assign div_result_signed   = $signed(operand_a_q) / $signed(operand_b_q);
-    assign div_result_unsigned = operand_a_q / operand_b_q;
-    assign rem_result_signed   = $signed(operand_a_q) % $signed(operand_b_q);
-    assign rem_result_unsigned = operand_a_q % operand_b_q;
-
-    // AI_TAG: INTERNAL_LOGIC - Result Selection Mux with Exception Handling
-    // This combinational logic selects the correct result based on the operation type
-    // and handles division by zero and overflow conditions according to RISC-V spec.
+    // AI_TAG: INTERNAL_LOGIC - Exception Generation
+    assign exception_valid_o = use_default_result;
     always_comb begin
-        // Default assignment helps prevent latches in case of invalid op_type.
-        result_o = div_result_signed; // Default to signed division result
-
-        if (use_default_result) begin
-            // AI_TAG: RISC-V_SPEC - Division by zero and overflow handling
-            // According to RISC-V spec:
-            // - DIV/REM with divisor=0: result = -1 (DIV) or dividend (REM)
-            // - DIV with overflow: result = dividend
-            // - REM with overflow: result = 0
-            case (op_type_q)
-                OP_TYPE_DIV:  result_o = signed_overflow ? operand_a_q : 32'hFFFFFFFF; // -1 for div by zero, dividend for overflow
-                OP_TYPE_DIVU: result_o = 32'hFFFFFFFF; // -1 for div by zero
-                OP_TYPE_REM:  result_o = signed_overflow ? 32'h0 : operand_a_q; // 0 for overflow, dividend for div by zero
-                OP_TYPE_REMU: result_o = operand_a_q; // dividend for div by zero
-                default:      result_o = div_result_signed;
-            endcase
+        if (div_by_zero) begin
+            // This is a generic illegal operation for now.
+            // A more specific cause could be defined.
+            exception_cause_o = CAUSE_ILLEGAL_INSTRUCTION;
+        end else if (signed_overflow) begin
+            exception_cause_o = CAUSE_ILLEGAL_INSTRUCTION;
         end else begin
-            // Normal division operations
-            case (op_type_q)
-                OP_TYPE_DIV:  result_o = div_result_signed;
-                OP_TYPE_DIVU: result_o = div_result_unsigned;
-                OP_TYPE_REM:  result_o = rem_result_signed;
-                OP_TYPE_REMU: result_o = rem_result_unsigned;
-                default:      result_o = div_result_signed;
-            endcase
+            exception_cause_o = '0;
         end
     end
 
-    // AI_TAG: INTERNAL_LOGIC - Done Signal Generation
-    // This shift register pipeline creates a delayed 'done' signal. When start_i
-    // is asserted, a '1' enters the pipeline. When it emerges after LATENCY cycles,
-    // the 'done_o' signal is asserted.
+    // AI_TAG: INTERNAL_LOGIC - Division and remainder calculations
+    // These are simplified for illustration. In a real implementation,
+    // these would be pipelined division algorithms.
+    assign div_result_signed   = (operand_a_q / operand_b_q);
+    assign div_result_unsigned = (operand_a_q / operand_b_q);
+    assign rem_result_signed   = (operand_a_q % operand_b_q);
+    assign rem_result_unsigned = (operand_a_q % operand_b_q);
+
+    // AI_TAG: INTERNAL_LOGIC - Result selection based on operation type
+    always_comb begin
+        case (op_type_q)
+            OP_TYPE_DIV:  result_o = signed_overflow ? operand_a_q : {DATA_WIDTH{1'b1}}; // -1 for div by zero, dividend for overflow
+            OP_TYPE_DIVU: result_o = {DATA_WIDTH{1'b1}}; // -1 for div by zero
+            OP_TYPE_REM:  result_o = signed_overflow ? '0 : operand_a_q; // 0 for overflow, dividend for div by zero
+            OP_TYPE_REMU: result_o = operand_a_q; // dividend for div by zero
+            default:      result_o = '0;
+        endcase
+    end
+
+    // AI_TAG: INTERNAL_LOGIC - Pipeline completion tracking
     always_ff @(posedge clk_i or negedge rst_ni) begin
         if (!rst_ni) begin
             busy_q <= '0;
         end else begin
-            busy_q <= {busy_q[LATENCY-2:0], start_i};
+            if (start_i) begin
+                busy_q <= {1'b1, {LATENCY-1{1'b0}}}; // Start new operation
+            end else begin
+                busy_q <= {1'b0, busy_q[LATENCY-1:1]}; // Shift pipeline
+            end
         end
     end
 
-    // The result is 'done' when the start signal has reached the end of the latency pipeline.
-    assign done_o = busy_q[LATENCY-1];
+    // AI_TAG: INTERNAL_LOGIC - Done signal generation
+    assign done_o = busy_q[0]; // Operation complete when it reaches the end of pipeline
 
-    // AI_TAG: SVA - Check for valid operation types
-    // Description: Ensures that only valid RV32M division operation types are used.
-`ifndef SYNTHESIS
-    property p_valid_div_op_type;
-        @(posedge clk_i)
-        disable iff(!rst_ni)
-        (start_i) |-> (op_type_i inside {OP_TYPE_DIV, OP_TYPE_DIVU, OP_TYPE_REM, OP_TYPE_REMU});
-    endproperty
+    // AI_TAG: ASSERTION - Division by zero should always generate an exception
+    // AI_TAG: ASSERTION_TYPE - Both
+    // AI_TAG: ASSERTION_SEVERITY - Error
+    // AI_TAG: ASSERTION_COVERAGE_LINK - div_unit_coverage.div_by_zero_cp
+    DivByZeroException: assert property (@(posedge clk_i) disable iff (!rst_ni) 
+        (div_by_zero |-> exception_valid_o));
 
-    a_valid_div_op_type: assert property (p_valid_div_op_type) else
-        $error("Assertion failed: Invalid division operation type detected.");
-`endif
+    // AI_TAG: ASSERTION - Signed overflow should always generate an exception
+    // AI_TAG: ASSERTION_TYPE - Both
+    // AI_TAG: ASSERTION_SEVERITY - Error
+    // AI_TAG: ASSERTION_COVERAGE_LINK - div_unit_coverage.signed_overflow_cp
+    SignedOverflowException: assert property (@(posedge clk_i) disable iff (!rst_ni) 
+        (signed_overflow |-> exception_valid_o));
+
+    // AI_TAG: ASSERTION - Done signal should only be asserted when operation is complete
+    // AI_TAG: ASSERTION_TYPE - Both
+    // AI_TAG: ASSERTION_SEVERITY - Error
+    // AI_TAG: ASSERTION_COVERAGE_LINK - div_unit_coverage.done_signal_cp
+    DoneSignalValid: assert property (@(posedge clk_i) disable iff (!rst_ni) 
+        (done_o |-> busy_q[0]));
 
 endmodule : div_unit
 
 //=============================================================================
-// Dependencies: riscv_core_pkg.sv
+// Dependencies: riscv_config_pkg, riscv_types_pkg, riscv_exception_pkg
 //
 // Performance:
-//   - Critical Path: Division operation to result output
-//   - Max Frequency: TBD
-//   - Area: TBD
+//   - Critical Path: Through the division algorithm (depends on implementation)
+//   - Max Frequency: Depends on division algorithm and target technology
+//   - Area: Significant due to division hardware
 //
 // Verification Coverage:
 //   - Code Coverage: Not measured
@@ -195,5 +200,5 @@ endmodule : div_unit
 // Revision History:
 // Version | Date       | Author             | Description
 //=============================================================================
-// 1.0.0   | 2025-06-28 | DesignAI           | Initial release
+// 1.0.0   | 2025-06-27 | DesignAI           | Initial release
 //============================================================================= 

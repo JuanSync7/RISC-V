@@ -22,8 +22,9 @@
 `timescale 1ns/1ps
 `default_nettype none
 
+import riscv_types_pkg::*;
+
 module writeback_stage
-    import riscv_core_pkg::*;
 (
     input  logic        clk_i,
     input  logic        rst_ni,
@@ -85,7 +86,7 @@ module writeback_stage
 endmodule : writeback_stage
 
 //=============================================================================
-// Dependencies: riscv_core_pkg.sv, reg_file.sv
+// Dependencies: riscv_types_pkg.sv, reg_file.sv
 //
 // Performance:
 //   - Critical Path: Result selection to register write

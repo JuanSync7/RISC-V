@@ -19,9 +19,9 @@
 `timescale 1ns/1ps
 `default_nettype none
 
-module icache_tb;
-    import riscv_core_pkg::*;
+import riscv_types_pkg::*;
 
+module icache_tb;
     // Parameters
     localparam CACHE_SIZE = 4096;
     localparam LINE_SIZE  = 32;
@@ -345,7 +345,7 @@ module icache_tb;
 endmodule : icache_tb
 
 //=============================================================================
-// Dependencies: riscv_core_pkg.sv, icache.sv
+// Dependencies: riscv_types_pkg.sv, icache.sv
 //
 // Performance:
 //   - Simulation Time: 5 hours

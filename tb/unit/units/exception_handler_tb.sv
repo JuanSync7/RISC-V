@@ -20,9 +20,10 @@
 `timescale 1ns/1ps
 `default_nettype none
 
-module exception_handler_tb;
-    import riscv_core_pkg::*;
+import riscv_types_pkg::*;
+import riscv_exception_pkg::*;
 
+module exception_handler_tb;
     // Clock and reset
     logic clk;
     logic rst_n;
@@ -166,32 +167,26 @@ module exception_handler_tb;
     task test_exception_prioritization();
         // Create multiple exceptions with different priorities
         fetch_exception_i.valid = 1;
-        fetch_exception_i.exc_type = EXC_TYPE_EXCEPTION;
-        fetch_exception_i.cause = EXC_CAUSE_INSTR_ACCESS_FAULT;
-        fetch_exception_i.pc = 32'h0000_2000;
-        fetch_exception_i.priority = PRIO_INSTR_FAULT;
+        fetch_exception_i.cause = `CAUSE_FETCH_ACCESS;
+        fetch_exception_i.tval  = 32'h0000_2000;
 
         execute_exception_i.valid = 1;
-        execute_exception_i.exc_type = EXC_TYPE_EXCEPTION;
-        execute_exception_i.cause = EXC_CAUSE_ILLEGAL_INSTRUCTION;
-        execute_exception_i.pc = 32'h0000_2004;
-        execute_exception_i.priority = PRIO_ILLEGAL;
+        execute_exception_i.cause = `CAUSE_ILLEGAL_INSTRUCTION;
+        execute_exception_i.tval = 32'h0000_2004;
 
         memory_exception_i.valid = 1;
-        memory_exception_i.exc_type = EXC_TYPE_EXCEPTION;
-        memory_exception_i.cause = EXC_CAUSE_LOAD_ACCESS_FAULT;
-        memory_exception_i.pc = 32'h0000_2008;
-        memory_exception_i.priority = PRIO_LOAD_FAULT;
+        memory_exception_i.cause = `CAUSE_LOAD_ACCESS_FAULT;
+        memory_exception_i.tval = 32'h0000_2008;
 
         @(posedge clk);
         @(posedge clk);
 
-        // Should select highest priority exception (PRIO_INSTR_FAULT = 4)
-        if (exception_valid_o && exception_info_o.priority == PRIO_INSTR_FAULT) begin
-            $display("[TB] Exception prioritization - PASS (selected priority %0d)", exception_info_o.priority);
+        // Should select highest priority exception (instruction access fault)
+        if (exception_valid_o && exception_info_o.cause == `CAUSE_FETCH_ACCESS) begin
+            $display("[TB] Exception prioritization - PASS (selected cause %h)", exception_info_o.cause);
         end else begin
-            $display("[TB] ERROR: Wrong exception priority selected (got %0d, expected %0d)", 
-                    exception_info_o.priority, PRIO_INSTR_FAULT);
+            $display("[TB] ERROR: Wrong exception priority selected (got %h, expected %h)", 
+                    exception_info_o.cause, `CAUSE_FETCH_ACCESS);
         end
 
         // Clear exceptions

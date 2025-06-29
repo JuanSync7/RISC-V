@@ -21,7 +21,7 @@
 `default_nettype none
 
 package test_utils;
-    import riscv_core_pkg::*;
+    import riscv_types_pkg::*;
 
     //===========================================================================
     // Test Configuration Parameters
@@ -612,7 +612,7 @@ package test_utils;
 endpackage : test_utils
 
 //=============================================================================
-// Dependencies: riscv_core_pkg.sv
+// Dependencies: riscv_types_pkg.sv
 //
 // Performance:
 //   - Simulation Time: TBD

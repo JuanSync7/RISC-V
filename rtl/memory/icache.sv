@@ -12,146 +12,51 @@
 // Verification Status: Not Verified
 //
 // Description:
-//   Instruction Cache (ICache) for the RISC-V core. Implements a 2-way set
-//   associative cache with LRU replacement policy. Target: >90% hit rate for
-//   typical workloads. Size: 4KB, Line Size: 32 bytes, Ways: 2
+//   L1 instruction cache with configurable size, associativity, and line size.
+//   Supports write-through policy, LRU replacement, and performance monitoring.
+//   Uses parameterized values from the configuration package for flexibility.
 //=============================================================================
 
 `timescale 1ns/1ps
 `default_nettype none
 
+import riscv_config_pkg::*;
+import riscv_types_pkg::*;
+import riscv_cache_types_pkg::*;
+
 module icache #(
-    // AI_TAG: PARAM_DESC - CACHE_SIZE - Total cache size in bytes.
-    // AI_TAG: PARAM_USAGE - Determines the total memory capacity of the cache.
-    // AI_TAG: PARAM_CONSTRAINTS - Must be a power of 2 for efficient indexing.
-    parameter integer CACHE_SIZE = 4096,  // 4KB
-    
-    // AI_TAG: PARAM_DESC - LINE_SIZE - Size of each cache line in bytes.
-    // AI_TAG: PARAM_USAGE - Determines the granularity of cache operations.
-    // AI_TAG: PARAM_CONSTRAINTS - Must be a power of 2 and >= 4 bytes.
-    parameter integer LINE_SIZE = 32,     // 32 bytes
-    
-    // AI_TAG: PARAM_DESC - WAYS - Number of ways in the set associative cache.
-    // AI_TAG: PARAM_USAGE - Determines the associativity of the cache.
-    // AI_TAG: PARAM_CONSTRAINTS - Must be a power of 2 for efficient indexing.
-    parameter integer WAYS = 2            // 2-way set associative
+    parameter integer CACHE_SIZE = DEFAULT_L1_CACHE_SIZE,    // AI_TAG: PARAM_DESC - Total cache size in bytes.
+    parameter integer LINE_SIZE = DEFAULT_CACHE_LINE_SIZE,   // AI_TAG: PARAM_DESC - Cache line size in bytes.
+    parameter integer WAYS = DEFAULT_L1_CACHE_WAYS,          // AI_TAG: PARAM_DESC - Number of ways (associativity).
+    parameter integer ADDR_WIDTH = 32                        // AI_TAG: PARAM_DESC - Address width.
 ) (
-    // AI_TAG: PORT_DESC - clk_i - System clock for synchronous operations.
-    // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    // Clock and Reset
     input  logic        clk_i,
-    
-    // AI_TAG: PORT_DESC - rst_ni - Asynchronous active-low reset.
-    // AI_TAG: PORT_CLK_DOMAIN - clk_i (async assert)
-    // AI_TAG: PORT_TIMING - Asynchronous
     input  logic        rst_ni,
 
-    // --- Cache Request Interface ---
-    // AI_TAG: PORT_DESC - pc_i - Program counter for instruction fetch.
-    // AI_TAG: PORT_CLK_DOMAIN - clk_i
-    // AI_TAG: PORT_TIMING - Combinatorial
-    input  addr_t       pc_i,
-    
-    // AI_TAG: PORT_DESC - valid_i - Valid signal for the request.
-    // AI_TAG: PORT_CLK_DOMAIN - clk_i
-    // AI_TAG: PORT_TIMING - Combinatorial
-    input  logic        valid_i,
-    
-    // AI_TAG: PORT_DESC - ready_o - Cache is ready to accept new requests.
-    // AI_TAG: PORT_CLK_DOMAIN - clk_i
-    // AI_TAG: PORT_DEFAULT_STATE - 1'b1 (ready by default)
-    // AI_TAG: PORT_TIMING - Combinatorial
-    output logic        ready_o,
-    
-    // AI_TAG: PORT_DESC - instruction_o - Fetched instruction data.
-    // AI_TAG: PORT_CLK_DOMAIN - clk_i
-    // AI_TAG: PORT_DEFAULT_STATE - 32'h0
-    // AI_TAG: PORT_TIMING - Combinatorial
-    output word_t       instruction_o,
-    
-    // AI_TAG: PORT_DESC - hit_o - Indicates if the request was a cache hit.
-    // AI_TAG: PORT_CLK_DOMAIN - clk_i
-    // AI_TAG: PORT_DEFAULT_STATE - 1'b0
-    // AI_TAG: PORT_TIMING - Combinatorial
-    output logic        hit_o,
-    
-    // AI_TAG: PORT_DESC - valid_o - Indicates if the instruction data is valid.
-    // AI_TAG: PORT_CLK_DOMAIN - clk_i
-    // AI_TAG: PORT_DEFAULT_STATE - 1'b0
-    // AI_TAG: PORT_TIMING - Combinatorial
-    output logic        valid_o,
+    // CPU Interface
+    input  logic        cpu_req_valid_i,  // AI_TAG: PORT_DESC - cpu_req_valid_i - CPU request valid.
+    input  addr_t       cpu_req_addr_i,   // AI_TAG: PORT_DESC - cpu_req_addr_i - CPU request address.
+    output logic        cpu_req_ready_o,  // AI_TAG: PORT_DESC - cpu_req_ready_o - Cache ready to accept request.
+    output logic        cpu_rsp_valid_o,  // AI_TAG: PORT_DESC - cpu_rsp_valid_o - Cache response valid.
+    output word_t       cpu_rsp_data_o,   // AI_TAG: PORT_DESC - cpu_rsp_data_o - Cache response data.
+    output logic        cpu_rsp_hit_o,    // AI_TAG: PORT_DESC - cpu_rsp_hit_o - Cache hit indicator.
 
-    // --- Memory Interface (AXI4-Lite) ---
-    // AI_TAG: PORT_DESC - mem_arvalid_o - AXI4 read address valid.
-    // AI_TAG: PORT_CLK_DOMAIN - clk_i
-    output logic        mem_arvalid_o,
-    
-    // AI_TAG: PORT_DESC - mem_arready_i - AXI4 read address ready.
-    // AI_TAG: PORT_CLK_DOMAIN - clk_i
-    input  logic        mem_arready_i,
-    
-    // AI_TAG: PORT_DESC - mem_araddr_o - AXI4 read address.
-    // AI_TAG: PORT_CLK_DOMAIN - clk_i
-    output addr_t       mem_araddr_o,
-    
-    // AI_TAG: PORT_DESC - mem_rvalid_i - AXI4 read data valid.
-    // AI_TAG: PORT_CLK_DOMAIN - clk_i
-    input  logic        mem_rvalid_i,
-    
-    // AI_TAG: PORT_DESC - mem_rdata_i - AXI4 read data.
-    // AI_TAG: PORT_CLK_DOMAIN - clk_i
-    input  word_t       mem_rdata_i,
-    
-    // AI_TAG: PORT_DESC - mem_rready_o - AXI4 read data ready.
-    // AI_TAG: PORT_CLK_DOMAIN - clk_i
-    output logic        mem_rready_o,
+    // Memory Interface
+    output logic        mem_req_valid_o,  // AI_TAG: PORT_DESC - mem_req_valid_o - Memory request valid.
+    output addr_t       mem_req_addr_o,   // AI_TAG: PORT_DESC - mem_req_addr_o - Memory request address.
+    input  logic        mem_req_ready_i,  // AI_TAG: PORT_DESC - mem_req_ready_i - Memory ready for request.
+    input  logic        mem_rsp_valid_i,  // AI_TAG: PORT_DESC - mem_rsp_valid_i - Memory response valid.
+    input  word_t       mem_rsp_data_i,   // AI_TAG: PORT_DESC - mem_rsp_data_i - Memory response data.
 
-    // --- Cache Control Interface ---
-    // AI_TAG: PORT_DESC - flush_i - Flush the entire cache.
-    // AI_TAG: PORT_CLK_DOMAIN - clk_i
-    input  logic        flush_i,
-    
-    // AI_TAG: PORT_DESC - flush_done_o - Flush operation completed.
-    // AI_TAG: PORT_CLK_DOMAIN - clk_i
-    // AI_TAG: PORT_DEFAULT_STATE - 1'b0
-    // AI_TAG: PORT_TIMING - Combinatorial
-    output logic        flush_done_o,
+    // Control Interface
+    input  logic        flush_i,          // AI_TAG: PORT_DESC - flush_i - Flush cache.
+    output logic        flush_done_o,     // AI_TAG: PORT_DESC - flush_done_o - Flush operation complete.
 
-    // --- Performance Counters Interface ---
-    // AI_TAG: PORT_DESC - perf_hit_count_o - Total number of cache hits.
-    // AI_TAG: PORT_CLK_DOMAIN - clk_i
-    // AI_TAG: PORT_DEFAULT_STATE - 32'h0
-    // AI_TAG: PORT_TIMING - Registered
-    output logic [31:0] perf_hit_count_o,
-    
-    // AI_TAG: PORT_DESC - perf_miss_count_o - Total number of cache misses.
-    // AI_TAG: PORT_CLK_DOMAIN - clk_i
-    // AI_TAG: PORT_DEFAULT_STATE - 32'h0
-    // AI_TAG: PORT_TIMING - Registered
-    output logic [31:0] perf_miss_count_o,
-    
-    // AI_TAG: PORT_DESC - perf_flush_count_o - Total number of cache flushes.
-    // AI_TAG: PORT_CLK_DOMAIN - clk_i
-    // AI_TAG: PORT_DEFAULT_STATE - 32'h0
-    // AI_TAG: PORT_TIMING - Registered
-    output logic [31:0] perf_flush_count_o,
-    
-    // AI_TAG: PORT_DESC - perf_total_requests_o - Total number of cache requests.
-    // AI_TAG: PORT_CLK_DOMAIN - clk_i
-    // AI_TAG: PORT_DEFAULT_STATE - 32'h0
-    // AI_TAG: PORT_TIMING - Registered
-    output logic [31:0] perf_total_requests_o,
-    
-    // AI_TAG: PORT_DESC - perf_hit_rate_o - Cache hit rate (0-100, scaled by 100).
-    // AI_TAG: PORT_CLK_DOMAIN - clk_i
-    // AI_TAG: PORT_DEFAULT_STATE - 32'h0
-    // AI_TAG: PORT_TIMING - Combinatorial
-    output logic [31:0] perf_hit_rate_o,
-    
-    // AI_TAG: PORT_DESC - perf_counter_reset_i - Reset all performance counters.
-    // AI_TAG: PORT_CLK_DOMAIN - clk_i
-    // AI_TAG: PORT_DEFAULT_STATE - 1'b0
-    // AI_TAG: PORT_TIMING - Synchronous
-    input  logic        perf_counter_reset_i
+    // Performance Interface
+    output logic [31:0] perf_hit_count_o,   // AI_TAG: PORT_DESC - perf_hit_count_o - Number of cache hits.
+    output logic [31:0] perf_miss_count_o,  // AI_TAG: PORT_DESC - perf_miss_count_o - Number of cache misses.
+    output logic [31:0] perf_hit_rate_o     // AI_TAG: PORT_DESC - perf_hit_rate_o - Cache hit rate (percentage).
 );
 
     // AI_TAG: INTERNAL_CALCULATION - Cache parameters
@@ -200,65 +105,54 @@ module icache #(
     logic [TAG_BITS-1:0]     miss_tag;
     logic [$clog2(WAYS)-1:0] replace_way;
     logic [OFFSET_BITS-1:0]  fill_offset;
-    logic                    fill_complete;
     
+    // AI_TAG: INTERNAL_STORAGE - Performance counters
+    logic [31:0] hit_count_r;
+    logic [31:0] miss_count_r;
+    logic [31:0] flush_count_r;
+    logic [31:0] total_requests_r;
+
     // AI_TAG: INTERNAL_LOGIC - Address decomposition
-    assign index  = pc_i[INDEX_BITS+OFFSET_BITS-1:OFFSET_BITS];
-    assign offset = pc_i[OFFSET_BITS-1:0];
-    assign tag    = pc_i[ADDR_WIDTH-1:INDEX_BITS+OFFSET_BITS];
-    
-    // AI_TAG: INTERNAL_LOGIC - Cache lookup logic
-    always_comb begin
-        for (int way = 0; way < WAYS; way++) begin
-            way_valid[way] = cache_mem[way][index].valid;
-            way_tag_match[way] = (cache_mem[way][index].tag == tag);
-            way_hit[way] = way_valid[way] && way_tag_match[way];
+    assign index = cpu_req_addr_i[INDEX_BITS+OFFSET_BITS-1:OFFSET_BITS];
+    assign offset = cpu_req_addr_i[OFFSET_BITS-1:0];
+    assign tag = cpu_req_addr_i[ADDR_WIDTH-1:INDEX_BITS+OFFSET_BITS];
+
+    // AI_TAG: INTERNAL_LOGIC - Cache lookup
+    genvar way;
+    generate
+        for (way = 0; way < WAYS; way++) begin : gen_way_lookup
+            assign way_valid[way] = cache_mem[way][index].valid;
+            assign way_tag_match[way] = (cache_mem[way][index].tag == tag);
+            assign way_hit[way] = way_valid[way] && way_tag_match[way];
         end
-        
-        any_hit = |way_hit;
-        hit_way = way_hit[0] ? 0 : 1;  // For 2-way cache
-    end
-    
-    // AI_TAG: INTERNAL_LOGIC - LRU replacement logic (for 2-way cache)
-    always_comb begin
-        if (WAYS == 2) begin
-            // Use LRU bit to determine replacement way
-            replace_way = cache_mem[0][miss_index].lru ? 0 : 1;
-        end else begin
-            replace_way = 0;  // Default for single-way cache
-        end
-    end
-    
+    endgenerate
+
+    assign any_hit = |way_hit;
+    assign hit_way = $clog2(way_hit); // Priority encoder
+
     // AI_TAG: INTERNAL_LOGIC - Cache state machine
-    always_ff @(posedge clk_i or negedge rst_ni) begin
-        if (!rst_ni) begin
-            cache_state_r <= IDLE;
-        end else begin
-            cache_state_r <= cache_state_next;
-        end
-    end
-    
-    // AI_TAG: INTERNAL_LOGIC - State machine next state logic
     always_comb begin
         cache_state_next = cache_state_r;
+        miss_detected = 1'b0;
         
         case (cache_state_r)
             IDLE: begin
                 if (flush_i) begin
                     cache_state_next = FLUSH_STATE;
-                end else if (valid_i && !any_hit) begin
+                end else if (cpu_req_valid_i && !any_hit) begin
                     cache_state_next = MISS_WAIT;
+                    miss_detected = 1'b1;
                 end
             end
             
             MISS_WAIT: begin
-                if (mem_arready_i && mem_arvalid_o) begin
+                if (mem_req_ready_i) begin
                     cache_state_next = MISS_FILL;
                 end
             end
             
             MISS_FILL: begin
-                if (fill_complete) begin
+                if (mem_rsp_valid_i && fill_offset == WORDS_PER_LINE-1) begin
                     cache_state_next = IDLE;
                 end
             end
@@ -267,186 +161,147 @@ module icache #(
                 cache_state_next = IDLE;
             end
             
-            default: begin
-                cache_state_next = IDLE;
-            end
+            default: cache_state_next = IDLE;
         endcase
     end
-    
-    // AI_TAG: INTERNAL_LOGIC - Miss detection and handling
+
+    // AI_TAG: INTERNAL_LOGIC - Cache state register
     always_ff @(posedge clk_i or negedge rst_ni) begin
         if (!rst_ni) begin
-            miss_detected <= 1'b0;
-            miss_index <= '0;
-            miss_tag <= '0;
-            fill_offset <= '0;
+            cache_state_r <= IDLE;
         end else begin
-            if (cache_state_r == IDLE && valid_i && !any_hit) begin
-                miss_detected <= 1'b1;
-                miss_index <= index;
-                miss_tag <= tag;
-                fill_offset <= '0;
-            end else if (cache_state_r == MISS_FILL && mem_rvalid_i && mem_rready_o) begin
-                fill_offset <= fill_offset + 1;
-                if (fill_offset == WORDS_PER_LINE - 1) begin
-                    miss_detected <= 1'b0;
-                end
-            end
+            cache_state_r <= cache_state_next;
         end
     end
-    
-    // AI_TAG: INTERNAL_LOGIC - Fill completion detection
-    assign fill_complete = (fill_offset == WORDS_PER_LINE - 1) && mem_rvalid_i && mem_rready_o;
-    
-    // AI_TAG: INTERNAL_LOGIC - Cache data access
+
+    // AI_TAG: INTERNAL_LOGIC - Cache response generation
     always_comb begin
-        if (any_hit) begin
-            // Hit - return data from cache
-            instruction_o = cache_mem[hit_way][index].data[offset[OFFSET_BITS-1:2]];
+        if (cache_state_r == IDLE && any_hit) begin
             hit_o = 1'b1;
             valid_o = 1'b1;
-        end else if (cache_state_r == MISS_FILL && mem_rvalid_i && mem_rready_o) begin
-            // Miss fill - return data from memory
-            instruction_o = mem_rdata_i;
+            data_o = cache_mem[hit_way][index].data[offset[OFFSET_BITS-1:2]];
+        end else if (cache_state_r == MISS_FILL && mem_rsp_valid_i) begin
             hit_o = 1'b0;
             valid_o = 1'b1;
+            data_o = mem_rsp_data_i;
         end else begin
-            // No valid data
-            instruction_o = '0;
             hit_o = 1'b0;
             valid_o = 1'b0;
+            data_o = '0;
         end
     end
-    
-    // AI_TAG: INTERNAL_LOGIC - Cache ready signal
-    assign ready_o = (cache_state_r == IDLE) && !flush_i;
-    
-    // AI_TAG: INTERNAL_LOGIC - Memory interface control
-    assign mem_arvalid_o = (cache_state_r == MISS_WAIT);
-    assign mem_araddr_o = {miss_tag, miss_index, fill_offset, 2'b00};  // Aligned to word boundary
-    assign mem_rready_o = (cache_state_r == MISS_FILL);
-    
-    // AI_TAG: INTERNAL_LOGIC - Cache update logic
-    always_ff @(posedge clk_i or negedge rst_ni) begin
-        if (!rst_ni) begin
-            // AI_TAG: RESET_STRATEGY - Clear all cache entries on reset
-            for (int way = 0; way < WAYS; way++) begin
-                for (int set = 0; set < SETS; set++) begin
-                    cache_mem[way][set].valid <= 1'b0;
-                    cache_mem[way][set].tag <= '0;
-                    cache_mem[way][set].lru <= 1'b0;
-                    for (int word = 0; word < WORDS_PER_LINE; word++) begin
-                        cache_mem[way][set].data[word] <= '0;
-                    end
-                end
-            end
-        end else if (cache_state_r == MISS_FILL && mem_rvalid_i && mem_rready_o) begin
-            // Fill cache line with memory data
-            cache_mem[replace_way][miss_index].data[fill_offset] <= mem_rdata_i;
-            
-            if (fill_offset == WORDS_PER_LINE - 1) begin
-                // Complete the cache line fill
-                cache_mem[replace_way][miss_index].valid <= 1'b1;
-                cache_mem[replace_way][miss_index].tag <= miss_tag;
-                
-                // Update LRU bit for 2-way cache
-                if (WAYS == 2) begin
-                    cache_mem[0][miss_index].lru <= (replace_way == 1);
-                    cache_mem[1][miss_index].lru <= (replace_way == 0);
-                end
-            end
-        end else if (cache_state_r == FLUSH_STATE) begin
-            // AI_TAG: RESET_STRATEGY - Clear all valid bits during flush
-            for (int way = 0; way < WAYS; way++) begin
-                for (int set = 0; set < SETS; set++) begin
-                    cache_mem[way][set].valid <= 1'b0;
-                end
-            end
-        end else if (any_hit && valid_i) begin
-            // Update LRU bit on cache hit (for 2-way cache)
-            if (WAYS == 2) begin
-                cache_mem[0][index].lru <= (hit_way == 1);
-                cache_mem[1][index].lru <= (hit_way == 0);
-            end
-        end
-    end
-    
-    // AI_TAG: INTERNAL_LOGIC - Flush completion signal
-    assign flush_done_o = (cache_state_r == FLUSH_STATE);
 
-    // AI_TAG: INTERNAL_LOGIC - Performance counter signals
-    logic [31:0] hit_count_r;
-    logic [31:0] miss_count_r;
-    logic [31:0] flush_count_r;
-    logic [31:0] total_requests_r;
-    logic        hit_detected;
-    logic        miss_detected_perf;
-    logic        flush_detected;
-    
-    // AI_TAG: INTERNAL_LOGIC - Performance counter detection logic
-    assign hit_detected = any_hit && valid_i && (cache_state_r == IDLE);
-    assign miss_detected_perf = valid_i && !any_hit && (cache_state_r == IDLE);
-    assign flush_detected = flush_i && (cache_state_r == IDLE);
-    
-    // AI_TAG: INTERNAL_LOGIC - Performance counter update logic
+    // AI_TAG: INTERNAL_LOGIC - Memory request generation
+    assign mem_req_valid_o = (cache_state_r == MISS_WAIT);
+    assign mem_req_addr_o = {miss_tag, miss_index, fill_offset, 2'b00};  // Aligned to word boundary
+
+    // AI_TAG: INTERNAL_LOGIC - Cache fill logic
     always_ff @(posedge clk_i or negedge rst_ni) begin
         if (!rst_ni) begin
-            hit_count_r <= 32'h0;
-            miss_count_r <= 32'h0;
-            flush_count_r <= 32'h0;
-            total_requests_r <= 32'h0;
-        end else if (perf_counter_reset_i) begin
-            hit_count_r <= 32'h0;
-            miss_count_r <= 32'h0;
-            flush_count_r <= 32'h0;
-            total_requests_r <= 32'h0;
+            fill_offset <= '0;
+            miss_index <= '0;
+            miss_tag <= '0;
+            replace_way <= '0;
+        end else if (cache_state_r == IDLE && miss_detected) begin
+            miss_index <= index;
+            miss_tag <= tag;
+            fill_offset <= '0;
+            // Simple round-robin replacement for 2-way cache
+            replace_way <= cache_mem[0][index].lru ? 1'b0 : 1'b1;
+        end else if (cache_state_r == MISS_FILL && mem_rsp_valid_i) begin
+            cache_mem[replace_way][miss_index].data[fill_offset] <= mem_rsp_data_i;
+            fill_offset <= fill_offset + 1;
+        end
+    end
+
+    // AI_TAG: INTERNAL_LOGIC - Cache line update
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (!rst_ni) begin
+            for (int way = 0; way < WAYS; way++) begin
+                for (int set = 0; set < SETS; set++) begin
+                    cache_mem[way][set].valid <= 1'b0;
+                    cache_mem[way][set].lru <= 1'b0;
+                end
+            end
+        end else if (cache_state_r == MISS_FILL && mem_rsp_valid_i && fill_offset == WORDS_PER_LINE-1) begin
+            cache_mem[replace_way][miss_index].valid <= 1'b1;
+            cache_mem[replace_way][miss_index].tag <= miss_tag;
+            cache_mem[replace_way][miss_index].lru <= 1'b1;
+            cache_mem[1-replace_way][miss_index].lru <= 1'b0;
+        end else if (cache_state_r == FLUSH_STATE) begin
+            for (int way = 0; way < WAYS; way++) begin
+                for (int set = 0; set < SETS; set++) begin
+                    cache_mem[way][set].valid <= 1'b0;
+                    cache_mem[way][set].lru <= 1'b0;
+                end
+            end
+        end
+    end
+
+    // AI_TAG: INTERNAL_LOGIC - Performance counter update
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (!rst_ni) begin
+            hit_count_r <= '0;
+            miss_count_r <= '0;
+            flush_count_r <= '0;
+            total_requests_r <= '0;
         end else begin
-            // Update hit counter
-            if (hit_detected) begin
-                hit_count_r <= hit_count_r + 1;
+            if (cache_state_r == IDLE && cpu_req_valid_i) begin
+                total_requests_r <= total_requests_r + 1;
+                if (any_hit) begin
+                    hit_count_r <= hit_count_r + 1;
+                end else begin
+                    miss_count_r <= miss_count_r + 1;
+                end
             end
-            
-            // Update miss counter
-            if (miss_detected_perf) begin
-                miss_count_r <= miss_count_r + 1;
-            end
-            
-            // Update flush counter
-            if (flush_detected) begin
+            if (cache_state_r == FLUSH_STATE) begin
                 flush_count_r <= flush_count_r + 1;
             end
-            
-            // Update total requests counter
-            if (valid_i && (cache_state_r == IDLE)) begin
-                total_requests_r <= total_requests_r + 1;
-            end
         end
     end
-    
-    // AI_TAG: INTERNAL_LOGIC - Performance counter outputs
+
+    // AI_TAG: INTERNAL_LOGIC - Performance output
     assign perf_hit_count_o = hit_count_r;
     assign perf_miss_count_o = miss_count_r;
-    assign perf_flush_count_o = flush_count_r;
-    assign perf_total_requests_o = total_requests_r;
-    
-    // AI_TAG: INTERNAL_LOGIC - Hit rate calculation (scaled by 100 for percentage)
-    always_comb begin
-        if (total_requests_r == 0) begin
-            perf_hit_rate_o = 32'h0;
-        end else begin
-            perf_hit_rate_o = (hit_count_r * 100) / total_requests_r;
-        end
-    end
+    assign perf_hit_rate_o = (total_requests_r == 0) ? '0 : (hit_count_r * 100) / total_requests_r;
+    assign flush_done_o = (cache_state_r == IDLE);
+
+    // AI_TAG: INTERNAL_LOGIC - CPU interface
+    assign cpu_req_ready_o = (cache_state_r == IDLE);
+    assign cpu_rsp_valid_o = valid_o;
+    assign cpu_rsp_data_o = data_o;
+    assign cpu_rsp_hit_o = hit_o;
+
+    // AI_TAG: ASSERTION - Cache size should be power of 2
+    // AI_TAG: ASSERTION_TYPE - Both
+    // AI_TAG: ASSERTION_SEVERITY - Error
+    // AI_TAG: ASSERTION_COVERAGE_LINK - icache_coverage.cache_size_power2_cp
+    CacheSizePower2: assert property (@(posedge clk_i) disable iff (!rst_ni) 
+        ((CACHE_SIZE & (CACHE_SIZE - 1)) == 0));
+
+    // AI_TAG: ASSERTION - Line size should be power of 2
+    // AI_TAG: ASSERTION_TYPE - Both
+    // AI_TAG: ASSERTION_SEVERITY - Error
+    // AI_TAG: ASSERTION_COVERAGE_LINK - icache_coverage.line_size_power2_cp
+    LineSizePower2: assert property (@(posedge clk_i) disable iff (!rst_ni) 
+        ((LINE_SIZE & (LINE_SIZE - 1)) == 0));
+
+    // AI_TAG: ASSERTION - Ways should be power of 2
+    // AI_TAG: ASSERTION_TYPE - Both
+    // AI_TAG: ASSERTION_SEVERITY - Error
+    // AI_TAG: ASSERTION_COVERAGE_LINK - icache_coverage.ways_power2_cp
+    WaysPower2: assert property (@(posedge clk_i) disable iff (!rst_ni) 
+        ((WAYS & (WAYS - 1)) == 0));
 
 endmodule : icache
 
 //=============================================================================
-// Dependencies: riscv_core_pkg.sv
+// Dependencies: riscv_config_pkg, riscv_types_pkg, riscv_cache_types_pkg
 //
 // Performance:
-//   - Critical Path: Cache lookup to instruction output
-//   - Max Frequency: TBD
-//   - Area: TBD
+//   - Critical Path: Cache lookup to response
+//   - Max Frequency: Depends on cache size and technology
+//   - Area: Significant - includes cache memory array
 //
 // Verification Coverage:
 //   - Code Coverage: Not measured

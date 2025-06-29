@@ -20,8 +20,10 @@
 `timescale 1ns/1ps
 `default_nettype none
 
+`include "test_utils.sv"
+import riscv_types_pkg::*;
+
 module alu_tb;
-    import riscv_core_pkg::*;
     import test_utils::*;
 
     //===========================================================================

@@ -21,8 +21,11 @@
 `timescale 1ns/1ps
 `default_nettype none
 
+import riscv_types_pkg::*;
+import riscv_exception_pkg::*;
+import riscv_config_pkg::*;
+
 module csr_regfile
-    import riscv_core_pkg::*;
 #(
     // AI_TAG: PARAMETER - HART_ID - A unique ID for this processor core (hart).
     parameter word_t HART_ID = 32'd0

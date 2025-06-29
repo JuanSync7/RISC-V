@@ -19,8 +19,11 @@
 `timescale 1ns/1ps
 `default_nettype none
 
+import riscv_types_pkg::*;
+import riscv_mem_types_pkg::*;
+
 module memory_req_rsp_tb;
-    import riscv_core_pkg::*;
+    localparam integer CLK_PERIOD = 10;
 
     // Clock and reset
     logic clk;
@@ -174,7 +177,7 @@ module memory_req_rsp_tb;
 endmodule : memory_req_rsp_tb
 
 //=============================================================================
-// Dependencies: riscv_core_pkg.sv, memory_req_rsp_if.sv
+// Dependencies: riscv_types_pkg.sv, riscv_mem_types_pkg.sv, memory_req_rsp_if.sv
 //
 // Performance:
 //   - Simulation Time: TBD
