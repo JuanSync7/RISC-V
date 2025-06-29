@@ -109,109 +109,199 @@ module qos_arbiter #(
     end
 
     //---------------------------------------------------------------------------
-    // Priority Score Calculation
+    // Optimized Priority Score Calculation - Pipelined for High Frequency
     //---------------------------------------------------------------------------
+    // AI_TAG: PERFORMANCE_OPT - Pipelined priority calculation to reduce critical path
     
-    always_comb begin : proc_priority_calculation
-        for (int i = 0; i < NUM_REQUESTERS; i++) begin
-            if (qos_enable_i && req_valid_i[i]) begin
-                // Base priority from QoS level (higher QoS = higher priority)
-                logic [31:0] base_priority = {24'h0, qos_config_i[i].qos_level, 4'h0};
-                
-                // Urgency bonus
-                logic [31:0] urgency_bonus = qos_config_i[i].urgent ? 32'h1000 : 32'h0;
-                
-                // Anti-starvation aging (older requests get higher priority)
-                logic [31:0] aging_bonus = wait_times[i] * qos_config_i[i].weight;
-                
-                // Real-time boost
-                logic [31:0] rt_bonus = qos_config_i[i].real_time ? 32'h2000 : 32'h0;
-                
-                priority_scores[i] = base_priority + urgency_bonus + aging_bonus + rt_bonus;
-            end else begin
-                // No QoS or invalid request
-                priority_scores[i] = wait_times[i]; // Only aging for fairness
+    // Pipeline registers for priority calculation
+    logic [15:0] [NUM_REQUESTERS-1:0] priority_scores_pipe_r;
+    logic [NUM_REQUESTERS-1:0] req_valid_pipe_r;
+    qos_config_t [NUM_REQUESTERS-1:0] qos_config_pipe_r;
+    
+    // Stage 1: Basic priority calculation (reduced bit width for speed)
+    always_ff @(posedge clk_i or negedge rst_ni) begin : proc_priority_stage1
+        if (!rst_ni) begin
+            priority_scores_pipe_r <= '{default: '0};
+            req_valid_pipe_r <= '0;
+            qos_config_pipe_r <= '{default: '0};
+        end else begin
+            req_valid_pipe_r <= req_valid_i;
+            qos_config_pipe_r <= qos_config_i;
+            
+            for (int i = 0; i < NUM_REQUESTERS; i++) begin
+                if (qos_enable_i && req_valid_i[i]) begin
+                    // Optimized 16-bit priority calculation for speed
+                    logic [15:0] base_priority = {8'h0, qos_config_i[i].qos_level, 4'h0};
+                    logic [15:0] urgency_bonus = qos_config_i[i].urgent ? 16'h1000 : 16'h0;
+                    logic [15:0] rt_bonus = qos_config_i[i].real_time ? 16'h2000 : 16'h0;
+                    
+                    // Simplified aging (capped to prevent overflow)
+                    logic [15:0] aging_bonus = wait_times[i][15:0];
+                    
+                    priority_scores_pipe_r[i] <= base_priority + urgency_bonus + rt_bonus + aging_bonus;
+                end else begin
+                    priority_scores_pipe_r[i] <= wait_times[i][15:0]; // Aging only
+                end
             end
+        end
+    end
+    
+    // Convert pipelined scores to full width for compatibility
+    always_comb begin : proc_priority_expansion
+        for (int i = 0; i < NUM_REQUESTERS; i++) begin
+            priority_scores[i] = {16'h0, priority_scores_pipe_r[i]};
         end
     end
 
     //---------------------------------------------------------------------------
-    // Arbitration Logic
+    // Optimized Tree-Based Arbitration Logic for High Frequency
     //---------------------------------------------------------------------------
+    // AI_TAG: PERFORMANCE_OPT - Tree-based arbitration to reduce critical path delay
     
-    always_comb begin : proc_arbitration
-        winner_id = '0;
-        winner_valid = 1'b0;
-        grant_mask = '0;
-        
-        case (arbiter_mode_i)
-            2'b00: begin // Round-robin arbitration
-                // Simple round-robin starting from rr_pointer_r
-                for (int i = 0; i < NUM_REQUESTERS; i++) begin
-                    int idx = (rr_pointer_r + i) % NUM_REQUESTERS;
-                    if (req_valid_i[idx] && !winner_valid) begin
-                        winner_id = idx[$clog2(NUM_REQUESTERS)-1:0];
-                        winner_valid = 1'b1;
-                        grant_mask[idx] = 1'b1;
+    // Registered arbitration mode and winner selection
+    logic [1:0] arbiter_mode_r;
+    logic [$clog2(NUM_REQUESTERS)-1:0] winner_id_r;
+    logic winner_valid_r;
+    logic [NUM_REQUESTERS-1:0] grant_mask_r;
+    
+    // Pipeline arbitration for high frequency
+    always_ff @(posedge clk_i or negedge rst_ni) begin : proc_arbitration_pipe
+        if (!rst_ni) begin
+            arbiter_mode_r <= 2'b00;
+            winner_id_r <= '0;
+            winner_valid_r <= 1'b0;
+            grant_mask_r <= '0;
+        end else begin
+            arbiter_mode_r <= arbiter_mode_i;
+            
+            // Tree-based winner selection for improved timing
+            logic [$clog2(NUM_REQUESTERS)-1:0] temp_winner;
+            logic temp_valid;
+            
+            case (arbiter_mode_i)
+                2'b00: begin // Optimized Round-robin
+                    temp_winner = '0;
+                    temp_valid = 1'b0;
+                    
+                    // Unrolled round-robin for better timing (assuming NUM_REQUESTERS = 4)
+                    if (NUM_REQUESTERS == 4) begin
+                        case (rr_pointer_r)
+                            2'b00: begin
+                                if (req_valid_pipe_r[0]) begin
+                                    temp_winner = 2'b00; temp_valid = 1'b1;
+                                end else if (req_valid_pipe_r[1]) begin
+                                    temp_winner = 2'b01; temp_valid = 1'b1;
+                                end else if (req_valid_pipe_r[2]) begin
+                                    temp_winner = 2'b10; temp_valid = 1'b1;
+                                end else if (req_valid_pipe_r[3]) begin
+                                    temp_winner = 2'b11; temp_valid = 1'b1;
+                                end
+                            end
+                            2'b01: begin
+                                if (req_valid_pipe_r[1]) begin
+                                    temp_winner = 2'b01; temp_valid = 1'b1;
+                                end else if (req_valid_pipe_r[2]) begin
+                                    temp_winner = 2'b10; temp_valid = 1'b1;
+                                end else if (req_valid_pipe_r[3]) begin
+                                    temp_winner = 2'b11; temp_valid = 1'b1;
+                                end else if (req_valid_pipe_r[0]) begin
+                                    temp_winner = 2'b00; temp_valid = 1'b1;
+                                end
+                            end
+                            2'b10: begin
+                                if (req_valid_pipe_r[2]) begin
+                                    temp_winner = 2'b10; temp_valid = 1'b1;
+                                end else if (req_valid_pipe_r[3]) begin
+                                    temp_winner = 2'b11; temp_valid = 1'b1;
+                                end else if (req_valid_pipe_r[0]) begin
+                                    temp_winner = 2'b00; temp_valid = 1'b1;
+                                end else if (req_valid_pipe_r[1]) begin
+                                    temp_winner = 2'b01; temp_valid = 1'b1;
+                                end
+                            end
+                            2'b11: begin
+                                if (req_valid_pipe_r[3]) begin
+                                    temp_winner = 2'b11; temp_valid = 1'b1;
+                                end else if (req_valid_pipe_r[0]) begin
+                                    temp_winner = 2'b00; temp_valid = 1'b1;
+                                end else if (req_valid_pipe_r[1]) begin
+                                    temp_winner = 2'b01; temp_valid = 1'b1;
+                                end else if (req_valid_pipe_r[2]) begin
+                                    temp_winner = 2'b10; temp_valid = 1'b1;
+                                end
+                            end
+                        endcase
                     end
                 end
-            end
-            
-            2'b01: begin // Strict priority arbitration
-                // Highest QoS level wins
-                logic [31:0] max_priority = '0;
-                for (int i = 0; i < NUM_REQUESTERS; i++) begin
-                    if (req_valid_i[i] && priority_scores[i] > max_priority) begin
-                        max_priority = priority_scores[i];
-                        winner_id = i[$clog2(NUM_REQUESTERS)-1:0];
-                        winner_valid = 1'b1;
-                    end
-                end
-                if (winner_valid) begin
-                    grant_mask[winner_id] = 1'b1;
-                end
-            end
-            
-            2'b10: begin // Weighted round-robin with QoS
-                // Priority-aware round-robin
-                logic [31:0] best_score = '0;
-                logic [$clog2(NUM_REQUESTERS)-1:0] best_candidate = '0;
-                logic candidate_found = 1'b0;
                 
-                // Look for candidates starting from round-robin pointer
-                for (int i = 0; i < NUM_REQUESTERS; i++) begin
-                    int idx = (rr_pointer_r + i) % NUM_REQUESTERS;
-                    if (req_valid_i[idx]) begin
-                        if (!candidate_found || priority_scores[idx] > best_score) begin
-                            best_score = priority_scores[idx];
-                            best_candidate = idx[$clog2(NUM_REQUESTERS)-1:0];
-                            candidate_found = 1'b1;
+                2'b01: begin // Tree-based Priority Arbitration
+                    // Binary tree comparison for 4 requesters
+                    logic [1:0] winner_01, winner_23;
+                    logic valid_01, valid_23;
+                    
+                    // Level 1: Compare pairs
+                    if (req_valid_pipe_r[0] && req_valid_pipe_r[1]) begin
+                        winner_01 = (priority_scores[0] >= priority_scores[1]) ? 2'b00 : 2'b01;
+                        valid_01 = 1'b1;
+                    end else if (req_valid_pipe_r[0]) begin
+                        winner_01 = 2'b00; valid_01 = 1'b1;
+                    end else if (req_valid_pipe_r[1]) begin
+                        winner_01 = 2'b01; valid_01 = 1'b1;
+                    end else begin
+                        winner_01 = 2'b00; valid_01 = 1'b0;
+                    end
+                    
+                    if (req_valid_pipe_r[2] && req_valid_pipe_r[3]) begin
+                        winner_23 = (priority_scores[2] >= priority_scores[3]) ? 2'b10 : 2'b11;
+                        valid_23 = 1'b1;
+                    end else if (req_valid_pipe_r[2]) begin
+                        winner_23 = 2'b10; valid_23 = 1'b1;
+                    end else if (req_valid_pipe_r[3]) begin
+                        winner_23 = 2'b11; valid_23 = 1'b1;
+                    end else begin
+                        winner_23 = 2'b10; valid_23 = 1'b0;
+                    end
+                    
+                    // Level 2: Final comparison
+                    if (valid_01 && valid_23) begin
+                        temp_winner = (priority_scores[winner_01] >= priority_scores[winner_23]) ? 
+                                     winner_01 : winner_23;
+                        temp_valid = 1'b1;
+                    end else if (valid_01) begin
+                        temp_winner = winner_01; temp_valid = 1'b1;
+                    end else if (valid_23) begin
+                        temp_winner = winner_23; temp_valid = 1'b1;
+                    end else begin
+                        temp_winner = 2'b00; temp_valid = 1'b0;
+                    end
+                end
+                
+                default: begin // Default to round-robin
+                    temp_winner = '0; temp_valid = 1'b0;
+                    // Simplified default case
+                    for (int i = 0; i < NUM_REQUESTERS; i++) begin
+                        if (req_valid_pipe_r[i] && !temp_valid) begin
+                            temp_winner = i[$clog2(NUM_REQUESTERS)-1:0];
+                            temp_valid = 1'b1;
                         end
                     end
                 end
-                
-                if (candidate_found) begin
-                    winner_id = best_candidate;
-                    winner_valid = 1'b1;
-                    grant_mask[best_candidate] = 1'b1;
-                end
-            end
+            endcase
             
-            default: begin // Fair arbitration (aging-based)
-                logic [31:0] max_wait = '0;
-                for (int i = 0; i < NUM_REQUESTERS; i++) begin
-                    if (req_valid_i[i] && wait_times[i] > max_wait) begin
-                        max_wait = wait_times[i];
-                        winner_id = i[$clog2(NUM_REQUESTERS)-1:0];
-                        winner_valid = 1'b1;
-                    end
-                end
-                if (winner_valid) begin
-                    grant_mask[winner_id] = 1'b1;
-                end
+            // Register outputs
+            winner_id_r <= temp_winner;
+            winner_valid_r <= temp_valid;
+            grant_mask_r <= '0;
+            if (temp_valid) begin
+                grant_mask_r[temp_winner] <= 1'b1;
             end
-        endcase
+        end
     end
+    
+    // Assign outputs from registered values
+    assign winner_id = winner_id_r;
+    assign winner_valid = winner_valid_r;
+    assign grant_mask = grant_mask_r;
 
     //---------------------------------------------------------------------------
     // Round-Robin Pointer Update

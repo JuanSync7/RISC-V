@@ -158,74 +158,118 @@ module protocol_factory #(
     memory_req_rsp_if tilelink_adapter_if(.clk_i(clk_i), .rst_ni(rst_ni));
 
     //-----
-    // Protocol Multiplexer
+    // Pipelined Protocol Multiplexer for High-Frequency Operation
     //-----
-    // AI_TAG: INTERNAL_LOGIC - Protocol multiplexer routes generic interface to selected protocol
-    always_comb begin : proc_protocol_mux
-        // Default all adapters disconnected
+    // AI_TAG: PERFORMANCE_OPT - Pipelined protocol multiplexer for critical path optimization
+    // AI_TAG: INTERNAL_LOGIC - Two-stage pipeline: selection and routing
+    
+    // Pipeline Stage 1: Protocol Selection and Validation
+    protocol_type_e protocol_select_r;
+    logic protocol_enable_r;
+    logic req_valid_pipe_r;
+    memory_req_t req_pipe_r;
+    
+    always_ff @(posedge clk_i or negedge rst_ni) begin : proc_protocol_select_pipe
+        if (!rst_ni) begin
+            protocol_select_r <= PROTOCOL_AXI4;
+            protocol_enable_r <= 1'b0;
+            req_valid_pipe_r <= 1'b0;
+            req_pipe_r <= '0;
+        end else begin
+            // Pipeline stage 1: Register protocol selection
+            protocol_select_r <= current_protocol_s;
+            protocol_enable_r <= protocol_enable_s;
+            
+            // Pipeline request if enabled and valid
+            if (protocol_enable_s && generic_if.req_valid) begin
+                req_valid_pipe_r <= 1'b1;
+                req_pipe_r <= generic_if.req;
+            end else begin
+                req_valid_pipe_r <= 1'b0;
+            end
+        end
+    end
+    
+    // Pipeline Stage 2: Protocol Routing with Optimized Muxing
+    always_comb begin : proc_protocol_route_pipe
+        // Default all adapters disconnected - optimized for synthesis
         axi4_adapter_if.req_valid = 1'b0;
         chi_adapter_if.req_valid = 1'b0;
         tilelink_adapter_if.req_valid = 1'b0;
         
-        axi4_adapter_if.req = '0;
-        chi_adapter_if.req = '0;
-        tilelink_adapter_if.req = '0;
+        // Use single assignment per adapter to reduce mux complexity
+        axi4_adapter_if.req = req_pipe_r;
+        chi_adapter_if.req = req_pipe_r;
+        tilelink_adapter_if.req = req_pipe_r;
         
+        // Optimized protocol selection using parallel decode
+        case (protocol_select_r)
+            PROTOCOL_AXI4: begin
+                axi4_adapter_if.req_valid = req_valid_pipe_r;
+            end
+            PROTOCOL_CHI: begin
+                chi_adapter_if.req_valid = req_valid_pipe_r;
+            end
+            PROTOCOL_TILELINK: begin
+                tilelink_adapter_if.req_valid = req_valid_pipe_r;
+            end
+            default: begin
+                // PROTOCOL_CUSTOM - handled separately
+            end
+        endcase
+    end
+    
+    // Optimized Response Path with Reduced Latency
+    always_comb begin : proc_response_mux
+        // Default outputs
+        generic_if.rsp_valid = 1'b0;
+        generic_if.rsp = '0;
+        
+        // Response ready signals
         axi4_adapter_if.rsp_ready = 1'b0;
         chi_adapter_if.rsp_ready = 1'b0;
         tilelink_adapter_if.rsp_ready = 1'b0;
         
-        // Default generic interface outputs
-        generic_if.req_ready = 1'b0;
-        generic_if.rsp_valid = 1'b0;
-        generic_if.rsp = '0;
-
-        // Route based on current protocol and enable state
-        if (protocol_enable_s) begin
-            case (current_protocol_s)
-                PROTOCOL_AXI4: begin
-                    axi4_adapter_if.req_valid = generic_if.req_valid;
-                    axi4_adapter_if.req = generic_if.req;
-                    generic_if.req_ready = axi4_adapter_if.req_ready;
-                    generic_if.rsp_valid = axi4_adapter_if.rsp_valid;
-                    generic_if.rsp = axi4_adapter_if.rsp;
-                    axi4_adapter_if.rsp_ready = generic_if.rsp_ready;
-                end
-                
-                PROTOCOL_CHI: begin
-                    chi_adapter_if.req_valid = generic_if.req_valid;
-                    chi_adapter_if.req = generic_if.req;
-                    generic_if.req_ready = chi_adapter_if.req_ready;
-                    generic_if.rsp_valid = chi_adapter_if.rsp_valid;
-                    generic_if.rsp = chi_adapter_if.rsp;
-                    chi_adapter_if.rsp_ready = generic_if.rsp_ready;
-                end
-                
-                PROTOCOL_TILELINK: begin
-                    tilelink_adapter_if.req_valid = generic_if.req_valid;
-                    tilelink_adapter_if.req = generic_if.req;
-                    generic_if.req_ready = tilelink_adapter_if.req_ready;
-                    generic_if.rsp_valid = tilelink_adapter_if.rsp_valid;
-                    generic_if.rsp = tilelink_adapter_if.rsp;
-                    tilelink_adapter_if.rsp_ready = generic_if.rsp_ready;
-                end
-                
-                default: begin // PROTOCOL_CUSTOM
-                    // Custom protocol handling - simple passthrough for demonstration
-                    generic_if.req_ready = 1'b1;
-                    generic_if.rsp_valid = generic_if.req_valid;
-                    generic_if.rsp.data = generic_if.req.addr; // Simple echo for demo
-                    generic_if.rsp.id = generic_if.req.id;
-                    generic_if.rsp.error = 1'b0;
-                    generic_if.rsp.last = 1'b1;
-                end
-            endcase
-        end else begin
-            // Protocol disabled - reject all requests
-            generic_if.req_ready = 1'b0;
-            generic_if.rsp_valid = 1'b0;
-            generic_if.rsp = '0;
-        end
+        // Single-cycle response routing based on registered protocol
+        case (protocol_select_r)
+            PROTOCOL_AXI4: begin
+                generic_if.rsp_valid = axi4_adapter_if.rsp_valid;
+                generic_if.rsp = axi4_adapter_if.rsp;
+                axi4_adapter_if.rsp_ready = generic_if.rsp_ready;
+            end
+            
+            PROTOCOL_CHI: begin
+                generic_if.rsp_valid = chi_adapter_if.rsp_valid;
+                generic_if.rsp = chi_adapter_if.rsp;
+                chi_adapter_if.rsp_ready = generic_if.rsp_ready;
+            end
+            
+            PROTOCOL_TILELINK: begin
+                generic_if.rsp_valid = tilelink_adapter_if.rsp_valid;
+                generic_if.rsp = tilelink_adapter_if.rsp;
+                tilelink_adapter_if.rsp_ready = generic_if.rsp_ready;
+            end
+            
+            default: begin // PROTOCOL_CUSTOM
+                // Direct combinational path for custom protocol
+                generic_if.rsp_valid = req_valid_pipe_r;
+                generic_if.rsp.data = req_pipe_r.addr; // Echo for demo
+                generic_if.rsp.id = req_pipe_r.id;
+                generic_if.rsp.error = 1'b0;
+                generic_if.rsp.last = 1'b1;
+            end
+        endcase
+    end
+    
+    // Optimized Ready Path - Critical for High Frequency
+    always_comb begin : proc_ready_path
+        // Single-level mux for critical ready signal
+        case (protocol_select_r)
+            PROTOCOL_AXI4:    generic_if.req_ready = protocol_enable_r & axi4_adapter_if.req_ready;
+            PROTOCOL_CHI:     generic_if.req_ready = protocol_enable_r & chi_adapter_if.req_ready;
+            PROTOCOL_TILELINK: generic_if.req_ready = protocol_enable_r & tilelink_adapter_if.req_ready;
+            default:          generic_if.req_ready = protocol_enable_r; // CUSTOM always ready
+        endcase
     end
 
     //-----

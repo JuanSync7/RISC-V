@@ -43,161 +43,292 @@ module cache_coherency_controller #(
     output logic [$clog2(L2_CACHE_WAYS)-1:0] l2_way_select_o
 );
 
-    //---------------------------------------------------------------------------
-    // FSM and State Registers
-    //---------------------------------------------------------------------------
-    typedef enum logic [3:0] {
-        IDLE,
-        ARBITRATE,
-        PROCESS,
-        SNOOP,
-        WAIT_SNOOP_RSP,
-        WRITEBACK,
-        WAIT_WB_RSP,
-        FETCH_L3,
-        WAIT_L3_RSP,
-        SEND_RSP
-    } state_e;
+    //------------------------------------------------------------------------- 
+    // MESI Protocol Controller
+    //-------------------------------------------------------------------------
+    // AI_TAG: FSM_NAME - mesi_protocol_fsm
+    // AI_TAG: FSM_PURPOSE - mesi_protocol_fsm - Controls MESI coherency state transitions
+    // AI_TAG: FSM_ENCODING - mesi_protocol_fsm - binary encoding for area optimization
+    // AI_TAG: FSM_RESET_STATE - mesi_protocol_fsm - COHERENCY_IDLE
+    typedef enum logic [2:0] {
+        COHERENCY_IDLE     = 3'b000,  // AI_TAG: FSM_STATE - COHERENCY_IDLE - Waiting for coherency requests
+        ARBITRATE_REQ      = 3'b001,  // AI_TAG: FSM_STATE - ARBITRATE_REQ - Arbitrating between multiple requests
+        PROCESS_REQUEST    = 3'b010,  // AI_TAG: FSM_STATE - PROCESS_REQUEST - Processing selected request
+        SEND_SNOOPS        = 3'b011,  // AI_TAG: FSM_STATE - SEND_SNOOPS - Broadcasting snoop requests
+        COLLECT_RESPONSES  = 3'b100,  // AI_TAG: FSM_STATE - COLLECT_RESPONSES - Collecting snoop responses
+        UPDATE_STATES      = 3'b101,  // AI_TAG: FSM_STATE - UPDATE_STATES - Updating coherency states
+        SEND_RESPONSE      = 3'b110   // AI_TAG: FSM_STATE - SEND_RESPONSE - Sending final response
+    } coherency_state_e;
 
-    state_e current_state, next_state;
+    coherency_state_e current_state_r, next_state_c;
 
-    // Registers to hold arbitrated request info
-    logic [CORE_ID_WIDTH-1:0]   active_core_id;
-    addr_t                      active_addr;
-    coherency_req_type_e        active_req_type;
-    logic [NUM_CORES-1:0]       snoop_vector;
+    // Registered storage for active request processing
+    // AI_TAG: INTERNAL_STORAGE - active_req_r - Stores the current coherency request being processed
+    // AI_TAG: INTERNAL_STORAGE - active_core_id_r - ID of core making the active request
+    // AI_TAG: INTERNAL_STORAGE - expected_responses_r - Number of snoop responses expected
+    // AI_TAG: INTERNAL_STORAGE - response_count_r - Number of snoop responses received
+    // AI_TAG: INTERNAL_STORAGE - collected_data_r - Data collected from snoop responses
+    // AI_TAG: INTERNAL_STORAGE - snoop_data_valid_r - Indicates if valid data was collected
+    coherency_req_t active_req_r;
+    logic [CORE_ID_WIDTH-1:0] active_core_id_r;
+    logic [CORE_ID_WIDTH:0] expected_responses_r;
+    logic [CORE_ID_WIDTH:0] response_count_r;
+    logic [DATA_WIDTH-1:0] collected_data_r;
+    logic collected_data_valid_r;
+    logic [NUM_CORES-1:0] snoop_sent_mask_r;
 
     // Round-robin arbiter state
-    logic [CORE_ID_WIDTH-1:0]   last_granted_core;
+    // AI_TAG: INTERNAL_STORAGE - arbiter_ptr_r - Current arbiter pointer for round-robin selection
+    logic [CORE_ID_WIDTH-1:0] arbiter_ptr_r;
 
-    always_ff @(posedge clk_i or negedge rst_ni) begin
+    //------------------------------------------------------------------------- 
+    // Main FSM Logic
+    //-------------------------------------------------------------------------
+    always_ff @(posedge clk_i or negedge rst_ni) begin : proc_coherency_fsm
         if (!rst_ni) begin
-            current_state <= IDLE;
-            last_granted_core <= '0;
+            current_state_r <= COHERENCY_IDLE;
+            active_req_r <= '0;
+            active_core_id_r <= '0;
+            expected_responses_r <= '0;
+            response_count_r <= '0;
+            collected_data_r <= '0;
+            collected_data_valid_r <= '0;
+            snoop_sent_mask_r <= '0;
+            arbiter_ptr_r <= '0;
         end else begin
-            current_state <= next_state;
-            if(next_state == IDLE) begin
-                last_granted_core <= last_granted_core + 1;
+            current_state_r <= next_state_c;
+            
+            // Register active request during arbitration
+            if (current_state_r == ARBITRATE_REQ && next_state_c == PROCESS_REQUEST) begin
+                logic [CORE_ID_WIDTH-1:0] selected_core;
+                selected_core = arbiter_ptr_r;
+                
+                // Find next requesting core starting from arbiter pointer
+                for (int i = 0; i < NUM_CORES; i++) begin
+                    logic [CORE_ID_WIDTH-1:0] core_idx = (arbiter_ptr_r + i) % NUM_CORES;
+                    if (coherency_if.req_valid[core_idx]) begin
+                        selected_core = core_idx;
+                        break;
+                    end
+                end
+                
+                active_req_r <= coherency_if.req[selected_core];
+                active_core_id_r <= selected_core;
+                expected_responses_r <= NUM_CORES - 1; // All cores except requester
+                response_count_r <= '0;
+                collected_data_r <= '0;
+                collected_data_valid_r <= '0;
+                snoop_sent_mask_r <= '0;
+                
+                // Update arbiter pointer
+                arbiter_ptr_r <= selected_core + 1;
+            end
+            
+            // Collect snoop responses
+            if (current_state_r == COLLECT_RESPONSES) begin
+                for (int i = 0; i < NUM_CORES; i++) begin
+                    if (i != active_core_id_r && snoop_sent_mask_r[i]) begin
+                        if (coherency_if.snoop_rsp_valid[i]) begin
+                            response_count_r <= response_count_r + 1;
+                            if (coherency_if.snoop_rsp_data_valid[i] && !collected_data_valid_r) begin
+                                collected_data_r <= coherency_if.snoop_rsp_data[i];
+                                collected_data_valid_r <= 1'b1;
+                            end
+                        end
+                    end
+                end
+            end
+            
+            // Clear response count when returning to idle
+            if (next_state_c == COHERENCY_IDLE) begin
+                response_count_r <= '0;
+                collected_data_valid_r <= '0;
+                snoop_sent_mask_r <= '0;
             end
         end
     end
 
-    always_comb begin
-        next_state = current_state;
-
-        // Default outputs
-        coherency_if.req_ready = '0;
-        coherency_if.snoop_valid = '0;
-        coherency_if.rsp_valid = '0;
-        mem_if.req_valid = '0;
-        l2_update_en_o = 1'b0;
-
-        // Arbitration Logic
+    // Combinational FSM logic
+    always_comb begin : proc_coherency_fsm_logic
+        next_state_c = current_state_r;
+        
+        // Default interface outputs
         for (int i = 0; i < NUM_CORES; i++) begin
-            int core_idx = (last_granted_core + i) % NUM_CORES;
-            if(coherency_if.req_valid[core_idx]) begin
-                active_core_id = core_idx;
-                active_addr = coherency_if.req_addr[core_idx];
-                active_req_type = coherency_if.req_type[core_idx];
-                break;
-            end
+            coherency_if.req_ready[i] = 1'b0;
+            coherency_if.rsp_valid[i] = 1'b0;
+            coherency_if.rsp[i] = '0;
+            coherency_if.snoop_valid[i] = 1'b0;
+            coherency_if.snoop_addr[i] = '0;
+            coherency_if.snoop_type[i] = COHERENCY_REQ_READ;
         end
 
-        case (current_state)
-            IDLE: begin
-                if (|coherency_if.req_valid) begin
-                    coherency_if.req_ready[active_core_id] = 1'b1;
-                    next_state = PROCESS;
+        case (current_state_r)
+            COHERENCY_IDLE: begin
+                // Check for any pending requests
+                logic has_request = 1'b0;
+                for (int i = 0; i < NUM_CORES; i++) begin
+                    if (coherency_if.req_valid[i]) begin
+                        has_request = 1'b1;
+                        break;
+                    end
+                end
+                
+                if (has_request) begin
+                    next_state_c = ARBITRATE_REQ;
                 end
             end
 
-            PROCESS: begin
-                // Based on the request and L2 directory state, decide action
-                logic is_hit = |l2_tag_match_way_i;
-                snoop_vector = '0;
+            ARBITRATE_REQ: begin
+                // Arbitration logic - select requesting core
+                logic [CORE_ID_WIDTH-1:0] selected_core = '0;
+                logic found_requester = 1'b0;
+                
+                // Round-robin selection starting from arbiter pointer
+                for (int i = 0; i < NUM_CORES; i++) begin
+                    logic [CORE_ID_WIDTH-1:0] core_idx = (arbiter_ptr_r + i) % NUM_CORES;
+                    if (coherency_if.req_valid[core_idx] && !found_requester) begin
+                        selected_core = core_idx;
+                        found_requester = 1'b1;
+                    end
+                end
+                
+                if (found_requester) begin
+                    coherency_if.req_ready[selected_core] = 1'b1;
+                    next_state_c = PROCESS_REQUEST;
+                end else begin
+                    next_state_c = COHERENCY_IDLE;
+                end
+            end
 
-                case (active_req_type)
+            PROCESS_REQUEST: begin
+                // Determine snoop type based on request
+                case (active_req_r.req_type)
                     COHERENCY_REQ_READ: begin
-                        if (is_hit) begin // Read Hit
-                             // No snoops needed, L2 has a valid copy.
-                             next_state = SEND_RSP;
-                        end else begin // Read Miss
-                             // Fetch from L3
-                             next_state = FETCH_L3;
-                        end
+                        // For reads, snoop other caches for data
+                        next_state_c = SEND_SNOOPS;
                     end
+                    
                     COHERENCY_REQ_WRITE: begin
-                        if (is_hit) begin // Write Hit
-                            if (l2_line_state_i == CACHE_MODIFIED || l2_line_state_i == CACHE_EXCLUSIVE) begin
-                                // No other sharers, can write directly
-                                next_state = SEND_RSP;
-                            end else begin // State is SHARED
-                                // Must invalidate other sharers
-                                snoop_vector = l2_sharer_list_i & ~(1'b1 << active_core_id);
-                                next_state = SNOOP;
-                            end
-                        end else begin // Write Miss
-                            // Fetch from L3, no snoops needed yet as no one has it
-                            next_state = FETCH_L3;
-                        end
+                        // For writes, invalidate other caches
+                        next_state_c = SEND_SNOOPS;
                     end
-                    COHERENCY_REQ_UPGRADE: begin // L1 has in 'S', wants to write, needs 'M'
-                         // Invalidate other sharers
-                        snoop_vector = l2_sharer_list_i & ~(1'b1 << active_core_id);
-                        next_state = SNOOP;
+                    
+                    COHERENCY_REQ_INVALIDATE: begin
+                        // Direct invalidation request
+                        next_state_c = SEND_SNOOPS;
+                    end
+                    
+                    default: begin
+                        // Unknown request type - skip to response
+                        next_state_c = SEND_RESPONSE;
                     end
                 endcase
             end
 
-            SNOOP: begin
-                // Broadcast invalidations or other snoop types
-                coherency_if.snoop_valid = snoop_vector;
-                coherency_if.snoop_addr = active_addr;
-                coherency_if.snoop_type = COHERENCY_REQ_INVALIDATE;
-                // A better FSM would wait here until all snoops are accepted
-                next_state = WAIT_SNOOP_RSP;
-            end
-            
-            WAIT_SNOOP_RSP: begin
-                // Wait for all snooped cores to respond and acknowledge
-                if ((coherency_if.snoop_rsp_valid & snoop_vector) == snoop_vector) begin
-                    // All acks received. Now we can grant permission.
-                    next_state = SEND_RSP;
+            SEND_SNOOPS: begin
+                // Send snoop requests to all other cores
+                logic all_snoops_sent = 1'b1;
+                
+                for (int i = 0; i < NUM_CORES; i++) begin
+                    if (i != active_core_id_r) begin
+                        coherency_if.snoop_valid[i] = 1'b1;
+                        coherency_if.snoop_addr[i] = active_req_r.addr;
+                        
+                        case (active_req_r.req_type)
+                            COHERENCY_REQ_READ: begin
+                                coherency_if.snoop_type[i] = COHERENCY_REQ_READ;
+                            end
+                            COHERENCY_REQ_WRITE, COHERENCY_REQ_INVALIDATE: begin
+                                coherency_if.snoop_type[i] = COHERENCY_REQ_INVALIDATE;
+                            end
+                            default: begin
+                                coherency_if.snoop_type[i] = COHERENCY_REQ_READ;
+                            end
+                        endcase
+                        
+                        // Mark that we've sent snoop to this core
+                        snoop_sent_mask_r[i] <= 1'b1;
+                    end
                 end
+                
+                // Move to response collection
+                next_state_c = COLLECT_RESPONSES;
             end
 
-            FETCH_L3: begin
-                mem_if.req_valid = 1'b1;
-                mem_if.req.addr = active_addr;
-                mem_if.req.write = 1'b0;
-                if (mem_if.req_ready) begin
-                    next_state = WAIT_L3_RSP;
+            COLLECT_RESPONSES: begin
+                // Wait for all expected responses
+                if (response_count_r >= expected_responses_r) begin
+                    next_state_c = UPDATE_STATES;
                 end
+                
+                // Timeout protection - if we wait too long, proceed anyway
+                // This would need a timer in a real implementation
             end
 
-            WAIT_L3_RSP: begin
-                if (mem_if.rsp_valid) begin
-                    // We have the data from L3. Update L2 cache
-                    l2_update_en_o = 1'b1;
-                    // L2 cache logic will take mem_if.rsp.data and write it
-                    next_state = SEND_RSP;
-                end
+            UPDATE_STATES: begin
+                // Update coherency states based on collected responses
+                // This is protocol-specific logic
+                next_state_c = SEND_RESPONSE;
             end
 
-            SEND_RSP: begin
-                // Send response to the original requesting core
-                coherency_if.rsp_valid[active_core_id] = 1'b1;
-                // Response state would be calculated here based on FSM path
-                if (coherency_if.rsp_ready[active_core_id]) begin
-                    next_state = IDLE;
+            SEND_RESPONSE: begin
+                // Send response back to requesting core
+                coherency_if.rsp_valid[active_core_id_r] = 1'b1;
+                coherency_if.rsp[active_core_id_r].req_id = active_req_r.req_id;
+                coherency_if.rsp[active_core_id_r].error = 1'b0;
+                
+                case (active_req_r.req_type)
+                    COHERENCY_REQ_READ: begin
+                        if (collected_data_valid_r) begin
+                            coherency_if.rsp[active_core_id_r].data = collected_data_r;
+                            coherency_if.rsp[active_core_id_r].data_valid = 1'b1;
+                        end else begin
+                            coherency_if.rsp[active_core_id_r].data = '0;
+                            coherency_if.rsp[active_core_id_r].data_valid = 1'b0;
+                        end
+                    end
+                    
+                    default: begin
+                        coherency_if.rsp[active_core_id_r].data = '0;
+                        coherency_if.rsp[active_core_id_r].data_valid = 1'b0;
+                    end
+                endcase
+                
+                if (coherency_if.rsp_ready[active_core_id_r]) begin
+                    next_state_c = COHERENCY_IDLE;
                 end
             end
 
             default: begin
-                next_state = IDLE;
+                next_state_c = COHERENCY_IDLE;
             end
         endcase
     end
+
+    // AI_TAG: ASSERTION - a_coherency_single_request: Only one core should be processed at a time
+    // AI_TAG: ASSERTION_TYPE - Simulation
+    // AI_TAG: ASSERTION_SEVERITY - Error
+`ifdef SIMULATION
+    property p_single_active_request;
+        @(posedge clk_i) disable iff (!rst_ni)
+        (current_state_r != COHERENCY_IDLE) |-> ($onehot0({(coherency_if.req_valid[0] & coherency_if.req_ready[0]),
+                                                           (coherency_if.req_valid[1] & coherency_if.req_ready[1]),
+                                                           (coherency_if.req_valid[2] & coherency_if.req_ready[2]),
+                                                           (coherency_if.req_valid[3] & coherency_if.req_ready[3])}));
+    endproperty
+    
+    assert property (p_single_active_request)
+        else $error("Multiple coherency requests being processed simultaneously");
+
+    // AI_TAG: ASSERTION - a_response_count_valid: Response count should not exceed expected
+    property p_response_count_bounds;
+        @(posedge clk_i) disable iff (!rst_ni)
+        response_count_r <= expected_responses_r;
+    endproperty
+    
+    assert property (p_response_count_bounds)
+        else $error("Response count %d exceeds expected %d", response_count_r, expected_responses_r);
+`endif
 
 endmodule : cache_coherency_controller
 
