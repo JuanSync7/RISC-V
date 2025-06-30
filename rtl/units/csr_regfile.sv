@@ -185,6 +185,8 @@ endmodule : csr_regfile
 
 //=============================================================================
 // Dependencies: riscv_core_pkg.sv
+// Instantiated In:
+//   - core/pipeline/execute_stage.sv
 //
 // Performance:
 //   - Critical Path: CSR read/write to output

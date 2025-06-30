@@ -390,4 +390,11 @@ module qos_memory_wrapper #(
 
 endmodule : qos_memory_wrapper
 
+//=============================================================================
+// Dependencies: memory_req_rsp_if.sv, riscv_qos_pkg.sv
+// Instantiated In:
+//   - Not currently instantiated in RTL modules
+
+// Performance:
+
 `default_nettype wire

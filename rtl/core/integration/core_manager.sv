@@ -230,6 +230,9 @@ endmodule : core_manager
 // Dependencies:
 //   - rtl/interfaces/inter_core_comm_if.sv
 //   - rtl/interfaces/sync_primitives_if.sv
+// Instantiated In:
+//   - core/riscv_core.sv
+//   - core/integration/multi_core_system.sv
 //
 // Performance:
 //   - Critical Path: TBD, likely in the arbiter or barrier logic.

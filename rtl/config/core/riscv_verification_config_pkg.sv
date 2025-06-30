@@ -85,4 +85,35 @@ package riscv_verification_config_pkg;
 
 endpackage : riscv_verification_config_pkg
 
+//=============================================================================
+// Dependencies: None.
+// Instantiated In: Not Applicable (Package)
+//
+// Performance:
+//   - Critical Path: Not Applicable (Package)
+//   - Max Frequency: Not Applicable (Package)
+//   - Area:          Not Applicable (Package)
+//
+// Verification Coverage:
+//   - Code Coverage:     Not Applicable (Package)
+//   - Functional Coverage: Not Applicable (Package)
+//   - Branch Coverage:   Not Applicable (Package)
+//
+// Synthesis:
+//   - Target Technology: Not Applicable (Package)
+//   - Synthesis Tool:    Not Applicable (Package)
+//   - Clock Domains:     Not Applicable (Package)
+//   - Constraints File:  Not Applicable (Package)
+//
+// Testing:
+//   - Testbench:    This package is central to the verification environment and used in all testbenches.
+//   - Test Vectors: N/A
+//
+//----
+// Revision History:
+// Version | Date       | Author                          | Description
+//=============================================================================
+// 1.0.0   | 2025-07-31 | DesignAI (designai@sondrel.com) | Initial creation and added standard footer.
+//=============================================================================
+
 `default_nettype wire 

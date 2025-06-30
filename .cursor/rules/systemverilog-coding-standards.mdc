@@ -1,5 +1,192 @@
 ---
-description:
-globs:
+description: 
+globs: 
 alwaysApply: false
 ---
+# SystemVerilog Coding Standards for RISC-V
+
+## Core Principles
+
+1. **IEEE 1800-2017 Compliance**: All code must comply with SystemVerilog IEEE 1800-2017 standard
+2. **Synthesizable Subset**: Use only synthesizable SystemVerilog constructs for RTL
+3. **Interface-First Design**: NEVER hardcode protocol signals - use SystemVerilog interfaces
+4. **Package-Based Architecture**: Follow strict package hierarchy and import order
+
+## Naming Conventions
+
+### Signal Naming (MANDATORY suffixes)
+- `_i`: input port
+- `_o`: output port  
+- `_io`: inout port
+- `_r`: registered signal (flip-flop output)
+- `_ns`: next-state signal for registered logic
+- `_c`: combinational signal (when clarity needed)
+- `_en`: enable signal
+- `_valid`: valid signal
+- `_ready`: ready signal
+
+### Clock and Reset Naming
+- `clk_*`: clock signals (e.g., `clk_core`, `clk_mem`)
+- `rst_ni`: active-low asynchronous reset
+- Use consistent reset polarity across design
+
+### Parameters and Constants
+- `UPPER_CASE_SNAKE_CASE` for parameters
+- `P_` prefix for parameters when distinction needed
+- Always specify parameter types: `parameter integer DATA_WIDTH = 32`
+
+### Module and Interface Naming
+- `snake_case` for modules and interfaces
+- Interface suffix: `*_if` (e.g., `axi4_if`, `memory_req_rsp_if`)
+
+## Code Structure Requirements
+
+### File Headers (MANDATORY)
+Every SystemVerilog file must start with:
+```systemverilog
+//=============================================================================
+// MODULE_NAME: <ModuleName>
+// AUTHOR: <Author Name>
+// VERSION: <X.Y.Z>
+// DATE: <YYYY-MM-DD>
+// DESCRIPTION: <Brief module description>
+// MODULE_TYPE: <RTL/Behavioral/Testbench_Component>
+// TARGET_TECHNOLOGY_PREF: <ASIC/FPGA>
+//=============================================================================
+
+`timescale 1ns/1ps
+`default_nettype none  // CRITICAL: Prevents implicit wire declarations
+```
+
+### Module Declaration Style
+```systemverilog
+module my_module #(
+    parameter integer DATA_WIDTH     = XLEN,        // Use config parameters
+    parameter integer FIFO_DEPTH     = 1024,       // Explicit typing
+    parameter type    ADDR_TYPE_T    = logic [15:0] // Type parameters
+) (
+    // Clock and Reset (group together)
+    input  logic                clk_i,         // System clock
+    input  logic                rst_ni,        // Active-low reset
+
+    // Interfaces (PREFERRED over individual signals)
+    memory_req_rsp_if.master   mem_if,         // Memory interface
+    axi4_if.slave              axi_if,         // AXI4 interface
+
+    // Individual signals (minimize these)
+    input  logic [DATA_WIDTH-1:0] data_i,      // Input data
+    output logic                valid_o        // Output valid
+);
+```
+
+### Always Block Style (MANDATORY patterns)
+
+**Sequential Logic:**
+```systemverilog
+always_ff @(posedge clk_i or negedge rst_ni) begin : proc_register_name
+    if (!rst_ni) begin
+        signal_q <= '0;
+    end else begin
+        signal_q <= signal_d;
+    end
+end
+```
+
+**Combinational Logic:**
+```systemverilog
+always_comb begin : proc_combinational_name
+    signal_c = default_value;  // Always provide defaults
+    
+    case (select_signal)
+        VALUE1: signal_c = result1;
+        VALUE2: signal_c = result2;
+        default: signal_c = default_value;  // MANDATORY default
+    endcase
+end
+```
+
+## Interface Usage Requirements
+
+### Interface Connection (MANDATORY)
+```systemverilog
+// CORRECT - Always specify modport
+my_module u_module (
+    .clk_i(clk_i),
+    .rst_ni(rst_ni),
+    .mem_if(mem_if.master),     // Clear role specification
+    .axi_if(axi_if.slave)       // Explicit modport
+);
+```
+
+### Interface Arrays (Multi-core)
+```systemverilog
+// Interface arrays for scalable designs
+cache_coherency_if l1_cache_if [NUM_CORES] ();
+inter_core_comm_if comm_if [NUM_CORES] ();
+
+// Generate connections
+generate
+    for (genvar i = 0; i < NUM_CORES; i++) begin : gen_cores
+        riscv_core u_core (
+            .cache_if(l1_cache_if[i].l1_cache_port),
+            .comm_if(comm_if[i].core)
+        );
+    end
+endgenerate
+```
+
+## Package Import Requirements
+
+### Standard Import Pattern
+```systemverilog
+// MANDATORY order
+import riscv_config_pkg::*;      // 1. Configuration first
+import riscv_types_pkg::*;       // 2. Core types second  
+import riscv_exception_pkg::*;   // 3. Specialized packages as needed
+```
+
+### Parameter Usage
+```systemverilog
+// CORRECT - Use configuration parameters
+parameter integer WIDTH = XLEN;
+parameter string MODE = DEFAULT_EXECUTION_MODE;
+
+// WRONG - Never hardcode
+parameter integer WIDTH = 32;  // Should use XLEN
+```
+
+## Documentation Standards
+
+### AI Tags for Auto-Documentation
+```systemverilog
+// AI_TAG: FEATURE - [Description of key feature]
+// AI_TAG: PARAM_DESC - [Parameter description]  
+// AI_TAG: PORT_DESC - [Port description]
+// AI_TAG: INTERNAL_BLOCK - [Internal block name] - [Description]
+```
+
+Reference [SystemVerilog Documentation Format](mdc:systemverilog-documentation-format) for complete documentation guidelines.
+
+## Style Guidelines Reference
+
+Follow the detailed style guide in [SystemVerilog Formatting Style](mdc:systemverilog-formatting-style) for:
+- Indentation (4 spaces, no tabs)
+- Line length (120 characters max)
+- Comment styles
+- File organization
+
+## Implementation Reference
+
+Study the [RTL Module Creation Guide](mdc:docs/implementation/RTL_MODULE_CREATION_GUIDE.md) for:
+- Complete module creation checklist
+- Design patterns and examples
+- Common pitfalls to avoid
+- Verification considerations
+
+## Quality Enforcement
+
+- All code must pass lint checks without warnings
+- Interface usage is verified during compilation
+- Package dependencies are checked during build
+- Coding style is enforced in code reviews
+

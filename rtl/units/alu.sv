@@ -111,6 +111,8 @@ endmodule : alu
 
 //=============================================================================
 // Dependencies: riscv_core_pkg.sv
+// Instantiated In:
+//   - rtl/core/pipeline/execute_stage.sv
 //
 // Performance:
 //   - Critical Path: ALU operation to result output

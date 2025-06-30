@@ -137,31 +137,39 @@ module hazard_unit
 endmodule : hazard_unit
 
 //=============================================================================
-// Dependencies: riscv_core_pkg.sv
+// Dependencies: 
+//   - riscv_config_pkg: Provides system-wide configuration parameters.
+//   - riscv_types_pkg: Provides core data types. This is likely a legacy include;
+//                      types are now resolved via the main config packages.
+//
+// Instantiated In:
+//   - core/integration/core_subsystem.sv
 //
 // Performance:
-//   - Critical Path: Hazard detection to control signals
-//   - Max Frequency: TBD
-//   - Area: TBD
+//   - Critical Path: Combinational path from pipeline register inputs to stall/flush/forward outputs.
+//   - Max Frequency: <TBD>
+//   - Area:          <TBD>
 //
 // Verification Coverage:
-//   - Code Coverage: Not measured
-//   - Functional Coverage: Not measured
-//   - Branch Coverage: Not measured
+//   - Code Coverage:     <Not Measured>
+//   - Functional Coverage: <Not Measured>
+//   - Branch Coverage:   <Not Measured>
 //
 // Synthesis:
 //   - Target Technology: ASIC/FPGA
-//   - Synthesis Tool: Design Compiler/Quartus
-//   - Clock Domains: 1 (clk_i)
+//   - Synthesis Tool:    <e.g., Design Compiler, Vivado>
+//   - Clock Domains:     This is a combinational module, but operates on signals
+//                        synchronized to the main core clock.
+//   - Constraints File:  <e.g., core_constraints.sdc>
 //
 // Testing:
-//   - Testbench: TBD
-//   - Test Vectors: TBD
-//   - Simulation Time: TBD
+//   - Testbench:    Verified as part of the `riscv_core_integration_tb`.
+//   - Test Vectors: Tests focus on load-use, control, and structural hazards.
 //
-//-----
+//----
 // Revision History:
-// Version | Date       | Author             | Description
+// Version | Date       | Author                          | Description
 //=============================================================================
-// 1.0.0   | 2025-06-28 | DesignAI           | Initial release
+// 1.0.1   | 2025-07-31 | DesignAI (designai@sondrel.com) | Updated documentation to new standard format.
+// 1.0.0   | 2025-06-28 | DesignAI (designai@sondrel.com) | Initial release of the hazard detection unit.
 //=============================================================================

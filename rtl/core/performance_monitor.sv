@@ -421,6 +421,8 @@ endmodule : performance_monitor
 
 //=============================================================================
 // Dependencies: riscv_types_pkg.sv
+// Instantiated In:
+//   - core/integration/multi_core_system.sv
 //
 // Performance:
 //   - Critical Path: IPC calculation combinatorial logic

@@ -139,6 +139,8 @@ endmodule : mult_unit
 
 //=============================================================================
 // Dependencies: riscv_config_pkg, riscv_types_pkg
+// Instantiated In:
+//   - rtl/core/pipeline/execute_stage.sv
 //
 // Performance:
 //   - Critical Path: Through the multiplier (depends on implementation)

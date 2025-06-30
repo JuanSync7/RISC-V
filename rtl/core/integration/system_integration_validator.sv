@@ -332,6 +332,8 @@ endmodule : system_integration_validator
 
 //=============================================================================
 // Dependencies: None
+// Instantiated In:
+//   - core/integration/multi_core_system.sv
 //
 // Performance:
 //   - Critical Path: FSM state transitions and health score calculation

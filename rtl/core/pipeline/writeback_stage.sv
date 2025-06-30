@@ -87,6 +87,8 @@ endmodule : writeback_stage
 
 //=============================================================================
 // Dependencies: riscv_types_pkg.sv, reg_file.sv
+// Instantiated In:
+//   - core/integration/core_subsystem.sv
 //
 // Performance:
 //   - Critical Path: Result selection to register write

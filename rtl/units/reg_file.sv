@@ -111,6 +111,8 @@ endmodule : reg_file
 
 //=============================================================================
 // Dependencies: riscv_types_pkg.sv
+// Instantiated In:
+//   - core/integration/core_subsystem.sv
 //
 // Performance:
 //   - Critical Path: Register read to output

@@ -313,4 +313,9 @@ module qos_csr_regfile #(
 
 endmodule : qos_csr_regfile
 
-`default_nettype wire 
+//=============================================================================
+// Dependencies: riscv_config_pkg.sv, riscv_qos_pkg.sv
+// Instantiated In:
+//   - Not currently instantiated in RTL modules
+
+// Performance: 

@@ -40,7 +40,7 @@ alwaysApply: false
 #       // RELATED_SPECIFICATION: <Document_Name_Or_Link_to_Spec>
 #       // VERIFICATION_STATUS: <Not Verified | In Progress | Verified | Formally Verified>
 #       // QUALITY_STATUS: <Draft | Reviewed | Approved | Released>
-#    - Information from standard file footers (Dependencies, Performance, Verification Coverage, Synthesis, Testing, Revision History).
+#    - Information from standard file footers (Dependencies, Instantiated In, Performance, Verification Coverage, Synthesis, Testing, Revision History).
 # 2. Attempt to infer architectural details based on common coding styles and
 #    naming conventions (e.g., FSM states if `enum` and `_r`/`_ns` are used,
 #    pipeline stages if `_r[stage_idx]` is used). It will also look for specific `AI_TAGS` to enrich this.
@@ -309,7 +309,6 @@ alwaysApply: false
 #     * 100% statement/branch/condition/toggle coverage.
 #     * All FSM states and defined transitions.
 #     * Key functional scenarios covered by `covergroup`s. [TODO: User to point to specific covergroups.]
-#     * Notes on coverage focus: <from `AI_TAG: COVERAGE_GOAL_NOTE`>.
 # * **Relevant UVM Components (if applicable, from `AI_TAG: UVM_COMPONENT_LINK`):**
 #     * Agent: `<ModuleName>_agent`
 #     * Sequence: `<ModuleName>_base_seq`, `error_injection_seq`
@@ -324,6 +323,7 @@ alwaysApply: false
 # <This section captures key metrics and results from the file footer information.>
 #
 # * **Dependencies:** <Extracted from file footer Dependencies section>
+# * **Instantiated In:** <Extracted from file footer Instantiated In section>
 # * **Performance Metrics:**
 #   * **Critical Path:** <Extracted from file footer Performance section>
 #   * **Max Frequency:** <Extracted from file footer Performance section>

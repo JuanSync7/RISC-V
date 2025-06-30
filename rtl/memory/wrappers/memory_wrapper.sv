@@ -453,6 +453,8 @@ endmodule : memory_wrapper
 
 //=============================================================================
 // Dependencies: riscv_core_pkg.sv, memory_req_rsp_if.sv, axi4_adapter.sv
+// Instantiated In:
+//   - rtl/core/riscv_core.sv
 //
 // Performance:
 //   - Critical Path: Memory request to response

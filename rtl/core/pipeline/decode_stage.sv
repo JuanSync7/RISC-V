@@ -253,6 +253,8 @@ endmodule : decode_stage
 
 //=============================================================================
 // Dependencies: riscv_core_pkg.sv, reg_file.sv
+// Instantiated In:
+//   - rtl/core/integration/core_subsystem.sv
 //
 // Performance:
 //   - Critical Path: Instruction decode to control signals

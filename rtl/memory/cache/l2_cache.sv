@@ -752,6 +752,10 @@ endmodule : l2_cache
 //   - rtl/memory/memory_req_rsp_if.sv
 //   - rtl/interfaces/cache_coherency_if.sv
 //   - rtl/memory/matrix_lru.sv
+// Instantiated In:
+//   - rtl/core/riscv_core.sv
+//   - rtl/memory/controllers/cache_cluster_manager.sv
+//   - tb/integration/memory_subsystem_integration_tb.sv
 //
 // Performance:
 //   - Critical Path: Tag comparison and way selection logic

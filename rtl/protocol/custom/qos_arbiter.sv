@@ -363,7 +363,9 @@ endmodule : qos_arbiter
 
 //=============================================================================
 // Dependencies: riscv_core_pkg.sv
-//
+// Instantiated In:
+//   - Not currently instantiated in RTL modules
+
 // Performance:
 //   - Critical Path: Priority score calculation and arbitration logic
 //   - Max Frequency: 500MHz ASIC, 250MHz FPGA (estimated)

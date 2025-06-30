@@ -237,6 +237,9 @@ endmodule : branch_predictor
 
 //=============================================================================
 // Dependencies: riscv_core_pkg.sv
+// Instantiated In:
+//   - core/integration/core_subsystem.sv
+//   - core/pipeline/fetch_stage.sv
 //
 // Performance:
 //   - Critical Path: BTB/BHT lookup to prediction output

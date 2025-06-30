@@ -191,6 +191,8 @@ endmodule : div_unit
 
 //=============================================================================
 // Dependencies: riscv_config_pkg, riscv_types_pkg, riscv_exception_pkg
+// Instantiated In:
+//   - rtl/core/pipeline/execute_stage.sv
 //
 // Performance:
 //   - Critical Path: Through the division algorithm (depends on implementation)

@@ -158,3 +158,34 @@ package riscv_memory_config_pkg;
     parameter integer QOS_EXCEPTION_DEFAULT_LATENCY = 20;            // Default exception latency
 
 endpackage : riscv_memory_config_pkg
+
+//=============================================================================
+// Dependencies: Imports riscv_core_config_pkg.
+// Instantiated In: Not Applicable (Package)
+//
+// Performance:
+//   - Critical Path: Not Applicable (Package)
+//   - Max Frequency: Not Applicable (Package)
+//   - Area:          Not Applicable (Package)
+//
+// Verification Coverage:
+//   - Code Coverage:     Not Applicable (Package)
+//   - Functional Coverage: Not Applicable (Package)
+//   - Branch Coverage:   Not Applicable (Package)
+//
+// Synthesis:
+//   - Target Technology: Not Applicable (Package)
+//   - Synthesis Tool:    Not Applicable (Package)
+//   - Clock Domains:     Not Applicable (Package)
+//   - Constraints File:  Not Applicable (Package)
+//
+// Testing:
+//   - Testbench:    Utilized in memory subsystem testbenches and RTL modules.
+//   - Test Vectors: N/A
+//
+//----
+// Revision History:
+// Version | Date       | Author                          | Description
+//=============================================================================
+// 1.0.0   | 2025-07-31 | DesignAI (designai@sondrel.com) | Initial creation and added standard footer.
+//=============================================================================

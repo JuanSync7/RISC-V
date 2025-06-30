@@ -1,17 +1,12 @@
----
-description: Systemverilog Style Formatting. Must when generating Systemverilog code for consistency.
-globs: 
-alwaysApply: false
----
 ################################################################################
 # ProjectName/TeamName SystemVerilog RTL Coding and Formatting Style Guide
-# Version: 2.0
-# Last Updated: 2025-05-25
+# Version: 2.1
+# Last Updated: 2025-01-17
 ################################################################################
 
-#-------------------------------------------------------------------------------
+#----
 # Introduction
-#-------------------------------------------------------------------------------
+#----
 # This document defines the SystemVerilog coding and formatting style for RTL
 # design. Adherence to these guidelines is mandatory to ensure code
 # consistency, readability, maintainability, and to facilitate collaboration,
@@ -21,9 +16,9 @@ alwaysApply: false
 # For language semantics and syntax, refer to IEEE 1800-2017.
 #
 
-#-------------------------------------------------------------------------------
+#----
 # 1. General Formatting
-#-------------------------------------------------------------------------------
+#----
 # 1.1. Character Encoding:
 #      - UTF-8
 #
@@ -72,9 +67,9 @@ alwaysApply: false
 #        ...
 #        // synthesis translate_on
 
-#-------------------------------------------------------------------------------
+#----
 # 2. Naming Conventions
-#-------------------------------------------------------------------------------
+#----
 # 2.1. General:
 #      - Use descriptive names. Avoid single-letter names except for loop variables (i, j, k).
 #      - Use snake_case for signals, variables, and most identifiers unless specified.
@@ -173,9 +168,9 @@ alwaysApply: false
 #      - `cg_<group_name>` for covergroups.
 #      - `cp_<point_name>` for coverpoints.
 #
-#-------------------------------------------------------------------------------
+#----
 # 3. Directory Structure
-#-------------------------------------------------------------------------------
+#----
 # project_root/
 # ├── doc/                  // Design documents, specifications
 # ├── rtl/                  // All synthesizable RTL SystemVerilog code (.sv)
@@ -226,9 +221,9 @@ alwaysApply: false
 # ├── scripts/              // General utility scripts (lint, build, etc.)
 # └── sim/                  // Simulation scripts, build directories (tool specific)
 #
-#-------------------------------------------------------------------------------
+#----
 # 4. Module and Interface Declarations
-#-------------------------------------------------------------------------------
+#----
 # 4.1. File Header:
 #      - Every `.sv` and `.svh` file must start with a standard header.
 #
@@ -262,20 +257,21 @@ alwaysApply: false
 #        `default_nettype none // IMPORTANT: All signals must be explicitly typed
 #        //
 #        ```
+#
 # 4.1.1 File Footer:
 #      - Every `.sv` and `.svh` file must end with a standard footer.
-#      - The `Instantiated In` section is critical and must be automatically populated by the agent. To do this, perform a codebase-wide search to find all RTL modules that instantiate the current module.
-#          - List each instantiating file on a new line, prefixed with `- `.
-#          - Paths should be relative to the `rtl/` directory (e.g., `core/integration/system.sv`).
-#          - Exclude instantiations from testbenches (i.e., files in the `tb/` directory).
-#          - If no RTL instantiations are found, explicitly state: "Not currently instantiated in RTL."
+#      - The footer must include instantiation tracking to support dependency management
+#        and enable intelligent tool-assisted edits, especially for port changes.
 #        ```systemverilog
 #        //=============================================================================
-#        // Dependencies: <list of dependencies>
+#        // Dependencies: <list of files/modules this module depends on>
+#        //   - dependency1.sv (package or module used)
+#        //   - dependency2_pkg.sv (imported package)
 #        //
-#        // Instantiated In:
-#        //   - core/integration/some_subsystem.sv
-#        //   - memory/controller/another_module.sv
+#        // Instantiated In: <files where this module is instantiated>
+#        //   - <parent_module_name> in <file_name.sv> (instance: <instance_name>)
+#        //   - <parent_module_name> in <file_name.sv> (instance: <instance_name>)
+#        //   - <testbench_name> in <tb_file_name.sv> (instance: <instance_name>)
 #        //
 #        // Performance:
 #        //   - Critical Path: <expected critical path>
@@ -305,243 +301,3 @@ alwaysApply: false
 #        // 1.0.0   | YYYY-MM-DD | <Author Name>      | Initial release
 #        //=============================================================================
 #        ```
-#
-# 4.2. Module Definition:
-#      - Use ANSI-style port declarations.
-#      - Parameters must explicitly be typed (e.g., `parameter integer DATA_WIDTH = 32`).
-#      - Group ports by logical function (e.g., clock/reset, data_if, control_if) if numerous.
-#      - Align port names, types, and comments for readability.
-#      - Only declare 1 port or signal name per line
-#
-#        ```systemverilog
-#        module MyModule #(
-#            // Configurable Parameters (design-time configurable)
-#            parameter integer CONFIG_DATA_WIDTH     = 32,    // Input/output data bus width
-#            parameter integer CONFIG_FIFO_DEPTH     = 1024,  // Internal FIFO storage depth
-#            parameter integer CONFIG_NUM_CHANNELS   = 4,     // Number of parallel channels
-#            
-#            // Type Parameters
-#            parameter type    TYPE_ADDR          = logic [15:0], // Address type definition
-#            parameter type    TYPE_USER          = logic [7:0],  // User-defined signal type
-#            
-#            // Design Constants (architectural constants)
-#            parameter integer CONST_PIPELINE_STAGES = 3,    // Fixed number of pipeline stages
-#            parameter integer CONST_RESET_CYCLES    = 10    // Reset synchronization cycles
-#        ) (
-#            // Clock and Reset
-#            input  logic                clk_i,         // System clock
-#            input  logic                rst_ni,        // Asynchronous active-low reset
-#
-#            // Data Input Interface
-#            input  logic [CONFIG_DATA_WIDTH-1:0] din_data_i,
-#            input  logic                         din_valid_i,
-#            output logic                         din_ready_o,
-#
-#            // Control Signals
-#            input  logic                enable_processing_i,
-#            output logic                processing_done_o,
-#
-#            // Data Output Interface
-#            output logic [CONFIG_DATA_WIDTH-1:0] dout_data_o,
-#            output logic                         dout_valid_o,
-#            input  logic                         dout_ready_i
-#        );
-#
-#            //--------------------------------------------------------------------
-#            // Local Parameters (derived from parameters and design constants)
-#            //--------------------------------------------------------------------
-#            localparam integer LP_INTERNAL_STAGES = CONST_PIPELINE_STAGES - 1;  // Derived from design constant
-#            localparam integer LP_ADDR_BITS       = $clog2(CONFIG_FIFO_DEPTH);  // Calculated from configurable parameter
-#            localparam integer LP_CHANNEL_BITS    = $clog2(CONFIG_NUM_CHANNELS); // Calculated bits for channel indexing
-#            
-#            // State encoding (internal FSM states)
-#            localparam logic [1:0] S_IDLE = 2'b00;  // Idle state encoding
-#            localparam logic [1:0] S_PROC = 2'b01;  // Processing state encoding
-#            localparam logic [1:0] S_DONE = 2'b10;  // Done state encoding
-#
-#            //--------------------------------------------------------------------
-#            // Internal Signal Declarations
-#            //--------------------------------------------------------------------
-#            // Registers
-#            logic [CONFIG_DATA_WIDTH-1:0] data_pipeline_r   [LP_INTERNAL_STAGES];
-#            logic                         data_valid_r      [LP_INTERNAL_STAGES];
-#            logic [1:0]                   current_state_r;
-#            logic [1:0]                   next_state_c; // Combinational logic for FSM next state
-#
-#            // Combinational signals / Wires
-#            logic                         processed_data_valid_c;
-#            logic [CONFIG_DATA_WIDTH-1:0] processed_data_c;
-#            logic                         can_accept_input_c;
-#            logic                         start_processing_c;
-#
-#            //--------------------------------------------------------------------
-#            // Combinational Logic
-#            //--------------------------------------------------------------------
-#            assign can_accept_input_c = (current_state_r == S_IDLE) || !data_valid_r[0];
-#            assign din_ready_o = can_accept_input_c; // Example output assignment
-#
-#            // Example: Simple data processing (e.g., increment)
-#            always_comb begin : proc_data_processing
-#                processed_data_c = data_pipeline_r[LP_INTERNAL_STAGES-1] + {{CONFIG_DATA_WIDTH-1{1'b0}}, 1'b1}; // Increment
-#                processed_data_valid_c = data_valid_r[LP_INTERNAL_STAGES-1];
-#            end
-#
-#            //--------------------------------------------------------------------
-#            // Sequential Logic (Registers)
-#            //--------------------------------------------------------------------
-#            // Input data pipeline stage 0
-#            always_ff @(posedge clk_i or negedge rst_ni) begin : proc_pipeline_stage_0
-#                if (!rst_ni) begin
-#                    data_pipeline_r[0] <= '0;
-#                    data_valid_r[0]    <= 1'b0;
-#                end else if (can_accept_input_c && din_valid_i) begin
-#                    data_pipeline_r[0] <= din_data_i;
-#                    data_valid_r[0]    <= 1'b1;
-#                end else if (!data_valid_r[1]) begin // If next stage can accept
-#                    data_valid_r[0]    <= 1'b0; // Data has moved or was invalid
-#                end
-#            end
-#
-#            // Subsequent pipeline stages
-#            // NOTE: A generate block would be better for many stages
-#            always_ff @(posedge clk_i or negedge rst_ni) begin : proc_pipeline_stage_1
-#                if (!rst_ni) begin
-#                    data_pipeline_r[1] <= '0;
-#                    data_valid_r[1]    <= 1'b0;
-#                end else begin
-#                    data_pipeline_r[1] <= data_pipeline_r[0]; // Data from previous stage
-#                    data_valid_r[1]    <= data_valid_r[0];    // Valid from previous stage
-#                end
-#            end
-#
-#            //--------------------------------------------------------------------
-#            // Finite State Machine (FSM) Example
-#            //--------------------------------------------------------------------
-#            // FSM State Register
-#            always_ff @(posedge clk_i or negedge rst_ni) begin : proc_fsm_state_reg
-#                if (!rst_ni) begin
-#                    current_state_r <= S_IDLE;
-#                end else begin
-#                    current_state_r <= next_state_c;
-#                end
-#            end
-#
-#            // FSM Next-State Logic
-#            always_comb begin : proc_fsm_next_state
-#                next_state_c = current_state_r; // Default: stay in current state
-#                processing_done_o = 1'b0;       // Default output
-#                start_processing_c = 1'b0;      // Default control
-#
-#                case (current_state_r)
-#                    S_IDLE: begin
-#                        if (din_valid_i && din_ready_o && enable_processing_i) begin
-#                            next_state_c = S_PROC;
-#                            start_processing_c = 1'b1; // hypothetical signal
-#                        end
-#                    end
-#                    S_PROC: begin
-#                        // Assume processing takes some cycles, check data_valid_r[LP_INTERNAL_STAGES-1]
-#                        if (data_valid_r[LP_INTERNAL_STAGES-1]) begin // If data has passed through pipeline
-#                            next_state_c = S_DONE;
-#                        end
-#                    end
-#                    S_DONE: begin
-#                        processing_done_o = 1'b1;
-#                        if (dout_ready_i) begin // If downstream consumer is ready
-#                            next_state_c = S_IDLE;
-#                        end
-#                    end
-#                    default: begin // Should not happen with well-defined states
-#                        next_state_c = S_IDLE;
-#                    end
-#                endcase
-#            end
-#
-#            // FSM Output Logic (can also be registered)
-#            assign dout_data_o  = (current_state_r == S_DONE) ? processed_data_c : '0;
-#            assign dout_valid_o = (current_state_r == S_DONE) && processed_data_valid_c;
-#
-#            //--------------------------------------------------------------------
-#            // Sub-module Instantiation Example
-#            //--------------------------------------------------------------------
-#            `ifdef SIMULATION // Example: A utility module only used in simulation
-#            // Ensure MyUtilityModule.sv exists and is defined
-#            // MyUtilityModule #(
-#            //     .SOME_PARAM(32)
-#            // ) u_my_utility_checker (
-#            //     .clk_i          (clk_i),
-#            //     .rst_ni         (rst_ni),
-#            //     .check_signal_i (processed_data_c),
-#            //     .error_flag_o   (/* connect to a monitor signal */)
-#            // );
-#            `endif
-#
-#            // TODO: Add assertions for critical properties, e.g., FSM state transitions
-#            // TODO: Review reset conditions for all registers thoroughly
-#
-#        endmodule : MyModule
-#        // `default_nettype wire // Revert default_nettype if absolutely necessary for legacy code,
-#                               // but prefer keeping `none` throughout the project and explicitly
-#                               // typing all signals. If reverted, do it at the end of the file.
-#        ```
-#
-# 4.3. Interface Definition: Similar header and clarity as modules.
-#      - Use modports to define perspectives (e.g., master, slave, monitor).
-#      - Only declare 1 port or signal name per line
-#
-#        ```systemverilog
-#        interface MyBus_if #(
-#            // Configurable Parameters
-#            parameter integer CONFIG_DATA_WIDTH = 32,  // Data bus width
-#            parameter integer CONFIG_ADDR_WIDTH = 16   // Address bus width
-#        ) (
-#            input logic clk,
-#            input logic rst_n
-#        );
-#            logic [CONFIG_ADDR_WIDTH-1:0] addr;
-#            logic [CONFIG_DATA_WIDTH-1:0] wdata;
-#            logic [CONFIG_DATA_WIDTH-1:0] rdata;
-#            logic                  write_en;
-#            logic                  read_en;
-#            logic                  ready;
-#            logic                  valid;
-#
-#            modport Master (
-#                output addr, wdata, write_en, read_en,
-#                input  rdata, ready, valid,
-#                input  clk, rst_n
-#            );
-#
-#            modport Slave (
-#                input  addr, wdata, write_en, read_en,
-#                output rdata, ready, valid,
-#                input  clk, rst_n
-#            );
-#
-#            modport Monitor (
-#                input addr, wdata, rdata, write_en, read_en, ready, valid,
-#                input clk, rst_n
-#            );
-#        endinterface : MyBus_if
-#        ```
-#
-#-------------------------------------------------------------------------------
-# 5. RTL Coding Style
-#-------------------------------------------------------------------------------
-# 5.1. Data Types:
-#      - Use `logic` for general-purpose signals and ports. Avoid `wire` and `reg`
-#        unless a specific reason exists (e.g., multiple drivers for `wire`).
-#      - Use `bit` for 2-state variables when 4-state resolution is not needed (e.g., counters, flags in verification).
-#      - Use `integer`, `int`, `byte`, `shortint`, `longint` where appropriate, especially for parameters and loop variables.
-#      - Packed Structures: Always use packed structures (`struct packed`, `union packed`)
-#        and packed arrays when bit-level concatenation or type casting is needed.
-#        Ensure correct bit ordering.
-#      - Enums: Use `enum` for FSM states and other sets of named constants.
-#        Specify a base type if needed (e.g., `enum logic [2:0] { IDLE, RUN, DONE } state_e;`).
-#
-# 5.2. Procedural Blocks:
-#      - `always_comb`: For purely combinational logic. Sensitive to all read signals.
-#                       Avoid latches by ensuring all paths assign to all outputs.
-#      - `always_ff`: For sequential logic (flip-flops). Must have a clock event.
-#                     `@(posedge clk_i or negedge rst_ni)` for async reset.
-#                     `@(posedge clk_i)`

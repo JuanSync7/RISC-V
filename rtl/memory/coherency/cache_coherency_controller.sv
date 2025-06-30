@@ -332,4 +332,40 @@ module cache_coherency_controller #(
 
 endmodule : cache_coherency_controller
 
+//=============================================================================
+// Dependencies:
+//   - rtl/shared/packages/riscv_core_pkg.sv
+//   - rtl/shared/interfaces/cache_coherency_if.sv
+// Instantiated In:
+//   - rtl/core/riscv_core.sv
+//   - rtl/memory/controllers/cache_cluster_manager.sv
+//   - tb/cache_coherency_tb.sv
+//
+// Performance:
+//   - Critical Path: Snoop request processing and arbitration logic
+//   - Max Frequency: Target 1GHz ASIC, 400MHz FPGA
+//   - Area: ~10K gates for 4-core coherency controller
+//
+// Verification Coverage:
+//   - Code Coverage: TBD
+//   - Functional Coverage: TBD
+//   - Branch Coverage: TBD
+//
+// Synthesis:
+//   - Target Technology: ASIC/FPGA
+//   - Synthesis Tool: Design Compiler/Quartus
+//   - Clock Domains: 1 (clk_i)
+//   - Constraints File: cache_coherency_controller.sdc
+//
+// Testing:
+//   - Testbench: cache_coherency_tb.sv
+//   - Test Vectors: Multi-core coherency scenarios
+//
+//----
+// Revision History:
+// Version | Date       | Author             | Description
+//=============================================================================
+// 1.0.0   | 2025-06-28 | DesignAI           | Initial release
+//=============================================================================
+
 `default_nettype wire 

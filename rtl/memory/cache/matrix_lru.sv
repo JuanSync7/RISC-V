@@ -92,3 +92,35 @@ module matrix_lru #(
         end
     end
 endmodule 
+
+//=============================================================================
+// Dependencies: None
+// Instantiated In:
+//   - memory/cache/l2_cache.sv
+
+// Performance:
+//   - Critical Path: Matrix calculation combinatorial logic
+//   - Max Frequency: TBD
+//   - Area: TBD
+
+// Verification Coverage:
+//   - Code Coverage: Not measured
+//   - Functional Coverage: Not measured
+//   - Branch Coverage: Not measured
+
+// Synthesis:
+//   - Target Technology: ASIC/FPGA
+//   - Synthesis Tool: Design Compiler/Quartus
+//   - Clock Domains: 1 (clk_i)
+
+// Testing:
+//   - Testbench: TBD
+//   - Test Vectors: TBD
+//   - Simulation Time: TBD
+
+//-----
+// Revision History:
+// Version | Date       | Author             | Description
+//=============================================================================
+// 1.0.0   | 2025-06-28 | DesignAI           | Initial release
+//============================================================================= 

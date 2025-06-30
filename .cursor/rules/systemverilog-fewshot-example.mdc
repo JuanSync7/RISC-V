@@ -231,6 +231,10 @@ endmodule : simple_fifo_ctrl
 //=============================================================================
 // Dependencies: simple_fifo_ctrl_if.sv, axil_slave_if interface package
 //
+// Instantiated In:
+//   - top_level/top_soc.sv
+//   - subsystems/data_processing_subsystem.sv
+//
 // Performance:
 //   - Critical Path: Through fifo_ram read access and output mux
 //   - Max Frequency: 200 MHz target
@@ -485,7 +489,30 @@ Data flows from din_i, through an internal FIFO, to dout_o. Pointers manage FIFO
 * **Safety Verification Notes (from `AI_TAG: SAFETY_VERIF_NOTE`):**
     * [INFO: No SAFETY_VERIF_NOTE tags found. User to provide details if applicable.]
 
-## 17. Revision History
+## 17. Implementation Quality Metrics
+
+* **Dependencies:** simple_fifo_ctrl_if.sv, axil_slave_if interface package
+* **Instantiated In:** 
+  - top_level/top_soc.sv
+  - subsystems/data_processing_subsystem.sv
+* **Performance Metrics:**
+  * **Critical Path:** Through fifo_ram read access and output mux
+  * **Max Frequency:** 200 MHz target
+  * **Area:** Approximately 2K gates + RAM macro for FIFO storage
+* **Verification Coverage Achieved:**
+  * **Code Coverage:** TBD
+  * **Functional Coverage:** TBD
+  * **Branch Coverage:** TBD
+* **Synthesis Results:**
+  * **Target Technology:** ASIC
+  * **Synthesis Tool:** Design Compiler
+  * **Clock Domains:** 1 (clk_i)
+  * **Constraints File:** simple_fifo_ctrl.sdc
+* **Testing Information:**
+  * **Testbench:** simple_fifo_ctrl_tb.sv
+  * **Test Vectors:** TBD
+
+## 18. Revision History
 
 | Version | Date       | Author                       | Changes                                       |
 |---|---|---|-----|

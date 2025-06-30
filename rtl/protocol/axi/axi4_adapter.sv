@@ -358,6 +358,9 @@ endmodule : axi4_adapter
 
 //=============================================================================
 // Dependencies: riscv_core_pkg.sv, memory_req_rsp_if.sv, axi4_if.sv
+// Instantiated In:
+//   - memory/wrappers/memory_wrapper.sv
+//   - protocol/custom/protocol_factory.sv
 //
 // Performance:
 //   - Critical Path: Protocol conversion to AXI4 handshake

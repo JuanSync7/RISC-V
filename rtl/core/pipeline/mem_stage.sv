@@ -279,6 +279,8 @@ endmodule : mem_stage
 
 //=============================================================================
 // Dependencies: riscv_core_pkg.sv, memory_wrapper.sv
+// Instantiated In:
+//   - rtl/core/integration/core_subsystem.sv
 //
 // Performance:
 //   - Critical Path: Memory access to data output

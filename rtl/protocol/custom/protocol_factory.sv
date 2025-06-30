@@ -417,6 +417,8 @@ endmodule : protocol_factory
 //=============================================================================
 // Dependencies: axi4_adapter.sv, chi_adapter.sv, tilelink_adapter.sv, 
 //               axi4_if.sv, chi_if.sv, tilelink_if.sv, memory_req_rsp_if.sv
+// Instantiated In:
+//   - core/integration/multi_core_system.sv
 //
 // Performance:
 //   - Critical Path: Protocol multiplexer and adapter interfaces

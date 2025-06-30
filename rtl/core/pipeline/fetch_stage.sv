@@ -269,6 +269,8 @@ endmodule : fetch_stage
 
 //=============================================================================
 // Dependencies: riscv_config_pkg, riscv_types_pkg, riscv_bp_types_pkg
+// Instantiated In:
+//   - core/integration/core_subsystem.sv
 //
 // Performance:
 //   - Critical Path: PC update to instruction fetch

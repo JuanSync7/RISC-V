@@ -289,4 +289,9 @@ module qos_aware_cache #(
 
 endmodule : qos_aware_cache
 
-`default_nettype wire 
+//=============================================================================
+// Dependencies: riscv_core_pkg.sv, memory_req_rsp_if.sv
+// Instantiated In:
+//   - Not currently instantiated in RTL modules
+
+// Performance: 

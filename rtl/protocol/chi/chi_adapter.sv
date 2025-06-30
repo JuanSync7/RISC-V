@@ -432,6 +432,9 @@ endmodule : chi_adapter
 
 //=============================================================================
 // Dependencies: riscv_core_pkg.sv, memory_req_rsp_if.sv, chi_if.sv
+// Instantiated In:
+//   - memory/wrappers/memory_wrapper.sv
+//   - protocol/custom/protocol_factory.sv
 //
 // Performance:
 //   - Critical Path: Transaction table lookup and CHI interface timing

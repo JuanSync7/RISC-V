@@ -296,6 +296,8 @@ endmodule : icache
 
 //=============================================================================
 // Dependencies: riscv_config_pkg, riscv_types_pkg, riscv_cache_types_pkg
+// Instantiated In:
+//   - core/pipeline/fetch_stage.sv
 //
 // Performance:
 //   - Critical Path: Cache lookup to response

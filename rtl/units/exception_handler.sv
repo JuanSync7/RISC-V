@@ -421,6 +421,8 @@ endmodule : exception_handler
 
 //=============================================================================
 // Dependencies: riscv_core_pkg.sv
+// Instantiated In:
+//   - core/integration/core_subsystem.sv
 //
 // Performance:
 //   - Critical Path: Exception detection to trap vector generation

@@ -402,4 +402,9 @@ module cache_cluster_manager #(
 
 endmodule : cache_cluster_manager
 
-`default_nettype wire 
+//=============================================================================
+// Dependencies: l2_cache.sv, l3_cache.sv, cache_coherency_controller.sv
+// Instantiated In:
+//   - core/integration/multi_core_system.sv
+
+// Performance: 

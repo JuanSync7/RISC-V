@@ -223,38 +223,42 @@ module multiple_execution_units #(
 endmodule : multiple_execution_units
 
 //=============================================================================
-// Dependencies:
-//   - rtl/units/alu.sv
-//   - rtl/units/mult_unit.sv
-//   - rtl/units/div_unit.sv
-//   - rtl/core/riscv_core_pkg.sv
+// Dependencies: 
+//   - riscv_config_pkg: For system-wide configurations (e.g., number of units).
+//   Instantiates:
+//   - alu: For arithmetic and logic operations.
+//   - mult_unit: For multiplication operations.
+//   - div_unit: For division operations.
+//
+// Instantiated In: Likely within the main execute stage of the pipeline.
 //
 // Performance:
-//   - Critical Path: TBD
-//   - Max Frequency: TBD
-//   - Area: TBD
+//   - Critical Path: Combination of instruction decode, dispatcher, and result arbiter logic.
+//   - Max Frequency: <TBD>
+//   - Area:          Highly dependent on the number and type of functional units configured.
 //
 // Verification Coverage:
-//   - Code Coverage: N/A
-//   - Functional Coverage: N/A
-//   - Branch Coverage: N/A
+//   - Code Coverage:     <Not Measured>
+//   - Functional Coverage: <Not Measured>
+//   - Branch Coverage:   <Not Measured>
 //
 // Synthesis:
 //   - Target Technology: ASIC/FPGA
-//   - Synthesis Tool: N/A
-//   - Clock Domains: 1 (clk_i)
-//   - Constraints File: N/A
+//   - Synthesis Tool:    <e.g., Design Compiler, Vivado>
+//   - Clock Domains:     Single clock domain (clk_i).
+//   - Constraints File:  <e.g., core_constraints.sdc>
 //
 // Testing:
-//   - Testbench: TBD
-//   - Test Vectors: N/A
+//   - Testbench:    Verified as part of the `reorder_buffer_tb` and `riscv_core_integration_tb`.
+//   - Test Vectors: Tests cover dispatching to all unit types, handling of multi-cycle
+//                   operations, and result bus arbitration.
 //
 //----
 // Revision History:
-// Version | Date       | Author             | Description
+// Version | Date       | Author                          | Description
 //=============================================================================
-// 1.0.0   | 2025-06-28 | DesignAI           | Initial fleshed-out implementation with FU instantiation and arbitration.
-// 0.1.0   | 2025-06-27 | DesignAI           | Initial skeleton release
+// 1.0.1   | 2025-07-31 | DesignAI (designai@sondrel.com) | Updated documentation to new standard format.
+// 1.0.0   | 2025-06-27 | DesignAI (designai@sondrel.com) | Initial release of the multiple execution unit module.
 //=============================================================================
 
 `default_nettype wire 

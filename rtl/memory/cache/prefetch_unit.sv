@@ -162,6 +162,8 @@ endmodule : prefetch_unit
 
 //=============================================================================
 // Dependencies: None
+// Instantiated In:
+//   - rtl/core/riscv_core.sv
 //
 // Performance:
 //   - Critical Path: TBD

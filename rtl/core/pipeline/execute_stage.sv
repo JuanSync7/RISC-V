@@ -324,6 +324,8 @@ endmodule : execute_stage
 
 //=============================================================================
 // Dependencies: riscv_core_pkg.sv, alu.sv, mult_unit.sv, div_unit.sv, csr_regfile.sv, branch_predictor.sv
+// Instantiated In:
+//   - rtl/core/integration/core_subsystem.sv
 //
 // Performance:
 //   - Critical Path: ALU operation to result output

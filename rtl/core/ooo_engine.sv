@@ -438,6 +438,8 @@ endmodule : ooo_engine
 //=============================================================================
 // Dependencies: register_renaming.sv, reservation_station.sv, reorder_buffer.sv, 
 //               multiple_execution_units.sv
+// Instantiated In:
+//   - Not currently instantiated in RTL modules
 //
 // Performance:
 //   - Critical Path: CDB arbitration and result forwarding

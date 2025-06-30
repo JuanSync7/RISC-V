@@ -641,6 +641,9 @@ endmodule : core_subsystem
 
 //=============================================================================
 // Dependencies: riscv_config_pkg, riscv_types_pkg, riscv_core_pkg
+// Instantiated In:
+//   - rtl/core/riscv_core.sv
+//   - rtl/core/integration/multi_core_system.sv
 //
 // Performance:
 //   - Critical Path: Through the entire pipeline
