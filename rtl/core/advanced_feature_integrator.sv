@@ -27,17 +27,19 @@
 
 // AI_TAG: BLOCK_DIAGRAM_DESC - OoOCoordinator manages ROB, reservation stations, and register renaming integration. QoSIntegrator coordinates QoS policies across cache hierarchy and memory interfaces. DebugController provides unified debug access. FeatureMonitor tracks integration status and performance.
 
+import riscv_config_pkg::*;
+
 module advanced_feature_integrator #(
-    parameter integer NUM_CORES = 4,                   // AI_TAG: PARAM_DESC - Number of cores in the system
+    parameter integer NUM_CORES = DEFAULT_NUM_CORES,                   // AI_TAG: PARAM_DESC - Number of cores in the system
                                                        // AI_TAG: PARAM_USAGE - Configures multi-core feature integration
                                                        // AI_TAG: PARAM_CONSTRAINTS - Must be power of 2, Max 8
-    parameter integer NUM_ROB_ENTRIES = 64,            // AI_TAG: PARAM_DESC - Reorder buffer size per core
+    parameter integer NUM_ROB_ENTRIES = DEFAULT_ROB_SIZE,            // AI_TAG: PARAM_DESC - Reorder buffer size per core
                                                        // AI_TAG: PARAM_USAGE - Configures OoO execution depth
                                                        // AI_TAG: PARAM_CONSTRAINTS - Must be power of 2
-    parameter integer QOS_LEVELS = 8,                  // AI_TAG: PARAM_DESC - Number of QoS priority levels
+    parameter integer QOS_LEVELS = DEFAULT_QOS_LEVELS,                  // AI_TAG: PARAM_DESC - Number of QoS priority levels
                                                        // AI_TAG: PARAM_USAGE - Configures QoS arbitration complexity
                                                        // AI_TAG: PARAM_CONSTRAINTS - Must be power of 2
-    parameter integer DEBUG_CHANNELS = 16              // AI_TAG: PARAM_DESC - Number of debug channels
+    parameter integer DEBUG_CHANNELS = DEFAULT_DEBUG_CHANNELS              // AI_TAG: PARAM_DESC - Number of debug channels
                                                        // AI_TAG: PARAM_USAGE - Configures debug infrastructure width
                                                        // AI_TAG: PARAM_CONSTRAINTS - Must be >= 8
 ) (

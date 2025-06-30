@@ -22,6 +22,7 @@
 `default_nettype none
 
 import riscv_core_pkg::*;
+import riscv_config_pkg::*;
 
 module reg_file #(
     parameter integer DATA_WIDTH = XLEN,

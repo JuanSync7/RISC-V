@@ -21,8 +21,10 @@
 `timescale 1ns/1ps
 `default_nettype none
 
+import riscv_core_pkg::*;
+import riscv_config_pkg::*;
+
 module mem_stage
-    import riscv_core_pkg::*;
 (
     input  logic        clk_i,
     input  logic        rst_ni,
@@ -211,34 +213,34 @@ module mem_stage
         if (load_addr_misaligned) begin
             exception_detected.valid = 1'b1;
             exception_detected.exc_type = EXC_TYPE_EXCEPTION;
-            exception_detected.cause = EXC_CAUSE_LOAD_ADDR_MISALIGNED;
+            exception_detected.cause = riscv_config_pkg::CAUSE_MISALIGNED_LOAD;
             exception_detected.pc = ex_mem_reg_i.exception.pc; // Use PC from previous stage
             exception_detected.tval = ex_mem_reg_i.alu_result; // The misaligned address
-            exception_detected.priority = PRIO_MISALIGNED;
+            exception_detected.priority = riscv_config_pkg::PRIO_MISALIGNED_MEM;
         end
         else if (store_addr_misaligned) begin
             exception_detected.valid = 1'b1;
             exception_detected.exc_type = EXC_TYPE_EXCEPTION;
-            exception_detected.cause = EXC_CAUSE_STORE_ADDR_MISALIGNED;
+            exception_detected.cause = riscv_config_pkg::CAUSE_MISALIGNED_STORE;
             exception_detected.pc = ex_mem_reg_i.exception.pc; // Use PC from previous stage
             exception_detected.tval = ex_mem_reg_i.alu_result; // The misaligned address
-            exception_detected.priority = PRIO_MISALIGNED;
+            exception_detected.priority = riscv_config_pkg::PRIO_MISALIGNED_MEM;
         end
         else if (load_access_fault) begin
             exception_detected.valid = 1'b1;
             exception_detected.exc_type = EXC_TYPE_EXCEPTION;
-            exception_detected.cause = EXC_CAUSE_LOAD_ACCESS_FAULT;
+            exception_detected.cause = riscv_config_pkg::CAUSE_LOAD_ACCESS;
             exception_detected.pc = ex_mem_reg_i.exception.pc; // Use PC from previous stage
             exception_detected.tval = ex_mem_reg_i.alu_result; // The faulting address
-            exception_detected.priority = PRIO_LOAD_FAULT;
+            exception_detected.priority = riscv_config_pkg::PRIO_MEM_FAULT;
         end
         else if (store_access_fault) begin
             exception_detected.valid = 1'b1;
             exception_detected.exc_type = EXC_TYPE_EXCEPTION;
-            exception_detected.cause = EXC_CAUSE_STORE_ACCESS_FAULT;
+            exception_detected.cause = riscv_config_pkg::CAUSE_STORE_ACCESS;
             exception_detected.pc = ex_mem_reg_i.exception.pc; // Use PC from previous stage
             exception_detected.tval = ex_mem_reg_i.alu_result; // The faulting address
-            exception_detected.priority = PRIO_STORE_FAULT;
+            exception_detected.priority = riscv_config_pkg::PRIO_MEM_FAULT;
         end
         else begin
             // Pass through exception from execute stage if no memory exception

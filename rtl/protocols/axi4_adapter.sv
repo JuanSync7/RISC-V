@@ -82,17 +82,17 @@ module axi4_adapter #(
     // AI_TAG: FSM_NAME - axi4_state_fsm
     // AI_TAG: FSM_PURPOSE - axi4_state_fsm - Controls the AXI4 transaction state machine
     // AI_TAG: FSM_ENCODING - axi4_state_fsm - binary
-    // AI_TAG: FSM_RESET_STATE - axi4_state_fsm - IDLE
+    // AI_TAG: FSM_RESET_STATE - axi4_state_fsm - S_IDLE
     typedef enum logic [2:0] {
-        IDLE,           // AI_TAG: FSM_STATE - IDLE - Waiting for request
-        READ_ADDR,      // AI_TAG: FSM_STATE - READ_ADDR - Sending read address
-        READ_DATA,      // AI_TAG: FSM_STATE - READ_DATA - Receiving read data
-        WRITE_ADDR,     // AI_TAG: FSM_STATE - WRITE_ADDR - Sending write address
-        WRITE_DATA,     // AI_TAG: FSM_STATE - WRITE_DATA - Sending write data
-        WRITE_RESP      // AI_TAG: FSM_STATE - WRITE_RESP - Receiving write response
+        S_IDLE,           // AI_TAG: FSM_STATE - S_IDLE - Waiting for request
+        S_READ_ADDR,      // AI_TAG: FSM_STATE - S_READ_ADDR - Sending read address
+        S_READ_DATA,      // AI_TAG: FSM_STATE - S_READ_DATA - Receiving read data
+        S_WRITE_ADDR,     // AI_TAG: FSM_STATE - S_WRITE_ADDR - Sending write address
+        S_WRITE_DATA,     // AI_TAG: FSM_STATE - S_WRITE_DATA - Sending write data
+        S_WRITE_RESP      // AI_TAG: FSM_STATE - S_WRITE_RESP - Receiving write response
     } axi4_state_e;
     
-    axi4_state_e state_r, state_next;
+    axi4_state_e state_r, state_ns;
     
     // AI_TAG: INTERNAL_STORAGE - Request tracking registers
     // AI_TAG: INTERNAL_STORAGE_TYPE - Request tracking registers - Flip-flop based
@@ -188,18 +188,18 @@ module axi4_adapter #(
     assign axi_if.awqos = write_qos_level;  // Write QoS - optimized for write operations
     assign axi_if.arqos = read_qos_level;   // Read QoS - optimized for read operations
     
-    // AI_TAG: FSM_TRANSITION - axi4_state_fsm: IDLE -> READ_ADDR when (!pending_write_r && mem_if.req_valid)
-    // AI_TAG: FSM_TRANSITION - axi4_state_fsm: IDLE -> WRITE_ADDR when (pending_write_r && mem_if.req_valid)
-    // AI_TAG: FSM_TRANSITION - axi4_state_fsm: READ_ADDR -> READ_DATA when (axi_if.arvalid && axi_if.arready)
-    // AI_TAG: FSM_TRANSITION - axi4_state_fsm: READ_DATA -> IDLE when (axi_if.rvalid && axi_if.rready)
-    // AI_TAG: FSM_TRANSITION - axi4_state_fsm: WRITE_ADDR -> WRITE_DATA when (axi_if.awvalid && axi_if.awready)
-    // AI_TAG: FSM_TRANSITION - axi4_state_fsm: WRITE_DATA -> WRITE_RESP when (axi_if.wvalid && axi_if.wready)
-    // AI_TAG: FSM_TRANSITION - axi4_state_fsm: WRITE_RESP -> IDLE when (axi_if.bvalid && axi_if.bready)
+    // AI_TAG: FSM_TRANSITION - axi4_state_fsm: S_IDLE -> S_READ_ADDR when (!pending_write_r && mem_if.req_valid)
+    // AI_TAG: FSM_TRANSITION - axi4_state_fsm: S_IDLE -> S_WRITE_ADDR when (pending_write_r && mem_if.req_valid)
+    // AI_TAG: FSM_TRANSITION - axi4_state_fsm: S_READ_ADDR -> S_READ_DATA when (axi_if.arvalid && axi_if.arready)
+    // AI_TAG: FSM_TRANSITION - axi4_state_fsm: S_READ_DATA -> S_IDLE when (axi_if.rvalid && axi_if.rready)
+    // AI_TAG: FSM_TRANSITION - axi4_state_fsm: S_WRITE_ADDR -> S_WRITE_DATA when (axi_if.awvalid && axi_if.awready)
+    // AI_TAG: FSM_TRANSITION - axi4_state_fsm: S_WRITE_DATA -> S_WRITE_RESP when (axi_if.wvalid && axi_if.wready)
+    // AI_TAG: FSM_TRANSITION - axi4_state_fsm: S_WRITE_RESP -> S_IDLE when (axi_if.bvalid && axi_if.bready)
     
     // AI_TAG: INTERNAL_LOGIC - AXI4 state machine registers
     always_ff @(posedge clk_i or negedge rst_ni) begin : proc_state_machine
         if (!rst_ni) begin
-            state_r <= IDLE;
+            state_r <= S_IDLE;
             pending_id_r <= '0;
             pending_addr_r <= '0;
             pending_size_r <= '0;
@@ -209,7 +209,7 @@ module axi4_adapter #(
             pending_prot_r <= '0;
             pending_cacheable_r <= 1'b0;
         end else begin
-            state_r <= state_next;
+            state_r <= state_ns;
             
             // Latch request when accepted
             if (mem_if.req_valid && mem_if.req_ready) begin
@@ -227,58 +227,58 @@ module axi4_adapter #(
     
     // AI_TAG: INTERNAL_LOGIC - State machine next state logic
     always_comb begin : proc_next_state_logic
-        state_next = state_r;
+        state_ns = state_r;
         
         case (state_r)
-            IDLE: begin
+            S_IDLE: begin
                 if (mem_if.req_valid) begin
                     if (mem_if.req.write) begin
-                        state_next = WRITE_ADDR;
+                        state_ns = S_WRITE_ADDR;
                     end else begin
-                        state_next = READ_ADDR;
+                        state_ns = S_READ_ADDR;
                     end
                 end
             end
             
-            READ_ADDR: begin
+            S_READ_ADDR: begin
                 if (axi_if.arvalid && axi_if.arready) begin
-                    state_next = READ_DATA;
+                    state_ns = S_READ_DATA;
                 end
             end
             
-            READ_DATA: begin
+            S_READ_DATA: begin
                 if (axi_if.rvalid && axi_if.rready) begin
-                    state_next = IDLE;
+                    state_ns = S_IDLE;
                 end
             end
             
-            WRITE_ADDR: begin
+            S_WRITE_ADDR: begin
                 if (axi_if.awvalid && axi_if.awready) begin
-                    state_next = WRITE_DATA;
+                    state_ns = S_WRITE_DATA;
                 end
             end
             
-            WRITE_DATA: begin
+            S_WRITE_DATA: begin
                 if (axi_if.wvalid && axi_if.wready) begin
-                    state_next = WRITE_RESP;
+                    state_ns = S_WRITE_RESP;
                 end
             end
             
-            WRITE_RESP: begin
+            S_WRITE_RESP: begin
                 if (axi_if.bvalid && axi_if.bready) begin
-                    state_next = IDLE;
+                    state_ns = S_IDLE;
                 end
             end
             
             default: begin
-                state_next = IDLE;
+                state_ns = S_IDLE;
             end
         endcase
     end
     
     // AI_TAG: INTERNAL_LOGIC - AXI4 read address channel
     always_comb begin : proc_read_address_channel
-        axi_if.arvalid = (state_r == READ_ADDR);
+        axi_if.arvalid = (state_r == S_READ_ADDR);
         axi_if.araddr = pending_addr_r;
         axi_if.arprot = pending_prot_r;
         axi_if.arcache = pending_cacheable_r ? 4'b0010 : 4'b0000; // Normal Non-cacheable Bufferable
@@ -288,12 +288,12 @@ module axi4_adapter #(
     
     // AI_TAG: INTERNAL_LOGIC - AXI4 read data channel
     always_comb begin : proc_read_data_channel
-        axi_if.rready = (state_r == READ_DATA);
+        axi_if.rready = (state_r == S_READ_DATA);
     end
     
     // AI_TAG: INTERNAL_LOGIC - AXI4 write address channel
     always_comb begin : proc_write_address_channel
-        axi_if.awvalid = (state_r == WRITE_ADDR);
+        axi_if.awvalid = (state_r == S_WRITE_ADDR);
         axi_if.awaddr = pending_addr_r;
         axi_if.awprot = pending_prot_r;
         axi_if.awcache = pending_cacheable_r ? 4'b0010 : 4'b0000; // Normal Non-cacheable Bufferable
@@ -303,20 +303,20 @@ module axi4_adapter #(
     
     // AI_TAG: INTERNAL_LOGIC - AXI4 write data channel
     always_comb begin : proc_write_data_channel
-        axi_if.wvalid = (state_r == WRITE_DATA);
+        axi_if.wvalid = (state_r == S_WRITE_DATA);
         axi_if.wdata = pending_data_r;
         axi_if.wstrb = pending_strb_r;
     end
     
     // AI_TAG: INTERNAL_LOGIC - AXI4 write response channel
     always_comb begin : proc_write_response_channel
-        axi_if.bready = (state_r == WRITE_RESP);
+        axi_if.bready = (state_r == S_WRITE_RESP);
     end
     
     // AI_TAG: INTERNAL_LOGIC - Memory interface control
     always_comb begin : proc_memory_interface
         // Request ready when in IDLE state
-        mem_if.req_ready = (state_r == IDLE);
+        mem_if.req_ready = (state_r == S_IDLE);
         
         // Default response values
         mem_if.rsp_valid = 1'b0;
@@ -325,13 +325,13 @@ module axi4_adapter #(
         mem_if.rsp.error = 1'b0;
         mem_if.rsp.last = 1'b1;
         
-        if (state_r == READ_DATA && axi_if.rvalid) begin
+        if (state_r == S_READ_DATA && axi_if.rvalid) begin
             mem_if.rsp_valid = 1'b1;
             mem_if.rsp.data = axi_if.rdata;
             mem_if.rsp.id = {{(16-ID_WIDTH){1'b0}}, axi_if.rid}; // Extend to 16-bit ID
             mem_if.rsp.error = (axi_if.rresp != 2'b00); // Check for error response
             mem_if.rsp.last = axi_if.rlast;
-        end else if (state_r == WRITE_RESP && axi_if.bvalid) begin
+        end else if (state_r == S_WRITE_RESP && axi_if.bvalid) begin
             mem_if.rsp_valid = 1'b1;
             mem_if.rsp.id = {{(16-ID_WIDTH){1'b0}}, axi_if.bid}; // Extend to 16-bit ID
             mem_if.rsp.error = (axi_if.bresp != 2'b00); // Check for error response
@@ -347,7 +347,7 @@ module axi4_adapter #(
     // AI_TAG: ASSERTION_SEVERITY - Error
 `ifdef SIMULATION
     assert property (@(posedge clk_i) disable iff (!rst_ni)
-        state_r inside {IDLE, READ_ADDR, READ_DATA, WRITE_ADDR, WRITE_DATA, WRITE_RESP});
+        state_r inside {S_IDLE, S_READ_ADDR, S_READ_DATA, S_WRITE_ADDR, S_WRITE_DATA, S_WRITE_RESP});
     
     // AI_TAG: ASSERTION - a_req_valid_stable: Ensures request remains stable when valid but not ready
     assert property (@(posedge clk_i) disable iff (!rst_ni)

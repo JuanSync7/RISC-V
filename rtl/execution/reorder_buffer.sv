@@ -28,12 +28,14 @@
 // AI_TAG: INTERNAL_BLOCK - CommitLogic - Determines when the head instruction can be committed.
 // AI_TAG: INTERNAL_BLOCK - PointerLogic - Manages head/tail pointers and entry count.
 
+import riscv_config_pkg::*;
+
 module reorder_buffer #(
-    parameter integer DATA_WIDTH     = 32, // AI_TAG: PARAM_DESC - Width of the data path and result values.
-    parameter integer ROB_SIZE       = 32, // AI_TAG: PARAM_DESC - Number of entries in the ROB.
+    parameter integer DATA_WIDTH     = XLEN, // AI_TAG: PARAM_DESC - Width of the data path and result values.
+    parameter integer ROB_SIZE       = DEFAULT_ROB_SIZE, // AI_TAG: PARAM_DESC - Number of entries in the ROB.
                                            // AI_TAG: PARAM_USAGE - Defines pipeline depth; must be power of 2.
-    parameter integer PC_WIDTH       = 32, // AI_TAG: PARAM_DESC - Width of the program counter.
-    parameter integer REG_ADDR_WIDTH = 5   // AI_TAG: PARAM_DESC - Width of the architectural register file address.
+    parameter integer PC_WIDTH       = ADDR_WIDTH, // AI_TAG: PARAM_DESC - Width of the program counter.
+    parameter integer REG_ADDR_WIDTH = REG_ADDR_WIDTH   // AI_TAG: PARAM_DESC - Width of the architectural register file address.
 ) (
     input  logic clk_i,    // AI_TAG: PORT_DESC - System clock
                            // AI_TAG: PORT_CLK_DOMAIN - clk_i

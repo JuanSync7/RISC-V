@@ -10,10 +10,9 @@
 // Target Devices: ASIC/FPGA
 //
 // Description:
-//   Cache topology configuration package that supports multiple L2/L3 cache
-//   arrangements, cache clustering, and NUMA-aware cache hierarchies.
-//   Enables flexible cache architectures from single cache to distributed
-//   multi-cache systems.
+//   This package contains cache topology type definitions for the RISC-V
+//   processor memory system. Defines cache cluster configurations, topology
+//   types, and interconnect structures.
 //=============================================================================
 
 `timescale 1ns/1ps
@@ -21,12 +20,11 @@
 
 package riscv_cache_topology_pkg;
 
-    import riscv_config_pkg::*;
-    import riscv_types_pkg::*;
-    import riscv_cache_types_pkg::*;
+    import riscv_core_config_pkg::*;
+    import riscv_memory_config_pkg::*;
 
     //-------------------------------------------------------------------------
-    // Cache Topology Types
+    // Cache Topology Types and Enums
     //-------------------------------------------------------------------------
     
     // AI_TAG: ENUM - Cache topology configurations
@@ -38,16 +36,6 @@ package riscv_cache_topology_pkg;
         CACHE_TOPOLOGY_HIERARCHICAL = 3'b100, // Multi-level cache clusters
         CACHE_TOPOLOGY_CUSTOM     = 3'b111   // User-defined topology
     } cache_topology_e;
-
-    //-------------------------------------------------------------------------
-    // Cache Cluster Configuration
-    //-------------------------------------------------------------------------
-    
-    // AI_TAG: PARAM - Maximum number of cache clusters supported
-    parameter integer MAX_CACHE_CLUSTERS = 4;
-    parameter integer MAX_L2_INSTANCES = 4;
-    parameter integer MAX_L3_INSTANCES = 2;
-    parameter integer MAX_MEMORY_CONTROLLERS = 2;
     
     // AI_TAG: STRUCT - Cache cluster configuration
     typedef struct packed {
@@ -75,10 +63,6 @@ package riscv_cache_topology_pkg;
         logic [15:0]            interconnect_type;    // Interconnect configuration
         cache_cluster_config_t  clusters[MAX_CACHE_CLUSTERS-1:0]; // Cluster configs
     } system_cache_topology_t;
-
-    //-------------------------------------------------------------------------
-    // Cache Instance Configuration
-    //-------------------------------------------------------------------------
     
     // AI_TAG: STRUCT - L2 cache instance configuration
     typedef struct packed {
@@ -107,10 +91,6 @@ package riscv_cache_topology_pkg;
         logic                   victim_cache_mode;    // Victim cache operation
         logic [7:0]             bandwidth_allocation; // Memory bandwidth %
     } l3_instance_config_t;
-
-    //-------------------------------------------------------------------------
-    // Cache Interconnect Configuration
-    //-------------------------------------------------------------------------
     
     // AI_TAG: ENUM - Cache interconnect types
     typedef enum logic [2:0] {
@@ -133,7 +113,7 @@ package riscv_cache_topology_pkg;
     } cache_route_entry_t;
 
     //-------------------------------------------------------------------------
-    // Predefined Cache Topologies
+    // Cache Topology Functions
     //-------------------------------------------------------------------------
     
     // AI_TAG: FUNCTION - Get default unified topology (current architecture)
@@ -195,10 +175,10 @@ package riscv_cache_topology_pkg;
         topology.clusters[0].bandwidth_allocation = 8'h80; // 50%
         topology.clusters[0].coherency_domain = 1'b1;
         
-        // Cluster 1: Cores (num_cores/2)-(num_cores-1)
+        // Cluster 1: Cores (num_cores/2)-num_cores
         topology.clusters[1].cluster_id = 1;
-        topology.clusters[1].num_cores = num_cores / 2;
-        topology.clusters[1].core_mask = ((1 << (num_cores/2)) - 1) << (num_cores/2);
+        topology.clusters[1].num_cores = num_cores - (num_cores/2);
+        topology.clusters[1].core_mask = ((1 << num_cores) - 1) & ~((1 << (num_cores/2)) - 1);
         topology.clusters[1].l2_cache_size = l2_size;
         topology.clusters[1].l2_cache_ways = DEFAULT_L2_CACHE_WAYS;
         topology.clusters[1].l3_instance_id = 0;
@@ -210,149 +190,59 @@ package riscv_cache_topology_pkg;
         return topology;
     endfunction
     
-    // AI_TAG: FUNCTION - Get NUMA topology (2 L2 + 2 L3 + 2 Memory Controllers)
-    function automatic system_cache_topology_t get_numa_topology(
-        input integer num_cores,
-        input integer l2_size,
-        input integer l3_size
-    );
-        system_cache_topology_t topology;
-        topology.topology_type = CACHE_TOPOLOGY_NUMA;
-        topology.num_l2_instances = 2;
-        topology.num_l3_instances = 2;
-        topology.num_clusters = 2;
-        topology.num_memory_controllers = 2;
-        topology.numa_enabled = 1'b1;
-        topology.adaptive_clustering = 1'b1;
-        topology.interconnect_type = {12'b0, INTERCONNECT_MESH};
-        
-        // NUMA Node 0: Cores 0-(num_cores/2-1)
-        topology.clusters[0].cluster_id = 0;
-        topology.clusters[0].num_cores = num_cores / 2;
-        topology.clusters[0].core_mask = (1 << (num_cores/2)) - 1;
-        topology.clusters[0].l2_cache_size = l2_size;
-        topology.clusters[0].l2_cache_ways = DEFAULT_L2_CACHE_WAYS;
-        topology.clusters[0].l3_instance_id = 0;
-        topology.clusters[0].has_local_l3 = 1'b1;
-        topology.clusters[0].memory_controller_id = 0;
-        topology.clusters[0].bandwidth_allocation = 8'hFF; // Full local bandwidth
-        topology.clusters[0].coherency_domain = 1'b1;
-        
-        // NUMA Node 1: Cores (num_cores/2)-(num_cores-1)
-        topology.clusters[1].cluster_id = 1;
-        topology.clusters[1].num_cores = num_cores / 2;
-        topology.clusters[1].core_mask = ((1 << (num_cores/2)) - 1) << (num_cores/2);
-        topology.clusters[1].l2_cache_size = l2_size;
-        topology.clusters[1].l2_cache_ways = DEFAULT_L2_CACHE_WAYS;
-        topology.clusters[1].l3_instance_id = 1;
-        topology.clusters[1].has_local_l3 = 1'b1;
-        topology.clusters[1].memory_controller_id = 1;
-        topology.clusters[1].bandwidth_allocation = 8'hFF; // Full local bandwidth
-        topology.clusters[1].coherency_domain = 1'b1;
-        
-        return topology;
-    endfunction
-
-    //-------------------------------------------------------------------------
-    // Cache Routing and Address Mapping Functions
-    //-------------------------------------------------------------------------
-    
-    // AI_TAG: FUNCTION - Determine which L2 cache should handle an address
-    function automatic logic [3:0] get_l2_instance_for_address(
-        input logic [ADDR_WIDTH-1:0] address,
-        input system_cache_topology_t topology
-    );
-        logic [3:0] l2_instance;
-        
-        case (topology.topology_type)
-            CACHE_TOPOLOGY_UNIFIED: begin
-                l2_instance = 0; // Single L2
-            end
-            CACHE_TOPOLOGY_CLUSTERED, CACHE_TOPOLOGY_NUMA: begin
-                // Simple address interleaving for cache clusters
-                l2_instance = address[DEFAULT_CACHE_LINE_SIZE_BITS +: 2] % topology.num_l2_instances;
-            end
-            CACHE_TOPOLOGY_DISTRIBUTED: begin
-                // More sophisticated address mapping
-                l2_instance = address[DEFAULT_CACHE_LINE_SIZE_BITS +: 3] % topology.num_l2_instances;
-            end
-            default: begin
-                l2_instance = 0;
-            end
-        endcase
-        
-        return l2_instance;
-    endfunction
-    
-    // AI_TAG: FUNCTION - Determine which L3 cache should handle an address
-    function automatic logic [3:0] get_l3_instance_for_address(
-        input logic [ADDR_WIDTH-1:0] address,
-        input system_cache_topology_t topology
-    );
-        logic [3:0] l3_instance;
-        
-        case (topology.topology_type)
-            CACHE_TOPOLOGY_UNIFIED, CACHE_TOPOLOGY_CLUSTERED: begin
-                l3_instance = 0; // Single L3
-            end
-            CACHE_TOPOLOGY_NUMA, CACHE_TOPOLOGY_DISTRIBUTED: begin
-                // NUMA-aware mapping - high address bits determine node
-                l3_instance = address[ADDR_WIDTH-1 -: 2] % topology.num_l3_instances;
-            end
-            default: begin
-                l3_instance = 0;
-            end
-        endcase
-        
-        return l3_instance;
-    endfunction
-    
-    // AI_TAG: FUNCTION - Get core-to-L2 mapping
-    function automatic logic [3:0] get_l2_for_core(
-        input logic [3:0] core_id,
-        input system_cache_topology_t topology
-    );
-        logic [3:0] l2_instance = 0;
-        
-        // Search through clusters to find which L2 serves this core
-        for (int i = 0; i < topology.num_clusters; i++) begin
-            if (topology.clusters[i].core_mask[core_id]) begin
-                l2_instance = i; // Assuming L2 instance ID matches cluster ID
-                break;
-            end
-        end
-        
-        return l2_instance;
-    endfunction
-
-    //-------------------------------------------------------------------------
-    // Validation Functions
-    //-------------------------------------------------------------------------
-    
     // AI_TAG: FUNCTION - Validate cache topology configuration
     function automatic logic validate_cache_topology(
         input system_cache_topology_t topology,
-        input integer total_cores
+        input integer num_cores
     );
         logic valid = 1'b1;
-        logic [7:0] core_coverage = 0;
         
-        // Check if all cores are covered by clusters
-        for (int i = 0; i < topology.num_clusters; i++) begin
-            core_coverage |= topology.clusters[i].core_mask;
-        end
-        
-        // All cores should be covered
-        if (core_coverage != ((1 << total_cores) - 1)) begin
+        // Check basic constraints
+        if (topology.num_l2_instances == 0 || topology.num_l2_instances > MAX_L2_INSTANCES) begin
             valid = 1'b0;
         end
         
-        // Check that cluster counts match instance counts
-        if (topology.num_clusters > topology.num_l2_instances) begin
+        if (topology.num_l3_instances == 0 || topology.num_l3_instances > MAX_L3_INSTANCES) begin
+            valid = 1'b0;
+        end
+        
+        // Check that all cores are served by some L2
+        logic [7:0] served_cores = 0;
+        for (int i = 0; i < topology.num_clusters; i++) begin
+            served_cores |= topology.clusters[i].core_mask;
+        end
+        
+        if (served_cores != ((1 << num_cores) - 1)) begin
             valid = 1'b0;
         end
         
         return valid;
+    endfunction
+    
+    // AI_TAG: FUNCTION - Get L2 instance for a given core
+    function automatic logic [3:0] get_l2_for_core(
+        input logic [3:0] core_id,
+        input system_cache_topology_t topology
+    );
+        for (int i = 0; i < topology.num_clusters; i++) begin
+            if (topology.clusters[i].core_mask[core_id]) begin
+                return i[3:0];
+            end
+        end
+        return 4'h0; // Default to first L2
+    endfunction
+    
+    // AI_TAG: FUNCTION - Get L3 instance for a given address (NUMA-aware)
+    function automatic logic [3:0] get_l3_instance_for_address(
+        input addr_t address,
+        input system_cache_topology_t topology
+    );
+        if (topology.topology_type == CACHE_TOPOLOGY_NUMA) begin
+            // Simple address-based mapping for NUMA
+            return address[31:28]; // Use upper address bits
+        end else begin
+            return 4'h0; // Single L3 for other topologies
+        end
     endfunction
 
 endpackage : riscv_cache_topology_pkg

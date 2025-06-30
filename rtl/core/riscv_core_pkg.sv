@@ -21,16 +21,18 @@
 
 package riscv_core_pkg;
 
-    // Configuration package (imported first - contains all parameters)
+    // Configuration packages (imported first - contains all parameters)
     import riscv_config_pkg::*;
     
     // Core architectural types and parameters
-    import riscv_types_pkg::*;
+    import riscv_core_types_pkg::*;
     
     // Memory hierarchy and coherency types
-    import riscv_mem_types_pkg::*;
-    import riscv_cache_types_pkg::*;
+    import riscv_memory_types_pkg::*;
     import riscv_cache_topology_pkg::*;
+    
+    // Pipeline types
+    import riscv_pipeline_types_pkg::*;
     
     // Branch prediction types
     import riscv_bp_types_pkg::*;

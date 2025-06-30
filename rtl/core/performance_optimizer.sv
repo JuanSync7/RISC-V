@@ -27,14 +27,16 @@
 
 // AI_TAG: BLOCK_DIAGRAM_DESC - Performance metrics feed into CacheOptimizer and BranchOptimizer for algorithmic tuning. PipelineController manages stage balancing. PowerManager coordinates power-performance optimization across all components.
 
+import riscv_config_pkg::*;
+
 module performance_optimizer #(
-    parameter integer NUM_CACHE_LEVELS = 3,            // AI_TAG: PARAM_DESC - Number of cache levels to optimize
+    parameter integer NUM_CACHE_LEVELS = DEFAULT_NUM_CACHE_LEVELS,            // AI_TAG: PARAM_DESC - Number of cache levels to optimize
                                                         // AI_TAG: PARAM_USAGE - Configures cache optimization arrays
                                                         // AI_TAG: PARAM_CONSTRAINTS - Must be >= 1, Max 4
-    parameter integer NUM_BP_PREDICTORS = 4,            // AI_TAG: PARAM_DESC - Number of branch predictors
+    parameter integer NUM_BP_PREDICTORS = DEFAULT_NUM_BP_PREDICTORS,            // AI_TAG: PARAM_DESC - Number of branch predictors
                                                         // AI_TAG: PARAM_USAGE - Configures branch predictor optimization
                                                         // AI_TAG: PARAM_CONSTRAINTS - Must be power of 2
-    parameter integer OPTIMIZATION_WINDOW = 2048       // AI_TAG: PARAM_DESC - Optimization window size in cycles
+    parameter integer OPTIMIZATION_WINDOW = DEFAULT_OPT_WINDOW       // AI_TAG: PARAM_DESC - Optimization window size in cycles
                                                         // AI_TAG: PARAM_USAGE - Determines how often optimizations are applied
                                                         // AI_TAG: PARAM_CONSTRAINTS - Must be power of 2
 ) (
@@ -92,10 +94,10 @@ module performance_optimizer #(
     //-----
     // Local Parameters
     //-----
-    localparam integer IPC_TARGET = 85;                // Target IPC percentage
-    localparam integer CACHE_MISS_THRESHOLD = 15;      // Cache miss rate threshold (%)
-    localparam integer BRANCH_MISS_THRESHOLD = 10;     // Branch miss rate threshold (%)
-    localparam integer PIPELINE_STALL_THRESHOLD = 20;  // Pipeline stall threshold
+    localparam integer IPC_TARGET = DEFAULT_IPC_TARGET;                // Target IPC percentage
+    localparam integer CACHE_MISS_THRESHOLD = DEFAULT_CACHE_MISS_THRESHOLD;      // Cache miss rate threshold (%)
+    localparam integer BRANCH_MISS_THRESHOLD = DEFAULT_BRANCH_MISS_THRESHOLD;     // Branch miss rate threshold (%)
+    localparam integer PIPELINE_STALL_THRESHOLD = DEFAULT_PIPELINE_STALL_THRESHOLD;  // Pipeline stall threshold
 
     // AI_TAG: FSM_NAME - optimizer_fsm_cs
     // AI_TAG: FSM_PURPOSE - optimizer_fsm_cs - Controls optimization sequence and decisions

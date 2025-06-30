@@ -22,6 +22,7 @@
 `default_nettype none
 
 import riscv_types_pkg::*;
+import riscv_config_pkg::*;
 
 module hazard_unit
 (
@@ -52,10 +53,6 @@ module hazard_unit
     output logic [1:0]  forward_b_sel_o
 );
 
-    localparam logic [1:0] FWD_SEL_REG = 2'b00;
-    localparam logic [1:0] FWD_SEL_MEM = 2'b01;
-    localparam logic [1:0] FWD_SEL_WB  = 2'b10;
-
     always_comb begin
         // --- Primary Hazard/Stall Source Detection ---
         logic load_use_hazard;
@@ -72,8 +69,8 @@ module hazard_unit
         flush_f_o         = 1'b0;
         flush_d_o         = 1'b0;
         flush_e_o         = 1'b0;
-        forward_a_sel_o   = FWD_SEL_REG;
-        forward_b_sel_o   = FWD_SEL_REG;
+        forward_a_sel_o   = riscv_config_pkg::FWD_SEL_REG;
+        forward_b_sel_o   = riscv_config_pkg::FWD_SEL_REG;
 
         // AI_TAG: HAZARD_DETECTION - Load-Use Data Hazard
         // An instruction in Decode needs the result of a LOAD from Execute.
@@ -119,20 +116,20 @@ module hazard_unit
         // AI_TAG: FORWARDING_LOGIC - EX/MEM -> EX Path (Highest Priority Forward)
         if (ex_mem_reg_i.ctrl.reg_write_en && (ex_mem_reg_i.rd_addr != '0)) begin
             if (ex_mem_reg_i.rd_addr == id_ex_reg_i.rs1_addr) begin
-                forward_a_sel_o = FWD_SEL_MEM;
+                forward_a_sel_o = riscv_config_pkg::FWD_SEL_MEM;
             end
             if (ex_mem_reg_i.rd_addr == id_ex_reg_i.rs2_addr) begin
-                forward_b_sel_o = FWD_SEL_MEM;
+                forward_b_sel_o = riscv_config_pkg::FWD_SEL_MEM;
             end
         end
 
         // AI_TAG: FORWARDING_LOGIC - MEM/WB -> EX Path
         if (mem_wb_reg_i.reg_write_en && (mem_wb_reg_i.rd_addr != '0)) begin
-            if ((mem_wb_reg_i.rd_addr == id_ex_reg_i.rs1_addr) && (forward_a_sel_o == FWD_SEL_REG)) begin
-                forward_a_sel_o = FWD_SEL_WB;
+            if ((mem_wb_reg_i.rd_addr == id_ex_reg_i.rs1_addr) && (forward_a_sel_o == riscv_config_pkg::FWD_SEL_REG)) begin
+                forward_a_sel_o = riscv_config_pkg::FWD_SEL_WB;
             end
-            if ((mem_wb_reg_i.rd_addr == id_ex_reg_i.rs2_addr) && (forward_b_sel_o == FWD_SEL_REG)) begin
-                forward_b_sel_o = FWD_SEL_WB;
+            if ((mem_wb_reg_i.rd_addr == id_ex_reg_i.rs2_addr) && (forward_b_sel_o == riscv_config_pkg::FWD_SEL_REG)) begin
+                forward_b_sel_o = riscv_config_pkg::FWD_SEL_WB;
             end
         end
     end

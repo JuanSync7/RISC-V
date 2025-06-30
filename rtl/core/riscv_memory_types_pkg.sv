@@ -1,40 +1,70 @@
 //=============================================================================
 // Company: Sondrel Ltd
 // Author: DesignAI (designai@sondrel.com)
-// Created: 2025-06-28
+// Created: 2025-01-28
 //
-// File: riscv_cache_types_pkg.sv
-// Module: riscv_cache_types_pkg
+// File: riscv_memory_types_pkg.sv
+// Module: riscv_memory_types_pkg
 //
 // Project Name: RISC-V RV32IM Core
 // Target Devices: ASIC/FPGA
 //
 // Description:
-//   Contains all shared parameters, data types, and enumerations related to
-//   the cache hierarchy (L1, L2, L3). This includes cache line structures,
-//   state machines, and replacement policies.
+//   This package contains memory system type definitions for the RISC-V
+//   processor, including cache types, memory request/response structures,
+//   and coherency protocol types.
 //=============================================================================
 
 `timescale 1ns/1ps
 `default_nettype none
 
-package riscv_cache_types_pkg;
+package riscv_memory_types_pkg;
 
-    import riscv_config_pkg::*;
-    import riscv_types_pkg::*;
-    import riscv_mem_types_pkg::*;
+    import riscv_core_config_pkg::*;
+    import riscv_memory_config_pkg::*;
 
-    //---------------------------------------------------------------------------
-    // 1. Cache Configuration Parameters (now from config package)
-    //---------------------------------------------------------------------------
-    // All cache configuration parameters are now imported from riscv_config_pkg:
-    // DEFAULT_L1_CACHE_SIZE, DEFAULT_L2_CACHE_SIZE, DEFAULT_L3_CACHE_SIZE
-    // DEFAULT_L1_CACHE_WAYS, DEFAULT_L2_CACHE_WAYS, DEFAULT_L3_CACHE_WAYS
-    // DEFAULT_CACHE_LINE_SIZE
+    //-------------------------------------------------------------------------
+    // Cache Coherence and Memory Types
+    //-------------------------------------------------------------------------
+    typedef enum logic [1:0] {
+        I, // Invalid
+        S, // Shared
+        E, // Exclusive
+        M  // Modified
+    } cache_state_t;
 
-    //---------------------------------------------------------------------------
-    // 2. Cache Line Structure
-    //---------------------------------------------------------------------------
+    typedef enum logic [1:0] {
+        COHERENCY_REQ_READ,
+        COHERENCY_REQ_WRITE,
+        COHERENCY_REQ_INVALIDATE,
+        COHERENCY_REQ_UPGRADE
+    } coherency_req_type_e;
+
+    typedef struct packed {
+        addr_t                      addr;           // Memory address
+        logic                       write;          // 1=write, 0=read
+        word_t                      data;           // Write data for the current beat
+        logic [3:0]                 strb;           // Write strobes
+        logic [3:0]                 id;             // Transaction ID
+        logic [CORE_ID_WIDTH-1:0]   source_id;      // ID of the core/master initiating the request
+        logic                       coherent;       // Request requires coherency management
+        logic [7:0]                 burst_len;      // Number of beats in the burst (for cache lines)
+        logic                       burst_last;     // Indicates the last beat of a request burst
+        logic                       cacheable;      // Cacheable transaction
+        logic [2:0]                 prot;           // Protection level
+        logic [2:0]                 size;           // Deprecated in favor of burst, but kept for compatibility
+    } memory_req_t;
+
+    typedef struct packed {
+        word_t                      data;           // Read data for the current beat
+        logic [3:0]                 id;             // Transaction ID
+        logic                       error;          // Error flag
+        logic                       last;           // Indicates the last beat of a response burst
+    } memory_rsp_t;
+
+    //-------------------------------------------------------------------------
+    // Cache System Types
+    //-------------------------------------------------------------------------
     typedef struct packed {
         logic                    valid;      // Valid bit
         logic [TAG_BITS-1:0]     tag;        // Tag bits (calculated per cache)
@@ -43,9 +73,6 @@ package riscv_cache_types_pkg;
         logic                    lru;        // LRU bit (for 2-way cache)
     } cache_line_t;
 
-    //---------------------------------------------------------------------------
-    // 3. Cache State Machine
-    //---------------------------------------------------------------------------
     typedef enum logic [2:0] {
         CACHE_IDLE,           // Ready for new requests
         CACHE_LOOKUP,         // Performing cache lookup
@@ -56,9 +83,6 @@ package riscv_cache_types_pkg;
         CACHE_FLUSH           // Flushing cache
     } cache_state_e;
 
-    //---------------------------------------------------------------------------
-    // 4. Cache Request Structure
-    //---------------------------------------------------------------------------
     typedef struct packed {
         logic        valid;
         addr_t       addr;
@@ -69,9 +93,6 @@ package riscv_cache_types_pkg;
         logic [3:0]  id;
     } cache_req_t;
 
-    //---------------------------------------------------------------------------
-    // 5. Cache Response Structure
-    //---------------------------------------------------------------------------
     typedef struct packed {
         logic        valid;
         word_t       data;
@@ -80,9 +101,6 @@ package riscv_cache_types_pkg;
         logic [3:0]  id;
     } cache_rsp_t;
 
-    //---------------------------------------------------------------------------
-    // 6. Cache Statistics
-    //---------------------------------------------------------------------------
     typedef struct packed {
         logic [31:0] hits;
         logic [31:0] misses;
@@ -91,9 +109,6 @@ package riscv_cache_types_pkg;
         logic [31:0] total_accesses;
     } cache_stats_t;
 
-    //---------------------------------------------------------------------------
-    // 7. Cache Configuration Structure
-    //---------------------------------------------------------------------------
     typedef struct packed {
         integer size;
         integer ways;
@@ -104,18 +119,12 @@ package riscv_cache_types_pkg;
         integer tag_bits;
     } cache_config_t;
 
-    //---------------------------------------------------------------------------
-    // 8. Cache Address Decomposition
-    //---------------------------------------------------------------------------
     typedef struct packed {
         logic [TAG_BITS-1:0]     tag;
         logic [INDEX_BITS-1:0]   index;
         logic [OFFSET_BITS-1:0]  offset;
     } cache_addr_t;
 
-    //---------------------------------------------------------------------------
-    // 9. Cache Replacement Policy
-    //---------------------------------------------------------------------------
     typedef enum logic [1:0] {
         REPLACEMENT_LRU,     // Least Recently Used
         REPLACEMENT_RANDOM,  // Random replacement
@@ -123,25 +132,16 @@ package riscv_cache_types_pkg;
         REPLACEMENT_PLRU     // Pseudo-LRU
     } replacement_policy_e;
 
-    //---------------------------------------------------------------------------
-    // 10. Cache Write Policy
-    //---------------------------------------------------------------------------
     typedef enum logic [0:0] {
         WRITE_THROUGH,       // Write-through
         WRITE_BACK          // Write-back
     } write_policy_e;
 
-    //---------------------------------------------------------------------------
-    // 11. Cache Allocation Policy
-    //---------------------------------------------------------------------------
     typedef enum logic [0:0] {
         ALLOCATE_ON_WRITE,  // Allocate on write
         NO_ALLOCATE_ON_WRITE // No allocate on write
     } allocation_policy_e;
 
-    //---------------------------------------------------------------------------
-    // 12. Cache Coherency States (MESI)
-    //---------------------------------------------------------------------------
     typedef enum logic [1:0] {
         CACHE_INVALID   = 2'b00,  // Invalid - no valid copy
         CACHE_SHARED    = 2'b01,  // Shared - multiple cores may have copy
@@ -149,9 +149,6 @@ package riscv_cache_types_pkg;
         CACHE_MODIFIED  = 2'b11   // Modified - this core has modified copy
     } cache_coherency_state_e;
 
-    //---------------------------------------------------------------------------
-    // 13. Cache Snoop Operations
-    //---------------------------------------------------------------------------
     typedef enum logic [1:0] {
         SNOOP_NONE,
         SNOOP_READ,
@@ -159,9 +156,6 @@ package riscv_cache_types_pkg;
         SNOOP_INVALIDATE
     } snoop_op_e;
 
-    //---------------------------------------------------------------------------
-    // 14. Cache Performance Counters
-    //---------------------------------------------------------------------------
     typedef struct packed {
         logic [31:0] read_hits;
         logic [31:0] read_misses;
@@ -173,9 +167,9 @@ package riscv_cache_types_pkg;
         logic [31:0] snoop_misses;
     } cache_perf_counters_t;
 
-    //---------------------------------------------------------------------------
-    // 15. Cache Configuration Functions
-    //---------------------------------------------------------------------------
+    //-------------------------------------------------------------------------
+    // Cache System Functions
+    //-------------------------------------------------------------------------
     function automatic cache_config_t create_cache_config(
         input integer size,
         input integer ways,
@@ -214,4 +208,6 @@ package riscv_cache_types_pkg;
         return line_size / 4; // Assuming 4 bytes per word
     endfunction
 
-endpackage : riscv_cache_types_pkg 
+endpackage : riscv_memory_types_pkg
+
+`default_nettype wire 

@@ -22,8 +22,11 @@
 `default_nettype none
 
 import riscv_core_pkg::*;
+import riscv_config_pkg::*;
 
-module exception_handler
+module exception_handler #(
+    parameter integer CORE_ID = 0
+)
 (
     input  logic        clk_i,
     input  logic        rst_ni,
@@ -241,12 +244,12 @@ module exception_handler
         qos_config.urgent = 1'b1;                    // All exceptions are urgent
         qos_config.guaranteed_bw = 1'b1;             // Guarantee bandwidth
         qos_config.weight = QOS_WEIGHT_CRITICAL;     // Maximum weight
-        qos_config.bandwidth_percent = 8'd50;        // 50% bandwidth allocation
+        qos_config.bandwidth_percent = QOS_EXCEPTION_BW_PERCENT;        // 50% bandwidth allocation
         qos_config.preemptable = 1'b0;              // Cannot be preempted
         qos_config.real_time = 1'b1;                // Real-time requirement
-        qos_config.retry_limit = 3'd0;              // No retries for exceptions
+        qos_config.retry_limit = QOS_EXCEPTION_RETRY_LIMIT;              // No retries for exceptions
         qos_config.ordered = 1'b1;                  // Maintain ordering
-        qos_config.core_id = 4'h0;                  // Core ID
+        qos_config.core_id = CORE_ID[3:0];                  // Core ID
         
         // QoS level and type based on exception type
         if (is_debug) begin

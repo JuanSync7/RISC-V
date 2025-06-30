@@ -32,21 +32,22 @@
 // AI_TAG: INTERNAL_BLOCK - PerformanceMonitor - Tracks protocol-specific metrics
 
 import riscv_core_pkg::*;
+import riscv_config_pkg::*;
 
 module protocol_factory #(
-    parameter string DEFAULT_PROTOCOL = "AXI4",           // AI_TAG: PARAM_DESC - Default protocol at reset
+    parameter string DEFAULT_PROTOCOL = DEFAULT_MEMORY_PROTOCOL,           // AI_TAG: PARAM_DESC - Default protocol at reset
                                                           // AI_TAG: PARAM_USAGE - "AXI4", "CHI", "TILELINK", "CUSTOM"
                                                           // AI_TAG: PARAM_CONSTRAINTS - Must be one of supported protocols
-    parameter integer ADDR_WIDTH = DEFAULT_AXI4_ADDR_WIDTH, // AI_TAG: PARAM_DESC - Address bus width
+    parameter integer ADDR_WIDTH = ADDR_WIDTH, // AI_TAG: PARAM_DESC - Address bus width
                                                             // AI_TAG: PARAM_USAGE - Must match interface parameters
                                                             // AI_TAG: PARAM_CONSTRAINTS - Must match all protocol interfaces
-    parameter integer DATA_WIDTH = DEFAULT_AXI4_DATA_WIDTH, // AI_TAG: PARAM_DESC - Data bus width
+    parameter integer DATA_WIDTH = XLEN, // AI_TAG: PARAM_DESC - Data bus width
                                                             // AI_TAG: PARAM_USAGE - Must match interface parameters
                                                             // AI_TAG: PARAM_CONSTRAINTS - Must match all protocol interfaces
     parameter integer ID_WIDTH = DEFAULT_AXI4_ID_WIDTH,   // AI_TAG: PARAM_DESC - Transaction ID width
                                                           // AI_TAG: PARAM_USAGE - For AXI4 and compatible protocols
                                                           // AI_TAG: PARAM_CONSTRAINTS - Must match interface parameter
-    parameter integer MAX_OUTSTANDING = 8                 // AI_TAG: PARAM_DESC - Maximum outstanding transactions
+    parameter integer MAX_OUTSTANDING = DEFAULT_AXI4_MAX_OUTSTANDING                 // AI_TAG: PARAM_DESC - Maximum outstanding transactions
                                                           // AI_TAG: PARAM_USAGE - Passed to protocol adapters
                                                           // AI_TAG: PARAM_CONSTRAINTS - Must be power of 2
 ) (
@@ -95,13 +96,13 @@ module protocol_factory #(
 
     // TileLink Interface
     // AI_TAG: IF_TYPE - TileLink Manager (Client)
-    // AI_TAG: IF_MODPORT - manager
-    // AI_TAG: IF_PROTOCOL_VERSION - TileLink Uncached (TL-UL)
+    // AI_TAG: IF_MODPORT - master
+    // AI_TAG: IF_PROTOCOL_VERSION - TileLink Coherent (TL-C)
     // AI_TAG: IF_DESC - TileLink interface for open-source ecosystem compatibility
     // AI_TAG: IF_DATA_WIDTHS - Data: parameterized, Addr: parameterized, Source: parameterized
     // AI_TAG: IF_CLOCKING - clk_i via tl_if.clk connection
     // AI_TAG: IF_RESET - rst_ni via tl_if.reset_n connection
-    tilelink_if.manager tl_if,
+    tilelink_if.master tl_if,
 
     // Performance monitoring outputs
     output logic [31:0] protocol_transactions_o,  // AI_TAG: PORT_DESC - Total protocol transactions
@@ -125,12 +126,12 @@ module protocol_factory #(
     // AI_TAG: FSM_NAME - protocol_selector
     // AI_TAG: FSM_PURPOSE - protocol_selector - Selects which protocol adapter is active
     // AI_TAG: FSM_ENCODING - protocol_selector - binary
-    // AI_TAG: FSM_RESET_STATE - protocol_selector - PROTOCOL_AXI4
+    // AI_TAG: FSM_RESET_STATE - protocol_selector - S_PROTOCOL_AXI4
     typedef enum logic [1:0] {
-        PROTOCOL_AXI4     = 2'b00,  // AI_TAG: FSM_STATE - PROTOCOL_AXI4 - AXI4 protocol selected
-        PROTOCOL_CHI      = 2'b01,  // AI_TAG: FSM_STATE - PROTOCOL_CHI - CHI protocol selected
-        PROTOCOL_TILELINK = 2'b10,  // AI_TAG: FSM_STATE - PROTOCOL_TILELINK - TileLink protocol selected
-        PROTOCOL_CUSTOM   = 2'b11   // AI_TAG: FSM_STATE - PROTOCOL_CUSTOM - Custom protocol selected
+        S_PROTOCOL_AXI4     = 2'b00,  // AI_TAG: FSM_STATE - PROTOCOL_AXI4 - AXI4 protocol selected
+        S_PROTOCOL_CHI      = 2'b01,  // AI_TAG: FSM_STATE - PROTOCOL_CHI - CHI protocol selected
+        S_PROTOCOL_TILELINK = 2'b10,  // AI_TAG: FSM_STATE - PROTOCOL_TILELINK - TileLink protocol selected
+        S_PROTOCOL_CUSTOM   = 2'b11   // AI_TAG: FSM_STATE - PROTOCOL_CUSTOM - Custom protocol selected
     } protocol_type_e;
 
     //-----
@@ -168,7 +169,7 @@ module protocol_factory #(
     
     always_ff @(posedge clk_i or negedge rst_ni) begin : proc_protocol_select_pipe
         if (!rst_ni) begin
-            protocol_select_r <= PROTOCOL_AXI4;
+            protocol_select_r <= S_PROTOCOL_AXI4;
             protocol_enable_r <= 1'b0;
             req_valid_pipe_r <= 1'b0;
             req_pipe_r <= '0;
@@ -201,13 +202,13 @@ module protocol_factory #(
         
         // Optimized protocol selection using parallel decode
         case (protocol_select_r)
-            PROTOCOL_AXI4: begin
+            S_PROTOCOL_AXI4: begin
                 axi4_adapter_if.req_valid = req_valid_pipe_r;
             end
-            PROTOCOL_CHI: begin
+            S_PROTOCOL_CHI: begin
                 chi_adapter_if.req_valid = req_valid_pipe_r;
             end
-            PROTOCOL_TILELINK: begin
+            S_PROTOCOL_TILELINK: begin
                 tilelink_adapter_if.req_valid = req_valid_pipe_r;
             end
             default: begin
@@ -229,19 +230,19 @@ module protocol_factory #(
         
         // Single-cycle response routing based on registered protocol
         case (protocol_select_r)
-            PROTOCOL_AXI4: begin
+            S_PROTOCOL_AXI4: begin
                 generic_if.rsp_valid = axi4_adapter_if.rsp_valid;
                 generic_if.rsp = axi4_adapter_if.rsp;
                 axi4_adapter_if.rsp_ready = generic_if.rsp_ready;
             end
             
-            PROTOCOL_CHI: begin
+            S_PROTOCOL_CHI: begin
                 generic_if.rsp_valid = chi_adapter_if.rsp_valid;
                 generic_if.rsp = chi_adapter_if.rsp;
                 chi_adapter_if.rsp_ready = generic_if.rsp_ready;
             end
             
-            PROTOCOL_TILELINK: begin
+            S_PROTOCOL_TILELINK: begin
                 generic_if.rsp_valid = tilelink_adapter_if.rsp_valid;
                 generic_if.rsp = tilelink_adapter_if.rsp;
                 tilelink_adapter_if.rsp_ready = generic_if.rsp_ready;
@@ -262,9 +263,9 @@ module protocol_factory #(
     always_comb begin : proc_ready_path
         // Single-level mux for critical ready signal
         case (protocol_select_r)
-            PROTOCOL_AXI4:    generic_if.req_ready = protocol_enable_r & axi4_adapter_if.req_ready;
-            PROTOCOL_CHI:     generic_if.req_ready = protocol_enable_r & chi_adapter_if.req_ready;
-            PROTOCOL_TILELINK: generic_if.req_ready = protocol_enable_r & tilelink_adapter_if.req_ready;
+            S_PROTOCOL_AXI4:    generic_if.req_ready = protocol_enable_r & axi4_adapter_if.req_ready;
+            S_PROTOCOL_CHI:     generic_if.req_ready = protocol_enable_r & chi_adapter_if.req_ready;
+            S_PROTOCOL_TILELINK: generic_if.req_ready = protocol_enable_r & tilelink_adapter_if.req_ready;
             default:          generic_if.req_ready = protocol_enable_r; // CUSTOM always ready
         endcase
     end
@@ -309,7 +310,7 @@ module protocol_factory #(
     );
 
     //-----
-    // TileLink Protocol Adapter
+    // TileLink Protocol Adapter (TL-C)
     //-----
     tilelink_adapter #(
         .ADDR_WIDTH(ADDR_WIDTH),
@@ -397,7 +398,7 @@ module protocol_factory #(
     // AI_TAG: ASSERTION_SEVERITY - Error
 `ifdef SIMULATION
     assert property (@(posedge clk_i) disable iff (!rst_ni) 
-        (current_protocol_s inside {PROTOCOL_AXI4, PROTOCOL_CHI, PROTOCOL_TILELINK, PROTOCOL_CUSTOM}))
+        (current_protocol_s inside {S_PROTOCOL_AXI4, S_PROTOCOL_CHI, S_PROTOCOL_TILELINK, S_PROTOCOL_CUSTOM}))
     else $error("Invalid protocol selection: %d", current_protocol_s);
 
     // AI_TAG: ASSERTION - a_one_adapter_active: Only one adapter should be active at a time

@@ -21,12 +21,13 @@
 `default_nettype none
 
 import riscv_core_pkg::*;
+import riscv_config_pkg::*;
 
 module icache #(
-    parameter integer CACHE_SIZE = DEFAULT_L1_CACHE_SIZE,    // AI_TAG: PARAM_DESC - Total cache size in bytes.
+    parameter integer CACHE_SIZE = DEFAULT_L1_ICACHE_SIZE,    // AI_TAG: PARAM_DESC - Total cache size in bytes.
     parameter integer LINE_SIZE = DEFAULT_CACHE_LINE_SIZE,   // AI_TAG: PARAM_DESC - Cache line size in bytes.
-    parameter integer WAYS = DEFAULT_L1_CACHE_WAYS,          // AI_TAG: PARAM_DESC - Number of ways (associativity).
-    parameter integer ADDR_WIDTH = 32                        // AI_TAG: PARAM_DESC - Address width.
+    parameter integer WAYS = DEFAULT_L1_ICACHE_WAYS,          // AI_TAG: PARAM_DESC - Number of ways (associativity).
+    parameter integer ADDR_WIDTH = ADDR_WIDTH                        // AI_TAG: PARAM_DESC - Address width.
 ) (
     // Clock and Reset
     input  logic        clk_i,

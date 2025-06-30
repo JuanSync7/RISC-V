@@ -29,17 +29,19 @@
 // AI_TAG: FEATURE - Power consumption estimation
 // AI_TAG: FEATURE - Thermal behavior tracking
 
+import riscv_config_pkg::*;
+
 module performance_monitor #(
-    parameter integer NUM_CORES = 4,              // AI_TAG: PARAM_DESC - Number of cores to monitor
+    parameter integer NUM_CORES = DEFAULT_NUM_CORES,              // AI_TAG: PARAM_DESC - Number of cores to monitor
                                                   // AI_TAG: PARAM_USAGE - Determines array sizes for per-core monitoring
                                                   // AI_TAG: PARAM_CONSTRAINTS - Must be between 1 and 16
-    parameter integer MEASUREMENT_WINDOW = 1024,  // AI_TAG: PARAM_DESC - Cycles in measurement window
+    parameter integer MEASUREMENT_WINDOW = DEFAULT_PERF_MON_WINDOW,  // AI_TAG: PARAM_DESC - Cycles in measurement window
                                                   // AI_TAG: PARAM_USAGE - Sets granularity of performance measurements
                                                   // AI_TAG: PARAM_CONSTRAINTS - Must be power of 2, minimum 256
-    parameter integer COUNTER_WIDTH = 32,         // AI_TAG: PARAM_DESC - Width of performance counters
+    parameter integer COUNTER_WIDTH = DEFAULT_PERF_COUNTER_WIDTH,         // AI_TAG: PARAM_DESC - Width of performance counters
                                                   // AI_TAG: PARAM_USAGE - Sets maximum count values before overflow
                                                   // AI_TAG: PARAM_CONSTRAINTS - Must be between 24 and 64
-    parameter integer IPC_PRECISION = 1000        // AI_TAG: PARAM_DESC - IPC calculation precision multiplier
+    parameter integer IPC_PRECISION = DEFAULT_IPC_PRECISION        // AI_TAG: PARAM_DESC - IPC calculation precision multiplier
                                                   // AI_TAG: PARAM_USAGE - Sets fixed-point precision for IPC calculations
                                                   // AI_TAG: PARAM_CONSTRAINTS - Must be 100, 1000, or 10000
 ) (

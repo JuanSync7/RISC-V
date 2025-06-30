@@ -19,10 +19,11 @@
 `default_nettype none
 
 import riscv_types_pkg::*;
+import riscv_config_pkg::*;
 
 module return_stack_buffer #(
-    parameter integer ADDR_WIDTH = 32,
-    parameter integer STACK_DEPTH = 8
+    parameter integer ADDR_WIDTH = ADDR_WIDTH,
+    parameter integer STACK_DEPTH = DEFAULT_RSB_ENTRIES
 ) (
     input  logic clk_i,
     input  logic rst_ni,
@@ -89,4 +90,4 @@ module return_stack_buffer #(
 
 endmodule : return_stack_buffer
 
-`default_nettype wire 
+`default_nettype wire

@@ -19,6 +19,7 @@
 `default_nettype none
 
 import riscv_core_pkg::*;
+import riscv_cache_topology_pkg::*;
 
 module cache_cluster_manager #(
     parameter integer NUM_CORES = DEFAULT_NUM_CORES,

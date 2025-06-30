@@ -40,6 +40,7 @@
 // AI_TAG: BLOCK_DIAGRAM_DESC - Core array connects to L2 cache subsystem via memory interfaces. L2 cache connects to L3 cache, which connects to external memory via protocol factory. Inter-core communication network manages core-to-core messages and synchronization primitives. QoS arbiter manages memory access priorities and bandwidth allocation.
 
 import riscv_core_pkg::*;
+import riscv_config_pkg::*;
 
 module multi_core_system #(
     parameter integer NUM_CORES = DEFAULT_NUM_CORES,                        // AI_TAG: PARAM_DESC - Number of cores in the system
@@ -72,9 +73,15 @@ module multi_core_system #(
     parameter integer NUM_BARRIERS = DEFAULT_NUM_BARRIERS,                  // AI_TAG: PARAM_DESC - Number of hardware synchronization barriers
                                                                             // AI_TAG: PARAM_USAGE - Determines available hardware barriers for synchronization
                                                                             // AI_TAG: PARAM_CONSTRAINTS - Must be power of 2, minimum 4
-    parameter integer MAX_OUTSTANDING = DEFAULT_AXI4_MAX_OUTSTANDING        // AI_TAG: PARAM_DESC - Maximum outstanding transactions
+    parameter integer MAX_OUTSTANDING = DEFAULT_AXI4_MAX_OUTSTANDING,        // AI_TAG: PARAM_DESC - Maximum outstanding transactions
                                                                             // AI_TAG: PARAM_USAGE - Limits concurrent memory transactions
                                                                             // AI_TAG: PARAM_CONSTRAINTS - Must be between 1 and 16
+    parameter bit       ENABLE_L2_CACHE = DEFAULT_ENABLE_L2_CACHE,          // AI_TAG: PARAM_DESC - Enable or disable L2 cache hierarchy
+                                                                            // AI_TAG: PARAM_USAGE - Set to 0 to bypass L2 cache
+                                                                            // AI_TAG: PARAM_CONSTRAINTS - Must be 1 or 0
+    parameter bit       ENABLE_L3_CACHE = DEFAULT_ENABLE_L3_CACHE           // AI_TAG: PARAM_DESC - Enable or disable L3 cache
+                                                                            // AI_TAG: PARAM_USAGE - Set to 0 to bypass L3 cache. Requires L2 to be enabled.
+                                                                            // AI_TAG: PARAM_CONSTRAINTS - Must be 1 or 0
 ) (
     input  logic        clk_i,     // AI_TAG: PORT_DESC - System clock
                                    // AI_TAG: PORT_CLK_DOMAIN - clk_i
@@ -113,7 +120,7 @@ module multi_core_system #(
 
     // AI_TAG: IF_TYPE - TileLink Manager (Client)
     // AI_TAG: IF_MODPORT - master
-    // AI_TAG: IF_PROTOCOL_VERSION - TileLink Uncached (TL-UL)
+    // AI_TAG: IF_PROTOCOL_VERSION - TileLink Coherent (TL-C)
     // AI_TAG: IF_DESC - TileLink interface for open-source ecosystem compatibility
     // AI_TAG: IF_DATA_WIDTHS - Data: XLEN, Addr: ADDR_WIDTH, Source: 8
     // AI_TAG: IF_CLOCKING - clk_i via tl_if.clk connection
@@ -329,6 +336,173 @@ module multi_core_system #(
     logic [NUM_CORES-1:0] l1_dcache_miss;
 
     //-------------------------------------------------------------------------
+    // Cache Hierarchy and Bypass Logic
+    //-------------------------------------------------------------------------
+    generate
+        if (ENABLE_L2_CACHE) begin : gen_cache_hierarchy
+            //-----------------------------------------------------------------
+            // Cache Topology Configuration
+            //-----------------------------------------------------------------
+            system_cache_topology_t cache_topology_config;
+            
+            // Configure cache topology based on NUM_CORES and system configuration
+            always_comb begin
+                // Base topology
+                case (NUM_CORES)
+                    1, 2: begin
+                        cache_topology_config = get_unified_topology(NUM_CORES, L2_CACHE_SIZE, ENABLE_L3_CACHE ? L3_CACHE_SIZE : 0);
+                    end
+                    3, 4: begin
+                        if (DEFAULT_CACHE_TOPOLOGY == "CLUSTERED") begin
+                            cache_topology_config = get_clustered_topology(NUM_CORES, L2_CACHE_SIZE, ENABLE_L3_CACHE ? L3_CACHE_SIZE : 0);
+                        end else begin
+                            cache_topology_config = get_unified_topology(NUM_CORES, L2_CACHE_SIZE, ENABLE_L3_CACHE ? L3_CACHE_SIZE : 0);
+                        end
+                    end
+                    default: begin
+                        if (DEFAULT_CACHE_TOPOLOGY == "NUMA") begin
+                            cache_topology_config = get_numa_topology(NUM_CORES, L2_CACHE_SIZE, ENABLE_L3_CACHE ? L3_CACHE_SIZE : 0);
+                        end else begin
+                            cache_topology_config = get_clustered_topology(NUM_CORES, L2_CACHE_SIZE, ENABLE_L3_CACHE ? L3_CACHE_SIZE : 0);
+                        end
+                    end
+                endcase
+
+                // Override L3 configuration if disabled
+                if (!ENABLE_L3_CACHE) begin
+                    cache_topology_config.num_l3_instances = 0;
+                    for (int i = 0; i < MAX_L2_INSTANCES; i++) begin
+                        cache_topology_config.clusters[i].l3_instance_id = 0; // Point to non-existent L3
+                    end
+                end
+            end
+
+            //-----------------------------------------------------------------
+            // Cache Cluster Manager
+            //-----------------------------------------------------------------
+            memory_req_rsp_if mem_controller_if [MAX_MEMORY_CONTROLLERS] (
+                .clk(clk_i),
+                .rst_n(rst_ni)
+            );
+            
+            cache_cluster_manager #(
+                .NUM_CORES(NUM_CORES),
+                .CACHE_TOPOLOGY(CACHE_TOPOLOGY_UNIFIED),
+                .L2_CACHE_SIZE(L2_CACHE_SIZE),
+                .L3_CACHE_SIZE(L3_CACHE_SIZE)
+            ) u_cache_cluster_manager (
+                .clk_i(clk_i),
+                .rst_ni(rst_ni),
+                .topology_config_i(cache_topology_config),
+                .l1_dcache_if(l1_dcache_if),
+                .l1_icache_if(l1_icache_if),
+                .mem_if(mem_controller_if),
+                .coherency_if(coherency_if),
+                .l2_instance_active_o(),
+                .l3_instance_active_o(),
+                .cluster_status_o(),
+                .cache_miss_count_o(cache_miss_count_o),
+                .topology_valid_o(),
+                .l1_icache_miss_o(l1_icache_miss),
+                .l1_dcache_miss_o(l1_dcache_miss)
+            );
+            
+            //-----------------------------------------------------------------
+            // Memory Controller Interface Routing
+            //-----------------------------------------------------------------
+            for (genvar mc_id = 0; mc_id < MAX_MEMORY_CONTROLLERS; mc_id++) begin : gen_memory_controller_routing
+                if (mc_id == 0) begin : gen_primary_memory_controller
+                    assign protocol_generic_if.req_valid = mem_controller_if[mc_id].req_valid;
+                    assign protocol_generic_if.req = mem_controller_if[mc_id].req;
+                    assign mem_controller_if[mc_id].req_ready = protocol_generic_if.req_ready;
+                    assign mem_controller_if[mc_id].rsp_valid = protocol_generic_if.rsp_valid;
+                    assign mem_controller_if[mc_id].rsp = protocol_generic_if.rsp;
+                    assign protocol_generic_if.rsp_ready = mem_controller_if[mc_id].rsp_ready;
+                end else begin : gen_secondary_memory_controllers
+                    assign mem_controller_if[mc_id].req_ready = 1'b0;
+                    assign mem_controller_if[mc_id].rsp_valid = 1'b0;
+                    assign mem_controller_if[mc_id].rsp = '0;
+                end
+            end
+
+        end else begin : gen_cache_bypass
+            //-----------------------------------------------------------------
+            // L2/L3 Cache Bypass Logic
+            //-----------------------------------------------------------------
+            localparam NUM_L1_REQUESTERS = 2 * NUM_CORES;
+            
+            logic [$clog2(NUM_L1_REQUESTERS)-1:0] grant_idx;
+            logic [NUM_L1_REQUESTERS-1:0] req_valid_bus;
+            logic [NUM_L1_REQUESTERS-1:0] grant;
+
+            // Tie off unused signals when bypassed
+            assign l1_icache_miss = '0;
+            assign l1_dcache_miss = '0;
+            assign cache_miss_count_o = '0;
+            
+            // Create a bus of all request valid signals
+            genvar i_bus;
+            for (i_bus = 0; i_bus < NUM_CORES; i_bus++) begin
+                assign req_valid_bus[i_bus] = l1_icache_if[i_bus].req_valid;
+                assign req_valid_bus[i_bus + NUM_CORES] = l1_dcache_if[i_bus].req_valid;
+            end
+            
+            // Round-robin arbiter for L1 requests
+            always_ff @(posedge clk_i or negedge rst_ni) begin
+                if (!rst_ni) begin
+                    grant_idx <= '0;
+                end else begin
+                    if (!req_valid_bus[grant_idx] || (protocol_generic_if.req_ready && protocol_generic_if.req_valid)) begin
+                        logic found_next;
+                        found_next = 1'b0;
+                        for (int i = 1; i <= NUM_L1_REQUESTERS; i++) begin
+                            if (!found_next) begin
+                                logic [$clog2(NUM_L1_REQUESTERS)-1:0] next_idx;
+                                next_idx = (grant_idx + i) % NUM_L1_REQUESTERS;
+                                if (req_valid_bus[next_idx]) begin
+                                    grant_idx <= next_idx;
+                                    found_next = 1'b1;
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            
+            always_comb begin
+                grant = '0;
+                grant[grant_idx] = req_valid_bus[grant_idx];
+                
+                protocol_generic_if.req_valid = 1'b0;
+                protocol_generic_if.req = '0;
+                
+                if (grant[grant_idx]) begin
+                    if (grant_idx < NUM_CORES) begin
+                        protocol_generic_if.req_valid = l1_icache_if[grant_idx].req_valid;
+                        protocol_generic_if.req       = l1_icache_if[grant_idx].req;
+                    end else begin
+                        protocol_generic_if.req_valid = l1_dcache_if[grant_idx - NUM_CORES].req_valid;
+                        protocol_generic_if.req       = l1_dcache_if[grant_idx - NUM_CORES].req;
+                    end
+                end
+                
+                for (int i = 0; i < NUM_CORES; i++) begin
+                    l1_icache_if[i].req_ready = grant[i] & protocol_generic_if.req_ready;
+                    l1_dcache_if[i].req_ready = grant[i + NUM_CORES] & protocol_generic_if.req_ready;
+                    
+                    l1_icache_if[i].rsp_valid = grant[i] & protocol_generic_if.rsp_valid;
+                    l1_icache_if[i].rsp       = protocol_generic_if.rsp;
+
+                    l1_dcache_if[i].rsp_valid = grant[i + NUM_CORES] & protocol_generic_if.rsp_valid;
+                    l1_dcache_if[i].rsp       = protocol_generic_if.rsp;
+                end
+                
+                protocol_generic_if.rsp_ready = 1'b1;
+            end
+        end
+    endgenerate
+
+    //-------------------------------------------------------------------------
     // Performance Monitoring Aggregation
     //-------------------------------------------------------------------------
     // AI_TAG: DATAPATH_ELEMENT - PerformanceAggregator - Performance counter aggregator - Aggregates statistics from all cores
@@ -354,115 +528,15 @@ module multi_core_system #(
     ValidNumCores: assert property (@(posedge clk_i) disable iff (!rst_ni)
         (NUM_CORES >= 1) && (NUM_CORES <= MAX_CORES));
 
+    // AI_TAG: ASSERTION - L3 cache cannot be enabled if L2 is disabled
+    // AI_TAG: ASSERTION_TYPE - Static
+    // AI_TAG: ASSERTION_SEVERITY - Error
+    L3RequiresL2: assert (ENABLE_L2_CACHE || !ENABLE_L3_CACHE)
+        else $fatal(1, "L3 cache cannot be enabled when L2 cache is disabled.");
+
     // AI_TAG: ASSERTION - All active cores should have valid hart IDs
     ValidHartIds: assert property (@(posedge clk_i) disable iff (!rst_ni)
         $countones(core_active_o) <= NUM_CORES);
-
-    //-------------------------------------------------------------------------
-    // Cache Topology Configuration
-    //-------------------------------------------------------------------------
-    
-    // AI_TAG: CACHE_TOPOLOGY - Dynamic cache topology configuration
-    system_cache_topology_t cache_topology_config;
-    logic [MAX_MEMORY_CONTROLLERS-1:0][31:0] mem_controller_status;
-    
-    // Configure cache topology based on NUM_CORES and system configuration
-    always_comb begin
-        case (NUM_CORES)
-            1, 2: begin
-                // Small systems: unified cache
-                cache_topology_config = get_unified_topology(NUM_CORES, L2_CACHE_SIZE, L3_CACHE_SIZE);
-            end
-            3, 4: begin
-                // Medium systems: can use unified or clustered
-                if (DEFAULT_CACHE_TOPOLOGY == "CLUSTERED") begin
-                    cache_topology_config = get_clustered_topology(NUM_CORES, L2_CACHE_SIZE, L3_CACHE_SIZE);
-                end else begin
-                    cache_topology_config = get_unified_topology(NUM_CORES, L2_CACHE_SIZE, L3_CACHE_SIZE);
-                end
-            end
-            default: begin
-                // Large systems: use NUMA or clustered topology
-                if (DEFAULT_CACHE_TOPOLOGY == "NUMA") begin
-                    cache_topology_config = get_numa_topology(NUM_CORES, L2_CACHE_SIZE, L3_CACHE_SIZE);
-                end else begin
-                    cache_topology_config = get_clustered_topology(NUM_CORES, L2_CACHE_SIZE, L3_CACHE_SIZE);
-                end
-            end
-        endcase
-    end
-
-    //-------------------------------------------------------------------------
-    // Cache Cluster Manager - Replaces Hard-coded L2/L3 Instances
-    //-------------------------------------------------------------------------
-    
-    // Memory controller interfaces
-    memory_req_rsp_if mem_controller_if [MAX_MEMORY_CONTROLLERS] (
-        .clk(clk_i),
-        .rst_n(rst_ni)
-    );
-    
-    // AI_TAG: DATAPATH_ELEMENT - CacheClusterManager - Multi-cache system manager - Manages multiple L2/L3 instances with flexible topology
-    cache_cluster_manager #(
-        .NUM_CORES(NUM_CORES),
-        .CACHE_TOPOLOGY(CACHE_TOPOLOGY_UNIFIED), // Default, overridden by topology_config_i
-        .L2_CACHE_SIZE(L2_CACHE_SIZE),
-        .L3_CACHE_SIZE(L3_CACHE_SIZE)
-    ) u_cache_cluster_manager (
-        .clk_i(clk_i),
-        .rst_ni(rst_ni),
-        
-        // Topology configuration
-        .topology_config_i(cache_topology_config),
-        
-        // L1 cache interfaces from cores
-        .l1_dcache_if(l1_dcache_if),
-        .l1_icache_if(l1_icache_if),
-        
-        // External memory interfaces
-        .mem_if(mem_controller_if),
-        
-        // Cache coherency interfaces
-        .coherency_if(coherency_if),
-        
-        // Status and control outputs
-        .l2_instance_active_o(/* connected to system status */),
-        .l3_instance_active_o(/* connected to system status */),
-        .cluster_status_o(/* connected to system status */),
-        .cache_miss_count_o(cache_miss_count_o),
-        .topology_valid_o(/* connected to system status */),
-        .l1_icache_miss_o(l1_icache_miss),
-        .l1_dcache_miss_o(l1_dcache_miss)
-    );
-    
-    //-------------------------------------------------------------------------
-    // Memory Controller Interface Routing
-    //-------------------------------------------------------------------------
-    
-    // Route cache cluster manager to protocol factory based on topology
-    // For unified/clustered topologies, use single memory controller
-    // For NUMA/distributed topologies, route to multiple controllers
-    
-    generate
-        for (genvar mc_id = 0; mc_id < MAX_MEMORY_CONTROLLERS; mc_id++) begin : gen_memory_controller_routing
-            if (mc_id == 0) begin : gen_primary_memory_controller
-                // Primary memory controller always gets routed to protocol factory
-                assign protocol_generic_if.req_valid = mem_controller_if[mc_id].req_valid;
-                assign protocol_generic_if.req = mem_controller_if[mc_id].req;
-                assign mem_controller_if[mc_id].req_ready = protocol_generic_if.req_ready;
-                assign mem_controller_if[mc_id].rsp_valid = protocol_generic_if.rsp_valid;
-                assign mem_controller_if[mc_id].rsp = protocol_generic_if.rsp;
-                assign protocol_generic_if.rsp_ready = mem_controller_if[mc_id].rsp_ready;
-            end else begin : gen_secondary_memory_controllers
-                // Secondary memory controllers for NUMA systems
-                // In full implementation, these would connect to additional protocol factories
-                // For now, tie off unused interfaces
-                assign mem_controller_if[mc_id].req_ready = 1'b0;
-                assign mem_controller_if[mc_id].rsp_valid = 1'b0;
-                assign mem_controller_if[mc_id].rsp = '0;
-            end
-        end : gen_memory_controller_routing
-    endgenerate
 
     //-------------------------------------------------------------------------
     // Protocol Factory
@@ -529,7 +603,7 @@ module multi_core_system #(
     assign ooo_commit_valid_s = core_active_o;
     assign rob_full_s = '0; // Assume ROB not full for now
     assign rs_ready_s = core_active_o; // Assume RS ready when core active
-    assign qos_request_levels_s = 16'h00FF; // Simulate QoS requests
+    assign qos_request_levels_s = DEFAULT_QOS_REQUEST_LEVELS; // Simulate QoS requests
     assign qos_bandwidth_usage_s = (cache_miss_count_o > 100) ? 32'd800 : 32'd400;
 
     //-------------------------------------------------------------------------
@@ -576,9 +650,9 @@ module multi_core_system #(
             ipc_measurement_instructions <= total_instructions_o;
             
             // Calculate current IPC every 1024 cycles
-            if (ipc_measurement_cycles[9:0] == 10'h3FF) begin
+            if (ipc_measurement_cycles[9:0] == (DEFAULT_PERF_MON_MEASUREMENT_WINDOW-1)[9:0]) begin
                 if (ipc_measurement_cycles > 0) begin
-                    current_ipc_calculated <= (ipc_measurement_instructions * 1000) / ipc_measurement_cycles;
+                    current_ipc_calculated <= (ipc_measurement_instructions * DEFAULT_PERF_MON_IPC_PRECISION) / ipc_measurement_cycles;
                     average_ipc_accumulator <= average_ipc_accumulator + current_ipc_calculated;
                     ipc_sample_count <= ipc_sample_count + 1;
                 end
@@ -588,15 +662,15 @@ module multi_core_system #(
             if (|instruction_retired_per_core) begin
                 branch_prediction_total_count <= branch_prediction_total_count + |instruction_retired_per_core;
                 // Simulate 85% branch prediction accuracy
-                if ((branch_prediction_total_count % 100) < 85) begin
+                if ((branch_prediction_total_count % 100) < SIM_BRANCH_PREDICTION_ACCURACY) begin
                     branch_prediction_hit_count <= branch_prediction_hit_count + 1;
                 end
             end
             
             // Track pipeline stalls (simplified simulation)
             if (cache_miss_count_o > 0 && (cache_miss_count_o != cache_miss_counters[0])) begin
-                pipeline_stall_cycles <= pipeline_stall_cycles + 3; // Assume 3 cycle penalty
-                memory_stall_cycles <= memory_stall_cycles + 10; // Assume 10 cycle memory penalty
+                pipeline_stall_cycles <= pipeline_stall_cycles + SIM_PIPELINE_STALL_PENALTY; // Assume 3 cycle penalty
+                memory_stall_cycles <= memory_stall_cycles + SIM_MEMORY_STALL_PENALTY; // Assume 10 cycle memory penalty
             end
             
             // Update cache hit rates based on miss counters
@@ -632,7 +706,7 @@ module multi_core_system #(
     // AI_TAG: DATAPATH_ELEMENT - SystemValidator - System integration validator - Validates interface connectivity and system health
     system_integration_validator #(
         .NUM_CORES(NUM_CORES),
-        .VALIDATION_DEPTH(16)
+        .VALIDATION_DEPTH(DEFAULT_VALIDATION_DEPTH)
     ) u_system_validator (
         .clk_i(clk_i),
         .rst_ni(rst_ni),
@@ -652,7 +726,7 @@ module multi_core_system #(
     // AI_TAG: DATAPATH_ELEMENT - PerformanceOptimizer - Performance optimization controller - Optimizes cache policies and system performance
     performance_optimizer #(
         .NUM_CORES(NUM_CORES),
-        .OPTIMIZATION_WINDOW(1024)
+        .OPTIMIZATION_WINDOW(DEFAULT_OPTIMIZATION_WINDOW)
     ) u_performance_optimizer (
         .clk_i(clk_i),
         .rst_ni(rst_ni),
@@ -674,9 +748,9 @@ module multi_core_system #(
     // AI_TAG: DATAPATH_ELEMENT - PerformanceMonitor - Comprehensive performance monitoring - Provides accurate IPC measurement and performance analytics
     performance_monitor #(
         .NUM_CORES(NUM_CORES),
-        .MEASUREMENT_WINDOW(1024),
+        .MEASUREMENT_WINDOW(DEFAULT_PERF_MON_MEASUREMENT_WINDOW),
         .COUNTER_WIDTH(32),
-        .IPC_PRECISION(1000)
+        .IPC_PRECISION(DEFAULT_PERF_MON_IPC_PRECISION)
     ) u_performance_monitor (
         .clk_i(clk_i),
         .rst_ni(rst_ni),
@@ -699,8 +773,8 @@ module multi_core_system #(
         .l3_cache_miss_i(1'b0), // Simplified: no L3 misses for now
         
         // Memory system performance
-        .memory_latency_i(32'd50), // Simplified: assume 50 cycle memory latency
-        .memory_bandwidth_i(32'd800), // Simplified: assume 80% bandwidth utilization
+        .memory_latency_i(SIM_DEFAULT_MEM_LATENCY), // Simplified: assume 50 cycle memory latency
+        .memory_bandwidth_i(SIM_DEFAULT_MEM_BANDWIDTH), // Simplified: assume 80% bandwidth utilization
         
         // Configuration
         .enable_monitoring_i(1'b1), // Always enable monitoring
@@ -741,7 +815,7 @@ module multi_core_system #(
             end
             
             // Simulate QoS satisfaction (85% satisfaction rate)
-            if ((qos_active_requests % 100) < 85) begin
+            if ((qos_active_requests % 100) < SIM_QOS_SATISFACTION_RATE) begin
                 qos_satisfied_requests <= qos_satisfied_requests + 1;
             end else begin
                 qos_violation_count <= qos_violation_count + 1;
@@ -770,7 +844,7 @@ module multi_core_system #(
     // AI_TAG: ASSERTION_SEVERITY - Warning
     property p_target_ipc_achieved;
         @(posedge clk_i) disable iff (!rst_ni)
-        (total_cycles_o > 10000) |-> (current_ipc_calculated >= 32'd800); // Target: 0.8 IPC minimum
+        (total_cycles_o > ASSERT_MIN_CYCLES_FOR_IPC) |-> (current_ipc_calculated >= ASSERT_TARGET_IPC); // Target: 0.8 IPC minimum
     endproperty
     a_target_ipc_achieved: assert property (p_target_ipc_achieved);
 
@@ -781,17 +855,17 @@ module multi_core_system #(
     endproperty
     a_core_activity_reasonable: assert property (p_core_activity_reasonable);
 
-    // AI_TAG: ASSERTION - Cache miss rate should not exceed threshold
+    // AI_TAG: ASSERTION - Cache miss rate should not exceed threshold when hierarchy is enabled
     property p_cache_miss_threshold;
         @(posedge clk_i) disable iff (!rst_ni)
-        (total_cycles_o > 1000) |-> (cache_hit_rate_l1 >= 32'd700); // Min 70% L1 hit rate
+        (ENABLE_L2_CACHE && total_cycles_o > ASSERT_MIN_CYCLES_FOR_CACHE) |-> (cache_hit_rate_l1 >= ASSERT_MIN_L1_CACHE_HIT_RATE); // Min 70% L1 hit rate
     endproperty
     a_cache_miss_threshold: assert property (p_cache_miss_threshold);
 
     // AI_TAG: ASSERTION - Power consumption should be reasonable
     property p_power_consumption_reasonable;
         @(posedge clk_i) disable iff (!rst_ni)
-        power_consumption_estimate <= 32'd5000; // Max 5W power consumption
+        power_consumption_estimate <= ASSERT_MAX_POWER_ESTIMATE; // Max 5W power consumption
     endproperty
     a_power_consumption_reasonable: assert property (p_power_consumption_reasonable);
 
@@ -825,6 +899,8 @@ endmodule : multi_core_system
 // Revision History:
 // Version | Date       | Author             | Description
 //=============================================================================
+// 1.3.1   | 2025-01-28 | DesignAI           | Decoupled L2 and L3 cache enable parameters
+// 1.3.0   | 2025-01-28 | DesignAI           | Added L2/L3 cache bypass capability via ENABLE_L2_L3_CACHE parameter
 // 1.2.0   | 2025-01-27 | DesignAI           | Fixed to use proper interface modports instead of hardcoded signals
 // 1.1.0   | 2025-01-27 | DesignAI           | Complete multi-core integration with proper interface connectivity
 // 1.0.0   | 2025-01-27 | DesignAI           | Initial release

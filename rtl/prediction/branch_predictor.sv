@@ -22,17 +22,20 @@
 `default_nettype none
 
 import riscv_types_pkg::*;
+import riscv_config_pkg::*;
 
 module branch_predictor #(
     // AI_TAG: PARAM_DESC - BTB_ENTRIES - Number of entries in the Branch Target Buffer.
     // AI_TAG: PARAM_USAGE - Determines the number of branch targets that can be cached.
     // AI_TAG: PARAM_CONSTRAINTS - Must be a power of 2 for efficient indexing.
-    parameter integer BTB_ENTRIES = 64,
+    parameter integer BTB_ENTRIES = DEFAULT_BTB_ENTRIES,
     
     // AI_TAG: PARAM_DESC - BHT_ENTRIES - Number of entries in the Branch History Table.
     // AI_TAG: PARAM_USAGE - Determines the number of branch history patterns that can be tracked.
     // AI_TAG: PARAM_CONSTRAINTS - Must be a power of 2 for efficient indexing.
-    parameter integer BHT_ENTRIES = 256
+    parameter integer BHT_ENTRIES = DEFAULT_BHT_ENTRIES,
+
+    parameter integer GLOBAL_HISTORY_WIDTH = DEFAULT_GLOBAL_HISTORY_WIDTH
 ) (
     // AI_TAG: PORT_DESC - clk_i - System clock for synchronous operations.
     // AI_TAG: PORT_CLK_DOMAIN - clk_i
@@ -104,7 +107,7 @@ module branch_predictor #(
     logic [1:0] bht_mem [BHT_ENTRIES-1:0];
     
     // AI_TAG: INTERNAL_STORAGE - Global branch history register
-    logic [7:0] global_history_r;
+    logic [GLOBAL_HISTORY_WIDTH-1:0] global_history_r;
     
     // AI_TAG: INTERNAL_LOGIC - BTB indexing and tag calculation
     localparam integer BTB_INDEX_BITS = $clog2(BTB_ENTRIES);
@@ -196,7 +199,7 @@ module branch_predictor #(
             for (int i = 0; i < BHT_ENTRIES; i++) begin
                 bht_mem[i] <= 2'b01;
             end
-            global_history_r <= 8'h00;
+            global_history_r <= '0;
         end else if (update_i && is_branch_i) begin
             // Update BHT counter
             if (actual_taken_i && bht_mem[update_bht_index] != 2'b11) begin
@@ -206,7 +209,7 @@ module branch_predictor #(
             end
             
             // Update global history register
-            global_history_r <= {global_history_r[6:0], actual_taken_i};
+            global_history_r <= {global_history_r[GLOBAL_HISTORY_WIDTH-2:0], actual_taken_i};
         end
     end
 

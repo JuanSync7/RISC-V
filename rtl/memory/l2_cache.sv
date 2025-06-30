@@ -23,6 +23,7 @@
 `default_nettype none
 
 import riscv_core_pkg::*;
+import riscv_config_pkg::*;
 
 // AI_TAG: FEATURE - Unified L2 cache for instructions and data.
 // AI_TAG: FEATURE - 8-way set-associative with true LRU replacement policy.
@@ -35,13 +36,13 @@ import riscv_core_pkg::*;
 // AI_TAG: INTERNAL_BLOCK - LRU_Logic - Per-set LRU state machine instances.
 
 module l2_cache #(
-    parameter integer L2_CACHE_SIZE   = 256 * 1024,     // AI_TAG: PARAM_DESC - L2 cache size in bytes (256KB)
+    parameter integer L2_CACHE_SIZE   = DEFAULT_L2_CACHE_SIZE,     // AI_TAG: PARAM_DESC - L2 cache size in bytes (256KB)
                                                          // AI_TAG: PARAM_USAGE - Determines total cache capacity
                                                          // AI_TAG: PARAM_CONSTRAINTS - Must be power of 2, minimum 64KB
-    parameter integer CACHE_LINE_SIZE = 64,             // AI_TAG: PARAM_DESC - Cache line size in bytes (64 Bytes)
+    parameter integer CACHE_LINE_SIZE = DEFAULT_CACHE_LINE_SIZE,             // AI_TAG: PARAM_DESC - Cache line size in bytes (64 Bytes)
                                                          // AI_TAG: PARAM_USAGE - Must match L1 cache line size for coherency
                                                          // AI_TAG: PARAM_CONSTRAINTS - Must be power of 2, typically 32 or 64 bytes
-    parameter integer NUM_WAYS        = 8,              // AI_TAG: PARAM_DESC - Number of ways for set-associativity
+    parameter integer NUM_WAYS        = DEFAULT_L2_CACHE_WAYS,              // AI_TAG: PARAM_DESC - Number of ways for set-associativity
                                                          // AI_TAG: PARAM_USAGE - Higher associativity reduces conflict misses
                                                          // AI_TAG: PARAM_CONSTRAINTS - Must be power of 2, typically 4-16
     parameter integer NUM_CORES       = DEFAULT_NUM_CORES, // AI_TAG: PARAM_DESC - Number of CPU cores to serve
@@ -189,9 +190,9 @@ module l2_cache #(
     // AI_TAG: FEATURE - Next-line prefetching and stride-based prediction
     
     // Prefetcher Configuration
-    localparam integer PREFETCH_DEPTH = 2;        // How many lines to prefetch ahead
-    localparam integer STRIDE_TABLE_SIZE = 16;    // Number of stride prediction entries
-    localparam integer CONFIDENCE_THRESHOLD = 3;  // Minimum confidence for prefetch
+    localparam integer PREFETCH_DEPTH = DEFAULT_L2_PREFETCH_DEPTH;        // How many lines to prefetch ahead
+    localparam integer STRIDE_TABLE_SIZE = DEFAULT_L2_STRIDE_TABLE_SIZE;    // Number of stride prediction entries
+    localparam integer CONFIDENCE_THRESHOLD = DEFAULT_L2_PREFETCH_CONFIDENCE_THRESHOLD;  // Minimum confidence for prefetch
     
     // Stride Prediction Table Entry
     typedef struct packed {

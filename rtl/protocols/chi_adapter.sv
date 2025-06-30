@@ -112,16 +112,16 @@ module chi_adapter #(
     // AI_TAG: FSM_NAME - chi_adapter_fsm
     // AI_TAG: FSM_PURPOSE - chi_adapter_fsm - Controls CHI transaction flow and state management
     // AI_TAG: FSM_ENCODING - chi_adapter_fsm - binary
-    // AI_TAG: FSM_RESET_STATE - chi_adapter_fsm - IDLE
+    // AI_TAG: FSM_RESET_STATE - chi_adapter_fsm - S_IDLE
     typedef enum logic [2:0] {
-        IDLE,               // AI_TAG: FSM_STATE - IDLE - Waiting for request or checking responses
-        SEND_REQ,           // AI_TAG: FSM_STATE - SEND_REQ - Sending CHI request
-        SEND_DATA,          // AI_TAG: FSM_STATE - SEND_DATA - Sending CHI write data
-        WAIT_RSP,           // AI_TAG: FSM_STATE - WAIT_RSP - Waiting for CHI response
-        SEND_GENERIC_RSP    // AI_TAG: FSM_STATE - SEND_GENERIC_RSP - Sending response to memory interface
+        S_IDLE,               // AI_TAG: FSM_STATE - IDLE - Waiting for request or checking responses
+        S_SEND_REQ,           // AI_TAG: FSM_STATE - SEND_REQ - Sending CHI request
+        S_SEND_DATA,          // AI_TAG: FSM_STATE - SEND_DATA - Sending CHI write data
+        S_WAIT_RSP,           // AI_TAG: FSM_STATE - WAIT_RSP - Waiting for CHI response
+        S_SEND_GENERIC_RSP    // AI_TAG: FSM_STATE - SEND_GENERIC_RSP - Sending response to memory interface
     } state_e;
 
-    state_e current_state_q, next_state_c;
+    state_e current_state_r, next_state_ns;
 
     //-----
     // Internal Signals
@@ -176,24 +176,24 @@ module chi_adapter #(
     assign can_accept_request = found_free_slot;
     assign allocated_txn_id = free_txn_id;
 
-    // AI_TAG: FSM_TRANSITION - chi_adapter_fsm: IDLE -> SEND_REQ when (mem_if.req_valid && can_accept_request)
-    // AI_TAG: FSM_TRANSITION - chi_adapter_fsm: SEND_REQ -> SEND_DATA when (chi_if.reqflitv && chi_if.reqlcrdv && is_write)
-    // AI_TAG: FSM_TRANSITION - chi_adapter_fsm: SEND_REQ -> WAIT_RSP when (chi_if.reqflitv && chi_if.reqlcrdv && !is_write)
-    // AI_TAG: FSM_TRANSITION - chi_adapter_fsm: SEND_DATA -> WAIT_RSP when (chi_if.datflitv && chi_if.datlcrdv)
-    // AI_TAG: FSM_TRANSITION - chi_adapter_fsm: WAIT_RSP -> IDLE when transaction complete
-    // AI_TAG: FSM_TRANSITION - chi_adapter_fsm: SEND_GENERIC_RSP -> IDLE when (mem_if.rsp_ready)
+    // AI_TAG: FSM_TRANSITION - chi_adapter_fsm: S_IDLE -> S_SEND_REQ when (mem_if.req_valid && can_accept_request)
+    // AI_TAG: FSM_TRANSITION - chi_adapter_fsm: S_SEND_REQ -> S_SEND_DATA when (chi_if.reqflitv && chi_if.reqlcrdv && is_write)
+    // AI_TAG: FSM_TRANSITION - chi_adapter_fsm: S_SEND_REQ -> S_WAIT_RSP when (chi_if.reqflitv && chi_if.reqlcrdv && !is_write)
+    // AI_TAG: FSM_TRANSITION - chi_adapter_fsm: S_SEND_DATA -> S_WAIT_RSP when (chi_if.datflitv && chi_if.datlcrdv)
+    // AI_TAG: FSM_TRANSITION - chi_adapter_fsm: S_WAIT_RSP -> S_IDLE when transaction complete
+    // AI_TAG: FSM_TRANSITION - chi_adapter_fsm: S_SEND_GENERIC_RSP -> S_IDLE when (mem_if.rsp_ready)
 
     //-----
     // Main FSM
     //-----
     always_ff @(posedge clk_i or negedge rst_ni) begin : proc_fsm_state
         if (!rst_ni) begin
-            current_state_q <= IDLE;
+            current_state_r <= S_IDLE;
             for (int i = 0; i < MAX_OUTSTANDING; i++) begin
                 transaction_table[i] <= '0;
             end
         end else begin
-            current_state_q <= next_state_c;
+            current_state_r <= next_state_ns;
             
             // Handle transaction allocation
             if (txn_alloc_valid) begin
@@ -238,7 +238,7 @@ module chi_adapter #(
     end
 
     always_comb begin : proc_fsm_logic
-        next_state_c = current_state_q;
+        next_state_ns = current_state_r;
         
         // Default memory interface outputs
         mem_if.req_ready = 1'b0;
@@ -286,19 +286,19 @@ module chi_adapter #(
         
         txn_alloc_valid = 1'b0;
 
-        case (current_state_q)
-            IDLE: begin
+        case (current_state_r)
+            S_IDLE: begin
                 mem_if.req_ready = can_accept_request;
                 
                 if (mem_if.req_valid && can_accept_request) begin
                     txn_alloc_valid = 1'b1;
-                    next_state_c = SEND_REQ;
+                    next_state_ns = S_SEND_REQ;
                 end else if (completed_txn_valid) begin
-                    next_state_c = SEND_GENERIC_RSP;
+                    next_state_ns = S_SEND_GENERIC_RSP;
                 end
             end
 
-            SEND_REQ: begin
+            S_SEND_REQ: begin
                 chi_if.reqflitv = 1'b1;
                 chi_if.req_txnid = next_txn_id;
                 chi_if.req_addr = mem_if.req.addr;
@@ -348,14 +348,14 @@ module chi_adapter #(
                 
                 if (chi_if.reqlcrdv) begin
                     if (mem_if.req.write) begin
-                        next_state_c = SEND_DATA;
+                        next_state_ns = S_SEND_DATA;
                     end else begin
-                        next_state_c = WAIT_RSP;
+                        next_state_ns = S_WAIT_RSP;
                     end
                 end
             end
 
-            SEND_DATA: begin
+            S_SEND_DATA: begin
                 chi_if.datflitv = 1'b1;
                 chi_if.dat_opcode = CHI_NonCopyBackWrData;
                 chi_if.dat_txnid = transaction_table[allocated_txn_id].chi_txn_id;
@@ -365,20 +365,20 @@ module chi_adapter #(
                 chi_if.dat_datacheck = '0; // No ECC for now
                 
                 if (chi_if.datlcrdv) begin
-                    next_state_c = WAIT_RSP;
+                    next_state_ns = S_WAIT_RSP;
                 end
             end
 
-            WAIT_RSP: begin
+            S_WAIT_RSP: begin
                 // Wait for response, handled by transaction table updates
                 if (completed_txn_valid) begin
-                    next_state_c = SEND_GENERIC_RSP;
+                    next_state_ns = S_SEND_GENERIC_RSP;
                 end else begin
-                    next_state_c = IDLE;
+                    next_state_ns = S_IDLE;
                 end
             end
 
-            SEND_GENERIC_RSP: begin
+            S_SEND_GENERIC_RSP: begin
                 mem_if.rsp_valid = 1'b1;
                 mem_if.rsp.id = transaction_table[completed_txn_id].mem_req_id;
                 mem_if.rsp.last = 1'b1;
@@ -399,12 +399,12 @@ module chi_adapter #(
                 end
                 
                 if (mem_if.rsp_ready) begin
-                    next_state_c = IDLE;
+                    next_state_ns = S_IDLE;
                 end
             end
 
             default: begin
-                next_state_c = IDLE;
+                next_state_ns = S_IDLE;
             end
         endcase
     end

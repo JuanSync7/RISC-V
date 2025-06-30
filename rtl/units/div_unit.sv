@@ -22,9 +22,10 @@
 `default_nettype none
 
 import riscv_core_pkg::*;
+import riscv_config_pkg::*;
 
 module div_unit #(
-    parameter integer DATA_WIDTH = 32, // AI_TAG: PARAM_DESC - Width of the data path and operands.
+    parameter integer DATA_WIDTH = XLEN, // AI_TAG: PARAM_DESC - Width of the data path and operands.
     parameter integer LATENCY    = DEFAULT_DIV_LATENCY // AI_TAG: PARAM_DESC - Number of pipeline stages for division.
 ) (
     // Clock and Reset

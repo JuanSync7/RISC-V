@@ -25,17 +25,19 @@
 // AI_TAG: FEATURE - Separate modports for master, slave, and monitor roles
 // AI_TAG: FEATURE - Full AXI4 protocol support including burst transactions
 
+import riscv_config_pkg::*;
+
 interface axi4_if #(
-    parameter integer DATA_WIDTH = 64,    // AI_TAG: PARAM_DESC - AXI4 data bus width
+    parameter integer DATA_WIDTH = DEFAULT_AXI4_DATA_WIDTH,    // AI_TAG: PARAM_DESC - AXI4 data bus width
                                          // AI_TAG: PARAM_USAGE - Sets width of WDATA and RDATA signals
                                          // AI_TAG: PARAM_CONSTRAINTS - Must be 32, 64, 128, 256, 512, or 1024
-    parameter integer ADDR_WIDTH = 32,    // AI_TAG: PARAM_DESC - AXI4 address bus width
+    parameter integer ADDR_WIDTH = DEFAULT_AXI4_ADDR_WIDTH,    // AI_TAG: PARAM_DESC - AXI4 address bus width
                                          // AI_TAG: PARAM_USAGE - Sets width of AWADDR and ARADDR signals
                                          // AI_TAG: PARAM_CONSTRAINTS - Must be between 12 and 64
-    parameter integer ID_WIDTH = 4,       // AI_TAG: PARAM_DESC - AXI4 transaction ID width
+    parameter integer ID_WIDTH = DEFAULT_AXI4_ID_WIDTH,       // AI_TAG: PARAM_DESC - AXI4 transaction ID width
                                          // AI_TAG: PARAM_USAGE - Sets width of AWID, ARID, BID, RID signals
                                          // AI_TAG: PARAM_CONSTRAINTS - Must be between 1 and 16
-    parameter integer USER_WIDTH = 1      // AI_TAG: PARAM_DESC - AXI4 user signal width
+    parameter integer USER_WIDTH = DEFAULT_AXI4_USER_WIDTH      // AI_TAG: PARAM_DESC - AXI4 user signal width
                                          // AI_TAG: PARAM_USAGE - Sets width of AWUSER, ARUSER, WUSER, RUSER, BUSER signals
                                          // AI_TAG: PARAM_CONSTRAINTS - Must be at least 1
 ) (

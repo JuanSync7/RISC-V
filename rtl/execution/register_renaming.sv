@@ -22,6 +22,8 @@
 `timescale 1ns/1ps
 `default_nettype none
 
+import riscv_config_pkg::*;
+
 // AI_TAG: FEATURE - Eliminates WAR and WAW hazards via register renaming.
 // AI_TAG: FEATURE - Provides operand values directly if ready, reducing stalls.
 // AI_TAG: FEATURE - Maintains the mapping between architectural and physical registers (ROB tags).
@@ -30,10 +32,10 @@
 // AI_TAG: INTERNAL_BLOCK - OperandFetch - Logic to fetch tags or data for source operands.
 
 module register_renaming #(
-    parameter integer DATA_WIDTH     = 32, // AI_TAG: PARAM_DESC - Width of the data path and registers.
-    parameter integer ARCH_REG_COUNT = 32, // AI_TAG: PARAM_DESC - Number of architectural registers.
-    parameter integer ROB_SIZE       = 32, // AI_TAG: PARAM_DESC - Number of entries in the ROB.
-    parameter integer REG_ADDR_WIDTH = 5   // AI_TAG: PARAM_DESC - Width of the architectural register file address.
+    parameter integer DATA_WIDTH     = XLEN, // AI_TAG: PARAM_DESC - Width of the data path and registers.
+    parameter integer ARCH_REG_COUNT = REG_COUNT, // AI_TAG: PARAM_DESC - Number of architectural registers.
+    parameter integer ROB_SIZE       = DEFAULT_ROB_SIZE, // AI_TAG: PARAM_DESC - Number of entries in the ROB.
+    parameter integer REG_ADDR_WIDTH = REG_ADDR_WIDTH   // AI_TAG: PARAM_DESC - Width of the architectural register file address.
 ) (
     input  logic clk_i,    // AI_TAG: PORT_DESC - System clock
                            // AI_TAG: PORT_CLK_DOMAIN - clk_i

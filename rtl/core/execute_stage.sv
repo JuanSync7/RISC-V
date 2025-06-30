@@ -24,6 +24,7 @@
 
 module execute_stage
     import riscv_core_pkg::*;
+    import riscv_config_pkg::*;
 (
     input  logic        clk_i,
     input  logic        rst_ni,
@@ -64,10 +65,6 @@ module execute_stage
     output exception_info_t exception_o
 );
 
-    localparam logic [1:0] FWD_SEL_REG  = 2'b00;
-    localparam logic [1:0] FWD_SEL_MEM  = 2'b01;
-    localparam logic [1:0] FWD_SEL_WB   = 2'b10;
-
     // AI_TAG: INTERNAL_WIRE - Wires for operand selection, ALU and Multiplier interfaces.
     word_t fwd_operand_a;
     word_t fwd_operand_b;
@@ -96,9 +93,9 @@ module execute_stage
     // AI_TAG: INTERNAL_LOGIC - Forwarding Logic for Operand A (rs1)
     always_comb begin
         case (forward_a_sel_i)
-            FWD_SEL_REG: fwd_operand_a = id_ex_reg_i.rs1_data;
-            FWD_SEL_MEM: fwd_operand_a = ex_mem_reg_m_i.alu_result;
-            FWD_SEL_WB:  fwd_operand_a = wb_data_w_i;
+            riscv_config_pkg::FWD_SEL_REG: fwd_operand_a = id_ex_reg_i.rs1_data;
+            riscv_config_pkg::FWD_SEL_MEM: fwd_operand_a = ex_mem_reg_m_i.alu_result;
+            riscv_config_pkg::FWD_SEL_WB:  fwd_operand_a = wb_data_w_i;
             default:     fwd_operand_a = id_ex_reg_i.rs1_data;
         endcase
     end
@@ -106,9 +103,9 @@ module execute_stage
     // AI_TAG: INTERNAL_LOGIC - Forwarding Logic for Operand B (rs2)
     always_comb begin
         case (forward_b_sel_i)
-            FWD_SEL_REG: fwd_operand_b = id_ex_reg_i.rs2_data;
-            FWD_SEL_MEM: fwd_operand_b = ex_mem_reg_m_i.alu_result;
-            FWD_SEL_WB:  fwd_operand_b = wb_data_w_i;
+            riscv_config_pkg::FWD_SEL_REG: fwd_operand_b = id_ex_reg_i.rs2_data;
+            riscv_config_pkg::FWD_SEL_MEM: fwd_operand_b = ex_mem_reg_m_i.alu_result;
+            riscv_config_pkg::FWD_SEL_WB:  fwd_operand_b = wb_data_w_i;
             default:     fwd_operand_b = id_ex_reg_i.rs2_data;
         endcase
     end
@@ -238,18 +235,18 @@ module execute_stage
         if (div_by_zero) begin
             exception_detected.valid = 1'b1;
             exception_detected.exc_type = EXC_TYPE_EXCEPTION;
-            exception_detected.cause = EXC_CAUSE_LOAD_ACCESS_FAULT; // Use load fault as proxy for div by zero
+            exception_detected.cause = riscv_config_pkg::EXC_CAUSE_DIV_BY_ZERO;
             exception_detected.pc = id_ex_reg_i.pc;
             exception_detected.tval = fwd_operand_b; // The divisor value
-            exception_detected.priority = PRIO_DIV_ZERO;
+            exception_detected.priority = riscv_config_pkg::PRIO_DIV_ZERO;
         end
         else if (overflow_exception) begin
             exception_detected.valid = 1'b1;
             exception_detected.exc_type = EXC_TYPE_EXCEPTION;
-            exception_detected.cause = EXC_CAUSE_LOAD_ACCESS_FAULT; // Use load fault as proxy for overflow
+            exception_detected.cause = riscv_config_pkg::EXC_CAUSE_ARITH_OVERFLOW;
             exception_detected.pc = id_ex_reg_i.pc;
             exception_detected.tval = alu_result; // The result that overflowed
-            exception_detected.priority = PRIO_OVERFLOW;
+            exception_detected.priority = riscv_config_pkg::PRIO_ARITH_OVERFLOW;
         end
         else if (ecall_exception) begin
             exception_detected.valid = 1'b1;

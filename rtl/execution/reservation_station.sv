@@ -21,6 +21,8 @@
 `timescale 1ns/1ps
 `default_nettype none
 
+import riscv_config_pkg::*;
+
 // AI_TAG: FEATURE - Unified reservation station for all instruction types.
 // AI_TAG: FEATURE - Full result forwarding logic to resolve operand dependencies.
 // AI_TAG: FEATURE - Configurable number of entries.
@@ -30,11 +32,11 @@
 // AI_TAG: INTERNAL_BLOCK - ResultWatcher - Monitors the result bus and updates waiting instructions.
 
 module reservation_station #(
-    parameter integer DATA_WIDTH     = 32, // AI_TAG: PARAM_DESC - Width of the data path and instruction operands.
-    parameter integer RS_SIZE        = 16, // AI_TAG: PARAM_DESC - Number of entries in the reservation station.
+    parameter integer DATA_WIDTH     = XLEN, // AI_TAG: PARAM_DESC - Width of the data path and instruction operands.
+    parameter integer RS_SIZE        = DEFAULT_RS_SIZE, // AI_TAG: PARAM_DESC - Number of entries in the reservation station.
                                            // AI_TAG: PARAM_USAGE - Determines the depth of the instruction buffer.
                                            // AI_TAG: PARAM_CONSTRAINTS - Should be a power of 2 for efficiency.
-    parameter integer ROB_ADDR_WIDTH = 5   // AI_TAG: PARAM_DESC - Width of the Re-Order Buffer (ROB) tag.
+    parameter integer ROB_ADDR_WIDTH = $clog2(DEFAULT_ROB_SIZE)   // AI_TAG: PARAM_DESC - Width of the Re-Order Buffer (ROB) tag.
                                            // AI_TAG: PARAM_USAGE - Must match the ROB's address width.
 ) (
     input  logic clk_i,    // AI_TAG: PORT_DESC - System clock

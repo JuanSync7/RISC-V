@@ -25,17 +25,19 @@
 // AI_TAG: FEATURE - Request Node (RN) and Home Node (HN) modports
 // AI_TAG: FEATURE - Support for coherent and non-coherent transactions
 
+import riscv_config_pkg::*;
+
 interface chi_if #(
-    parameter integer DATA_WIDTH = 128,   // AI_TAG: PARAM_DESC - CHI data bus width
+    parameter integer DATA_WIDTH = DEFAULT_CHI_DATA_WIDTH,   // AI_TAG: PARAM_DESC - CHI data bus width
                                          // AI_TAG: PARAM_USAGE - Sets width of data channels
                                          // AI_TAG: PARAM_CONSTRAINTS - Must be 128, 256, or 512 bits
-    parameter integer ADDR_WIDTH = 48,    // AI_TAG: PARAM_DESC - CHI address bus width
+    parameter integer ADDR_WIDTH = DEFAULT_CHI_ADDR_WIDTH,    // AI_TAG: PARAM_DESC - CHI address bus width
                                          // AI_TAG: PARAM_USAGE - Sets width of address fields
                                          // AI_TAG: PARAM_CONSTRAINTS - Must be between 32 and 52
-    parameter integer NODEID_WIDTH = 7,   // AI_TAG: PARAM_DESC - CHI Node ID width
+    parameter integer NODEID_WIDTH = DEFAULT_CHI_NODEID_WIDTH,   // AI_TAG: PARAM_DESC - CHI Node ID width
                                          // AI_TAG: PARAM_USAGE - Sets width of source and target node IDs
                                          // AI_TAG: PARAM_CONSTRAINTS - Must be between 4 and 11
-    parameter integer TXNID_WIDTH = 8     // AI_TAG: PARAM_DESC - CHI Transaction ID width
+    parameter integer TXNID_WIDTH = DEFAULT_CHI_TXNID_WIDTH     // AI_TAG: PARAM_DESC - CHI Transaction ID width
                                          // AI_TAG: PARAM_USAGE - Sets width of transaction ID fields
                                          // AI_TAG: PARAM_CONSTRAINTS - Must be between 4 and 12
 ) (

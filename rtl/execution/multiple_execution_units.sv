@@ -21,7 +21,7 @@
 `timescale 1ns/1ps
 `default_nettype none
 
-`include "riscv_core_pkg.sv"
+import riscv_config_pkg::*;
 
 // AI_TAG: FEATURE - Dispatches instructions to multiple configurable functional units.
 // AI_TAG: FEATURE - Supports multi-cycle units (e.g., multiplier).
@@ -31,11 +31,11 @@
 // AI_TAG: INTERNAL_BLOCK - ResultArbiter - Selects one valid result to drive the output CDB.
 
 module multiple_execution_units #(
-    parameter integer DATA_WIDTH      = 32,
-    parameter integer ROB_ADDR_WIDTH  = 5,
-    parameter integer NUM_ALU_UNITS   = 2, // AI_TAG: PARAM_DESC - Number of Arithmetic Logic Units.
-    parameter integer NUM_MULT_UNITS  = 1, // AI_TAG: PARAM_DESC - Number of Multiplier Units.
-    parameter integer NUM_DIV_UNITS   = 1  // AI_TAG: PARAM_DESC - Number of Division Units.
+    parameter integer DATA_WIDTH      = XLEN,
+    parameter integer ROB_ADDR_WIDTH  = $clog2(DEFAULT_ROB_SIZE),
+    parameter integer NUM_ALU_UNITS   = DEFAULT_NUM_ALU_UNITS, // AI_TAG: PARAM_DESC - Number of Arithmetic Logic Units.
+    parameter integer NUM_MULT_UNITS  = DEFAULT_NUM_MULT_UNITS, // AI_TAG: PARAM_DESC - Number of Multiplier Units.
+    parameter integer NUM_DIV_UNITS   = DEFAULT_NUM_DIV_UNITS  // AI_TAG: PARAM_DESC - Number of Division Units.
 ) (
     input  logic clk_i,    // AI_TAG: PORT_DESC - System clock
     input  logic rst_ni,   // AI_TAG: PORT_DESC - Asynchronous active-low reset
