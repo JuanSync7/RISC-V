@@ -3,19 +3,36 @@ description: Systemverilog few shot example for proper systemverilog coding prac
 globs: 
 alwaysApply: false
 ---
+Systemverilog few shot example for proper systemverilog coding practices
+
 //=============================================================================
-// MODULE_NAME: simple_fifo_ctrl
-// AUTHOR: DesignAI Example Generator
-// VERSION: 1.0.0
-// DATE: 2025-05-24
+// Company: Sondrel Ltd
+// Project Name: AES_GCM
+//
+// File: simple_fifo_ctrl.sv // The name of the current file.
+//
+// ----- Fields for Automated Documentation -----
+// MODULE_NAME: simple_fifo_ctrl // Name of the module defined in this file.
+// AUTHOR: DesignAI Example Generator (example@company.com) // Author of the module.
+// VERSION: 1.0.0 // Version of the module.
+// DATE: 2025-05-24 // Date of creation or last significant update.
 // DESCRIPTION: A simple FIFO controller with AXI4-Lite control interface and data passthrough.
 // PRIMARY_PURPOSE: To manage a small internal FIFO for data buffering.
 // ROLE_IN_SYSTEM: Acts as a buffer between a data producer and consumer.
 // PROBLEM_SOLVED: Decouples data production and consumption rates.
 // MODULE_TYPE: RTL
-// TARGET_TECHNOLOGY_PREF: ASIC
-// RELATED_SPECIFICATION: Internal_FIFO_Spec_v1.2
+// TARGET_TECHNOLOGY_PREF: ASIC // Preferred target technology.
+// RELATED_SPECIFICATION: Internal_FIFO_Spec_v1.2 // Link to relevant specs.
+//
+// ----- Status and Tracking -----
+// VERIFICATION_STATUS: Not Verified
+// QUALITY_STATUS: Draft
+//
 //=============================================================================
+//
+`timescale 1ns/1ps
+`default_nettype none // IMPORTANT: All signals must be explicitly typed
+//
 
 // AI_TAG: FEATURE - Implements an AXI4-Lite slave interface for register access.
 // AI_TAG: FEATURE - Configurable FIFO depth via parameter P_FIFO_DEPTH.
@@ -138,12 +155,13 @@ alwaysApply: false
 `include "simple_fifo_ctrl_if.sv" // Assuming an AXI4-Lite interface definition
 
 module simple_fifo_ctrl #(
-    parameter integer P_DATA_WIDTH = 32, // AI_TAG: PARAM_DESC - Width of the data bus.
-                                        // AI_TAG: PARAM_USAGE - Sets datapath width for din_i, dout_o, and internal FIFO RAM.
-                                        // AI_TAG: PARAM_CONSTRAINTS - Must be > 0.
-    parameter integer P_FIFO_DEPTH = 64  // AI_TAG: PARAM_DESC - Depth of the internal FIFO.
-                                        // AI_TAG: PARAM_USAGE - Determines storage capacity and RAM size.
-                                        // AI_TAG: PARAM_CONSTRAINTS - Must be power of 2, Max 256.
+    // Configurable Parameters (design-time configurable)
+    parameter integer CONFIG_DATA_WIDTH = 32, // AI_TAG: PARAM_DESC - Width of the data bus.
+                                              // AI_TAG: PARAM_USAGE - Sets datapath width for din_i, dout_o, and internal FIFO RAM.
+                                              // AI_TAG: PARAM_CONSTRAINTS - Must be > 0.
+    parameter integer CONFIG_FIFO_DEPTH = 64  // AI_TAG: PARAM_DESC - Depth of the internal FIFO.
+                                              // AI_TAG: PARAM_USAGE - Determines storage capacity and RAM size.
+                                              // AI_TAG: PARAM_CONSTRAINTS - Must be power of 2, Max 256.
 ) (
     // System Signals
     input logic clk_i, // AI_TAG: PORT_DESC - Main system clock.
@@ -153,25 +171,25 @@ module simple_fifo_ctrl #(
                         // AI_TAG: PORT_TIMING - Asynchronous
 
     // Data Input Interface
-    input  logic [P_DATA_WIDTH-1:0] din_i, // AI_TAG: PORT_DESC - Data input.
-                                           // AI_TAG: PORT_CLK_DOMAIN - clk_i
-                                           // AI_TAG: PORT_TIMING - Registered on din_valid_i.
-    input  logic                    din_valid_i, // AI_TAG: PORT_DESC - Qualifies din_i.
-                                                 // AI_TAG: PORT_CLK_DOMAIN - clk_i
-    output logic                    din_ready_o, // AI_TAG: PORT_DESC - Indicates FIFO can accept data.
-                                                 // AI_TAG: PORT_CLK_DOMAIN - clk_i
-                                                 // AI_TAG: PORT_DEFAULT_STATE - 1'b1 (if not full at reset)
-                                                 // AI_TAG: PORT_TIMING - Combinatorial
+    input  logic [CONFIG_DATA_WIDTH-1:0] din_i, // AI_TAG: PORT_DESC - Data input.
+                                                // AI_TAG: PORT_CLK_DOMAIN - clk_i
+                                                // AI_TAG: PORT_TIMING - Registered on din_valid_i.
+    input  logic                         din_valid_i, // AI_TAG: PORT_DESC - Qualifies din_i.
+                                                      // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    output logic                         din_ready_o, // AI_TAG: PORT_DESC - Indicates FIFO can accept data.
+                                                      // AI_TAG: PORT_CLK_DOMAIN - clk_i
+                                                      // AI_TAG: PORT_DEFAULT_STATE - 1'b1 (if not full at reset)
+                                                      // AI_TAG: PORT_TIMING - Combinatorial
 
     // Data Output Interface
-    output logic [P_DATA_WIDTH-1:0] dout_o, // AI_TAG: PORT_DESC - Data output.
-                                            // AI_TAG: PORT_CLK_DOMAIN - clk_i
-    output logic                    dout_valid_o,// AI_TAG: PORT_DESC - Indicates valid data on dout_o.
+    output logic [CONFIG_DATA_WIDTH-1:0] dout_o, // AI_TAG: PORT_DESC - Data output.
                                                  // AI_TAG: PORT_CLK_DOMAIN - clk_i
-                                                 // AI_TAG: PORT_DEFAULT_STATE - 1'b0
-                                                 // AI_TAG: PORT_TIMING - Registered
-    input  logic                    dout_ready_i, // AI_TAG: PORT_DESC - External module is ready for data.
-                                                  // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    output logic                         dout_valid_o,// AI_TAG: PORT_DESC - Indicates valid data on dout_o.
+                                                      // AI_TAG: PORT_CLK_DOMAIN - clk_i
+                                                      // AI_TAG: PORT_DEFAULT_STATE - 1'b0
+                                                      // AI_TAG: PORT_TIMING - Registered
+    input  logic                         dout_ready_i, // AI_TAG: PORT_DESC - External module is ready for data.
+                                                       // AI_TAG: PORT_CLK_DOMAIN - clk_i
 
     // AXI4-Lite Slave Interface
     axil_slave_if.slave_mp axil_s_if // AI_TAG: IF_TYPE - AXI4-Lite Slave
@@ -184,9 +202,12 @@ module simple_fifo_ctrl #(
                                     // AI_TAG: IF_RESET - axil_s_if.ARESETn (implicitly, or specify if different from rst_ni)
 );
 
+    // Local Parameters (derived from configurable parameters)
+    localparam integer LP_ADDR_BITS = $clog2(CONFIG_FIFO_DEPTH); // Address bits needed for FIFO indexing
+
     // Internal logic (simplified)
     logic fifo_full_s, fifo_empty_s;
-    logic [P_DATA_WIDTH-1:0] fifo_ram [P_FIFO_DEPTH-1:0];
+    logic [CONFIG_DATA_WIDTH-1:0] fifo_ram [CONFIG_FIFO_DEPTH-1:0];
     // AI_TAG: INTERNAL_STORAGE - fifo_ram - RAM for storing FIFO data.
     // AI_TAG: INTERNAL_STORAGE_TYPE - fifo_ram - Block RAM
     // AI_TAG: INTERNAL_STORAGE_ACCESS - fifo_ram - Read/Write controlled by FifoCoreLogic.
@@ -205,7 +226,37 @@ module simple_fifo_ctrl #(
     assign din_ready_o = !fifo_full_s;
     // ... more logic ...
 
-endmodule
+endmodule : simple_fifo_ctrl
+
+//=============================================================================
+// Dependencies: simple_fifo_ctrl_if.sv, axil_slave_if interface package
+//
+// Performance:
+//   - Critical Path: Through fifo_ram read access and output mux
+//   - Max Frequency: 200 MHz target
+//   - Area: Approximately 2K gates + RAM macro for FIFO storage
+//
+// Verification Coverage:
+//   - Code Coverage: TBD
+//   - Functional Coverage: TBD  
+//   - Branch Coverage: TBD
+//
+// Synthesis:
+//   - Target Technology: ASIC
+//   - Synthesis Tool: Design Compiler
+//   - Clock Domains: 1 (clk_i)
+//   - Constraints File: simple_fifo_ctrl.sdc
+//
+// Testing:
+//   - Testbench: simple_fifo_ctrl_tb.sv
+//   - Test Vectors: TBD
+//
+//----
+// Revision History:
+// Version | Date       | Author             | Description
+//=============================================================================
+// 1.0.0   | 2025-05-24 | DesignAI Example Generator | Initial auto-generation from RTL and AI_TAGS.
+//=============================================================================
 
 
 # Module Design Document: simple_fifo_ctrl
@@ -236,7 +287,7 @@ This module's primary purpose is to manage a small internal FIFO for data buffer
 
 **Textual Representation (Inferred/Tagged):**
 
-  +-----------------------------------------------------+
+  +-----+
   | simple_fifo_ctrl                                    |
   |                                                     |
   | Inputs:                                             |
@@ -255,7 +306,7 @@ This module's primary purpose is to manage a small internal FIFO for data buffer
   |   - FifoCoreLogic - Manages FIFO pointers and data storage. |
   |   - DataInputStage - Registers and synchronizes input data. |
   |   - DataOutputStage - Registers output data.        |
-  +-----------------------------------------------------+
+  +-----+
 
 **Detailed Interconnections (from `AI_TAG: BLOCK_DIAGRAM_DESC`):**
 AXI4-Lite interface connects to AxiLiteSlave for CSR access. Input data (din_i, din_valid_i) goes to DataInputStage, then FifoCoreLogic. Output data (dout_o, dout_valid_o) comes from FifoCoreLogic via DataOutputStage. Control signals from AxiLiteSlave configure FifoCoreLogic.
@@ -263,14 +314,14 @@ AXI4-Lite interface connects to AxiLiteSlave for CSR access. Input data (din_i, 
 ## 4. Parameters
 
 | Parameter Name | Type    | Default Value | Description (from `AI_TAG: PARAM_DESC`)        | Usage (from `AI_TAG: PARAM_USAGE`) | Constraints (from `AI_TAG: PARAM_CONSTRAINTS`) |
-|----------------|---------|---------------|------------------------------------------------|------------------------------------|---------------------------------------------|
+|----|---|---|---|---|---|
 | `P_DATA_WIDTH` | `integer` | `32`          | Width of the data bus.                         | Sets datapath width for din_i, dout_o, and internal FIFO RAM. | Must be > 0.                                |
 | `P_FIFO_DEPTH` | `integer` | `64`          | Depth of the internal FIFO.                    | Determines storage capacity and RAM size. | Must be power of 2, Max 256.                |
 
 ## 5. Ports
 
 | Port Name      | Dir.   | Type / Width              | Clock Domain (from `AI_TAG: PORT_CLK_DOMAIN`) | Default State (from `AI_TAG: PORT_DEFAULT_STATE`) | Timing (from `AI_TAG: PORT_TIMING`) | Description (from `AI_TAG: PORT_DESC`)                                           |
-|----------------|--------|---------------------------|-------------------------------------------|-----------------------------------------------|-------------------------------------|----------------------------------------------------------------------------------|
+|----|-----|---|----|-----|----|----|
 | `clk_i`        | input  | `logic`                   | `clk_i`                                   | N/A                                           | N/A                                 | Main system clock.                                                               |
 | `rst_ni`       | input  | `logic`                   | `clk_i` (async assert)                    | N/A                                           | Asynchronous                        | Asynchronous active-low reset. Synchronously de-asserted internally.             |
 | `din_i`        | input  | `logic [P_DATA_WIDTH-1:0]`| `clk_i`                                   | N/A                                           | Registered on din_valid_i.          | Data input.                                                                      |
@@ -346,7 +397,7 @@ Data flows from din_i, through an internal FIFO, to dout_o. Pointers manage FIFO
 **Base Address:** `0x0000`
 
 | Offset | Name             | Width | Access | Reset Val. | Volatility | Description                                                              | Sensitivity                      |
-|--------|------------------|-------|--------|------------|------------|--------------------------------------------------------------------------|----------------------------------|
+|-----|---|----|-----|---|---|-----|----|
 | `0x00` | `FIFO_CTRL_REG`  | 32    | RW     | `32'h1`    | Volatile   | FIFO Control Register.                                                   | N/A                              |
 |        | **Field Name** | **Bits**| **Access**| **Reset Val.**| **Enum** | **Description** | **Interrupt** |
 |        | `FIFO_ENABLE`    | `0`   | RW     | `1'b1`     | 0:Disabled, 1:Enabled | Enables FIFO operation. 1=Enable, 0=Disable.                           | None                             |
@@ -437,7 +488,7 @@ Data flows from din_i, through an internal FIFO, to dout_o. Pointers manage FIFO
 ## 17. Revision History
 
 | Version | Date       | Author                       | Changes                                       |
-|---------|------------|------------------------------|-----------------------------------------------|
+|---|---|---|-----|
 | 1.0.0   | 2025-05-24 | DesignAI Example Generator   | Initial auto-generation from RTL and AI_TAGS. |
 
 

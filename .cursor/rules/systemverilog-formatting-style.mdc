@@ -67,7 +67,7 @@ alwaysApply: false
 #          // Code for non-synthesis tools or alternative implementation if SYNTHESIS is not defined
 #        `endif
 #
-#        // Alternatively, for code to be excluded from synthesis:
+#        // Alternatively, for code to be excluded from synthesis (prefer the `ifdef method):
 #        // synthesis translate_off
 #        ...
 #        // synthesis translate_on
@@ -126,24 +126,50 @@ alwaysApply: false
 #
 # 2.5. Parameters and Localparams:
 #      - UPPER_CASE_SNAKE_CASE (e.g., `DATA_WIDTH`, `FIFO_DEPTH`).
-#      - Prefix `P_` for parameters if distinction from localparams is critical (e.g. `P_DATA_WIDTH`).
-#      - Prefix `LP_` for localparams if distinction is critical.
+#      - Parameter Classification and Naming:
+#        a) Configurable Parameters (can be overridden during instantiation):
+#           - Prefix: `CONFIG_` for module parameters (e.g., `CONFIG_DATA_WIDTH`, `CONFIG_FIFO_DEPTH`)
+#           - These represent design-time configurable values that affect module behavior
+#           - Examples: `CONFIG_DATA_WIDTH`, `CONFIG_CACHE_SIZE`, `CONFIG_NUM_PORTS`
+#        
+#        b) Design Constants (fixed values, not meant to be overridden):
+#           - Prefix: `CONST_` for constants (e.g., `CONST_AXI_BURST_INCR`, `CONST_RESET_CYCLES`)
+#           - These represent architectural constants or protocol-defined values
+#           - Examples: `CONST_AXI_RESP_OKAY`, `CONST_PIPELINE_STAGES`, `CONST_DEFAULT_TIMEOUT`
+#           - NOTE: Do NOT use `CONST_` for FSM states (use simple `S_IDLE`, `S_ACTIVE`, etc.)
+#        
+#        c) Local Parameters (derived or internal constants):
+#           - Prefix: `LP_` for localparams (e.g., `LP_ADDR_BITS`, `LP_COUNT_WIDTH`)
+#           - These are calculated from other parameters or internal design constants
+#           - Examples: `LP_ADDR_BITS = $clog2(CONFIG_FIFO_DEPTH)`, `LP_TOTAL_WIDTH = CONFIG_DATA_WIDTH + CONFIG_TAG_WIDTH`
+#        
+#        d) Type Parameters:
+#           - Prefix: `TYPE_` for type parameters (e.g., `TYPE_ADDR`, `TYPE_DATA`)
+#           - Examples: `TYPE_ADDR = logic [31:0]`, `TYPE_REQ = cpu_req_s`
 #
 # 2.6. Type Definitions (typedefs, enums, structs):
 #      - typedefs uses snake_case with `_t` suffix (e.g., `address_t`, `state_type_t`, `config_bus_t`).
 #      - enums uses snake_case with `_e` suffix (e.g., `color_e`, `machine_fsm_e`).
 #      - structs uses snake_case with `_s` suffix (e.g., `write_addr_s`, `read_resp_s`)
 #
-# 2.7. Instances:
+# 2.7. FSM State Naming (Special Case):
+#      - FSM states should use simple descriptive names with `S_` prefix
+#      - Examples: `S_IDLE`, `S_ACTIVE`, `S_FETCH`, `S_DECODE`, `S_EXECUTE`, `S_DONE`
+#      - Do NOT use `CONST_` prefix for FSM states (they are internal state encodings, not design constants)
+#      - Prefer using enums for state definitions when possible:
+#        `typedef enum logic [1:0] { S_IDLE, S_ACTIVE, S_DONE } state_e;`
+#
+# 2.8. Instances:
 #      - `u_<ModuleName>` or `<module_name_instance_purpose>` (e.g., `u_data_fifo`, `data_path_fifo`). Be consistent.
 #
-# 2.8. Generate Blocks:
+# 2.9. Generate Blocks:
 #      - `gen_<purpose>` (e.g., `gen_lanes[i].u_LaneLogic`).
+#      - Ensure that there is no generate block labels that are identical.
 #
-# 2.9. Assertions and Sequences:
-#      - `a_<property_name>` for assertions.
-#      - `s_<sequence_name>` for sequences.
-#      - `p_<property_name>` for properties.
+# 2.10. Assertions and Sequences:
+#      - `assert_<property_name>` for assertions.
+#      - `seq_<sequence_name>` for sequences.
+#      - `prop_<property_name>` for properties.
 #      - `cg_<group_name>` for covergroups.
 #      - `cp_<point_name>` for coverpoints.
 #
@@ -153,9 +179,35 @@ alwaysApply: false
 # project_root/
 # ├── doc/                  // Design documents, specifications
 # ├── rtl/                  // All synthesizable RTL SystemVerilog code (.sv)
+# │   ├── config/           // Configuration packages and parameter definitions
+# │   │   ├── global/       // Global system configuration
+# │   │   ├── core/         // Core-specific configuration
+# │   │   ├── memory/       // Memory subsystem configuration
+# │   │   └── protocol/     // Protocol-specific configuration
+# │   ├── protocol/         // Protocol implementations and adapters
+# │   │   ├── axi/          // AXI protocol implementations
+# │   │   ├── chi/          // CHI protocol implementations
+# │   │   ├── tilelink/     // TileLink protocol implementations
+# │   │   └── custom/       // Custom protocol implementations
+# │   ├── shared/           // Shared/common modules and utilities
+# │   │   ├── interfaces/   // Common interface definitions
+# │   │   ├── primitives/   // Basic building blocks (FIFOs, arbiters, etc.)
+# │   │   ├── utils/        // Utility modules and functions
+# │   │   └── packages/     // Shared packages and type definitions
 # │   ├── core/             // Core logic modules
-# │   ├── interfaces/       // Interface definitions (.sv)
-# │   └── common/           // Common utilities, shared modules
+# │   │   ├── pipeline/     // Pipeline stages
+# │   │   ├── execution/    // Execution units
+# │   │   ├── control/      // Control logic
+# │   │   └── integration/  // Core integration modules
+# │   ├── memory/           // Memory subsystem
+# │   │   ├── cache/        // Cache implementations
+# │   │   ├── coherency/    // Cache coherency logic
+# │   │   ├── controllers/  // Memory controllers
+# │   │   └── wrappers/     // Memory interface wrappers
+# │   ├── units/            // Functional units (ALU, FPU, etc.)
+# │   ├── power/            // Power management modules
+# │   ├── peripherals/      // Peripheral modules
+# │   └── verification/     // RTL verification helpers and checkers
 # ├── tb/                   // Testbench code
 # │   ├── top/              // Top-level testbench files (_tb.sv)
 # │   ├── uvm/              // UVM components (agents, envs, sequences, tests)
@@ -178,25 +230,32 @@ alwaysApply: false
 # 4. Module and Interface Declarations
 #-------------------------------------------------------------------------------
 # 4.1. File Header:
-#      - Every `.sv` and `.svh` file must start with a standard header:
+#      - Every `.sv` and `.svh` file must start with a standard header.
+#
 #        ```systemverilog
 #        //=============================================================================
 #        // Company: <Company Name>
-#        // Author: <Author Name> (<author_email@company.com>)
-#        // Created: YYYY-MM-DD
-#        //
-#        // File: <FileName.sv>
-#        // Module: <ModuleName> (if applicable)
-#        //
 #        // Project Name: <ProjectName>
-#        // Target Devices: <Target Topology> (Usually ASIC or FPGA)
-#        // Tool Versions: <Tool Name> (default is VCS)
-#        // Verification Status: Not Verified/In Progress/Verified/Formally Verified
-#        // Quality Status: Draft/Reviewed/Approved/Released
 #        //
-#        // Description:
-#        //   <Brief, clear description of the file's/module's purpose and
-#        //    functionality.>
+#        // File: <FileName.sv> // The name of the current file.
+#        //
+#        // ----- Fields for Automated Documentation -----
+#        // MODULE_NAME: <ModuleName> // Name of the module defined in this file.
+#        // AUTHOR: <Author Name> (<author_email@company.com>) // Author of the module.
+#        // VERSION: <X.Y.Z> // Version of the module.
+#        // DATE: <YYYY-MM-DD> // Date of creation or last significant update.
+#        // DESCRIPTION: <Brief, single-line description of the module's purpose.>
+#        // PRIMARY_PURPOSE: <Detailed purpose of the module.>
+#        // ROLE_IN_SYSTEM: <How this module fits into a larger system.>
+#        // PROBLEM_SOLVED: <What specific problem this module addresses.>
+#        // MODULE_TYPE: <e.g., RTL, Behavioral, Testbench_Component>
+#        // TARGET_TECHNOLOGY_PREF: <ASIC/FPGA> // Preferred target technology.
+#        // RELATED_SPECIFICATION: <Document_Name_Or_Link_to_Spec> // Link to relevant specs.
+#        //
+#        // ----- Status and Tracking -----
+#        // VERIFICATION_STATUS: <Not Verified | In Progress | Verified | Formally Verified>
+#        // QUALITY_STATUS: <Draft | Reviewed | Approved | Released>
+#        //
 #        //=============================================================================
 #        //
 #        `timescale 1ns/1ps
@@ -247,51 +306,64 @@ alwaysApply: false
 #
 #        ```systemverilog
 #        module MyModule #(
-#            parameter integer DATA_WIDTH     = 32,    // Description for DATA_WIDTH
-#            parameter integer FIFO_DEPTH     = 1024,  // Description for FIFO_DEPTH
-#            parameter type    ADDR_TYPE_T    = logic [15:0] // Example of type parameter
+#            // Configurable Parameters (design-time configurable)
+#            parameter integer CONFIG_DATA_WIDTH     = 32,    // Input/output data bus width
+#            parameter integer CONFIG_FIFO_DEPTH     = 1024,  // Internal FIFO storage depth
+#            parameter integer CONFIG_NUM_CHANNELS   = 4,     // Number of parallel channels
+#            
+#            // Type Parameters
+#            parameter type    TYPE_ADDR          = logic [15:0], // Address type definition
+#            parameter type    TYPE_USER          = logic [7:0],  // User-defined signal type
+#            
+#            // Design Constants (architectural constants)
+#            parameter integer CONST_PIPELINE_STAGES = 3,    // Fixed number of pipeline stages
+#            parameter integer CONST_RESET_CYCLES    = 10    // Reset synchronization cycles
 #        ) (
 #            // Clock and Reset
 #            input  logic                clk_i,         // System clock
 #            input  logic                rst_ni,        // Asynchronous active-low reset
 #
 #            // Data Input Interface
-#            input  logic [DATA_WIDTH-1:0] din_data_i,
-#            input  logic                din_valid_i,
-#            output logic                din_ready_o,
+#            input  logic [CONFIG_DATA_WIDTH-1:0] din_data_i,
+#            input  logic                         din_valid_i,
+#            output logic                         din_ready_o,
 #
 #            // Control Signals
 #            input  logic                enable_processing_i,
 #            output logic                processing_done_o,
 #
 #            // Data Output Interface
-#            output logic [DATA_WIDTH-1:0] dout_data_o,
-#            output logic                dout_valid_o,
-#            input  logic                dout_ready_i
+#            output logic [CONFIG_DATA_WIDTH-1:0] dout_data_o,
+#            output logic                         dout_valid_o,
+#            input  logic                         dout_ready_i
 #        );
 #
 #            //--------------------------------------------------------------------
-#            // Local Parameters
+#            // Local Parameters (derived from parameters and design constants)
 #            //--------------------------------------------------------------------
-#            localparam integer INTERNAL_STAGES = 2;
-#            localparam logic [1:0] S_IDLE  = 2'b00;
-#            localparam logic [1:0] S_PROC  = 2'b01;
-#            localparam logic [1:0] S_DONE  = 2'b10;
+#            localparam integer LP_INTERNAL_STAGES = CONST_PIPELINE_STAGES - 1;  // Derived from design constant
+#            localparam integer LP_ADDR_BITS       = $clog2(CONFIG_FIFO_DEPTH);  // Calculated from configurable parameter
+#            localparam integer LP_CHANNEL_BITS    = $clog2(CONFIG_NUM_CHANNELS); // Calculated bits for channel indexing
+#            
+#            // State encoding (internal FSM states)
+#            localparam logic [1:0] S_IDLE = 2'b00;  // Idle state encoding
+#            localparam logic [1:0] S_PROC = 2'b01;  // Processing state encoding
+#            localparam logic [1:0] S_DONE = 2'b10;  // Done state encoding
 #
 #            //--------------------------------------------------------------------
 #            // Internal Signal Declarations
 #            //--------------------------------------------------------------------
 #            // Registers
-#            logic [DATA_WIDTH-1:0] data_pipeline_r   [INTERNAL_STAGES];
-#            logic                  data_valid_r      [INTERNAL_STAGES];
-#            logic [1:0]            current_state_r;
-#            logic [1:0]            next_state_c; // Combinational logic for FSM next state
+#            logic [CONFIG_DATA_WIDTH-1:0] data_pipeline_r   [LP_INTERNAL_STAGES];
+#            logic                         data_valid_r      [LP_INTERNAL_STAGES];
+#            logic [1:0]                   current_state_r;
+#            logic [1:0]                   next_state_c; // Combinational logic for FSM next state
 #
 #            // Combinational signals / Wires
-#            logic                  processed_data_valid_c;
-#            logic [DATA_WIDTH-1:0] processed_data_c;
-#            logic                  can_accept_input_c;
-#            logic                  start_processing_c;
+#            logic                         processed_data_valid_c;
+#            logic [CONFIG_DATA_WIDTH-1:0] processed_data_c;
+#            logic                         can_accept_input_c;
+#            logic                         start_processing_c;
 #
 #            //--------------------------------------------------------------------
 #            // Combinational Logic
@@ -301,8 +373,8 @@ alwaysApply: false
 #
 #            // Example: Simple data processing (e.g., increment)
 #            always_comb begin : proc_data_processing
-#                processed_data_c = data_pipeline_r[INTERNAL_STAGES-1] + {{DATA_WIDTH-1{1'b0}}, 1'b1}; // Increment
-#                processed_data_valid_c = data_valid_r[INTERNAL_STAGES-1];
+#                processed_data_c = data_pipeline_r[LP_INTERNAL_STAGES-1] + {{CONFIG_DATA_WIDTH-1{1'b0}}, 1'b1}; // Increment
+#                processed_data_valid_c = data_valid_r[LP_INTERNAL_STAGES-1];
 #            end
 #
 #            //--------------------------------------------------------------------
@@ -359,8 +431,8 @@ alwaysApply: false
 #                        end
 #                    end
 #                    S_PROC: begin
-#                        // Assume processing takes some cycles, check data_valid_r[INTERNAL_STAGES-1]
-#                        if (data_valid_r[INTERNAL_STAGES-1]) begin // If data has passed through pipeline
+#                        // Assume processing takes some cycles, check data_valid_r[LP_INTERNAL_STAGES-1]
+#                        if (data_valid_r[LP_INTERNAL_STAGES-1]) begin // If data has passed through pipeline
 #                            next_state_c = S_DONE;
 #                        end
 #                    end
@@ -410,15 +482,16 @@ alwaysApply: false
 #
 #        ```systemverilog
 #        interface MyBus_if #(
-#            parameter integer DATA_WIDTH = 32,
-#            parameter integer ADDR_WIDTH = 16
+#            // Configurable Parameters
+#            parameter integer CONFIG_DATA_WIDTH = 32,  // Data bus width
+#            parameter integer CONFIG_ADDR_WIDTH = 16   // Address bus width
 #        ) (
 #            input logic clk,
 #            input logic rst_n
 #        );
-#            logic [ADDR_WIDTH-1:0] addr;
-#            logic [DATA_WIDTH-1:0] wdata;
-#            logic [DATA_WIDTH-1:0] rdata;
+#            logic [CONFIG_ADDR_WIDTH-1:0] addr;
+#            logic [CONFIG_DATA_WIDTH-1:0] wdata;
+#            logic [CONFIG_DATA_WIDTH-1:0] rdata;
 #            logic                  write_en;
 #            logic                  read_en;
 #            logic                  ready;

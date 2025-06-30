@@ -23,9 +23,12 @@ alwaysApply: false
 #    - Parameters (name, type, default value, usage, constraints)
 #    - Ports (name, direction, type, width, timing, default state, load)
 #    - Interface usage (type, modport, protocol version, data widths, user signals, associated clock/reset)
-#    - Information from standard file headers (Author, Version, Date, Description, Module Type, Target Technology Preference, Related Specification).
+#    - Information from standard file headers (Company, Project Name, Author, Version, Date, Description, Module Type, Target Technology Preference, Related Specification).
+#       // Company: <Company Name>
+#       // Project Name: <ProjectName>
+#       // File: <FileName.sv>
 #       // MODULE_NAME: <ModuleName>
-#       // AUTHOR: <Author Name>
+#       // AUTHOR: <Author Name> (<author_email@company.com>)
 #       // VERSION: <X.Y.Z>
 #       // DATE: <YYYY-MM-DD>
 #       // DESCRIPTION: <Brief module description for the Overview section.>
@@ -35,6 +38,9 @@ alwaysApply: false
 #       // MODULE_TYPE: <e.g., RTL, Behavioral, Testbench_Component>
 #       // TARGET_TECHNOLOGY_PREF: <ASIC/FPGA>
 #       // RELATED_SPECIFICATION: <Document_Name_Or_Link_to_Spec>
+#       // VERIFICATION_STATUS: <Not Verified | In Progress | Verified | Formally Verified>
+#       // QUALITY_STATUS: <Draft | Reviewed | Approved | Released>
+#    - Information from standard file footers (Dependencies, Performance, Verification Coverage, Synthesis, Testing, Revision History).
 # 2. Attempt to infer architectural details based on common coding styles and
 #    naming conventions (e.g., FSM states if `enum` and `_r`/`_ns` are used,
 #    pipeline stages if `_r[stage_idx]` is used). It will also look for specific `AI_TAGS` to enrich this.
@@ -58,13 +64,15 @@ alwaysApply: false
 # ```markdown
 # # Module Design Document: <ModuleName>
 #
-# **Version:** <Extracted from file header or X.Y>
+# **Version:** <Extracted from file header VERSION field>
 # **Source File(s):** `<ModuleName>.sv`, `<RelevantPackage_pkg>.sv`
-# **Author:** <Extracted from file header>
+# **Author:** <Extracted from file header AUTHOR field>
 # **Generated On:** YYYY-MM-DD
-# **Module Type:** <Extracted from file header, e.g., RTL, Behavioral>
-# **Target Technology Preference:** <Extracted from file header, e.g., ASIC, FPGA>
-# **Related Specification(s):** <Extracted from file header>
+# **Module Type:** <Extracted from file header MODULE_TYPE field, e.g., RTL, Behavioral>
+# **Target Technology Preference:** <Extracted from file header TARGET_TECHNOLOGY_PREF field, e.g., ASIC, FPGA>
+# **Related Specification(s):** <Extracted from file header RELATED_SPECIFICATION field>
+# **Verification Status:** <Extracted from file header VERIFICATION_STATUS field>
+# **Quality Status:** <Extracted from file header QUALITY_STATUS field>
 #
 # ## 1. Overview
 #
@@ -84,7 +92,7 @@ alwaysApply: false
 #
 # **Textual Representation (Inferred/Tagged):**
 #
-#   +-----------------------------------------------------+
+#   +-----+
 #   | <ModuleName>                                        |
 #   |                                                     |
 #   | Inputs:                                             |
@@ -100,7 +108,7 @@ alwaysApply: false
 #   |   - Input Stage / Synchronizers                     |
 #   |   - Core Processing Logic / FSM                     |
 #   |   - Output Stage / Registers                        |
-#   +-----------------------------------------------------+
+#   +-----+
 #
 # **Detailed Interconnections (from `AI_TAG: BLOCK_DIAGRAM_DESC`):**
 # <Textual description of how blocks are connected and data flows between them.>
@@ -108,7 +116,7 @@ alwaysApply: false
 # ## 4. Parameters
 #
 # | Parameter Name     | Type             | Default Value | Description (from `AI_TAG: PARAM_DESC`)        | Usage (from `AI_TAG: PARAM_USAGE`) | Constraints (from `AI_TAG: PARAM_CONSTRAINTS`) |
-# |--------------------|------------------|---------------|-------------------------------------------------|------------------------------------|---------------------------------------------|
+# |-----|---|---|----|---|---|
 # | `PARAMETER_NAME_1` | `integer`        | `32`          | Specifies the data width for X.                 | Influences datapath width.         | Must be power of 2.                         |
 # | `P_FIFO_DEPTH`     | `integer`        | `64`          | Defines the depth of the internal Y FIFO.       | Impacts BRAM usage and latency.    | Max 1024.                                   |
 # | `FEATURE_ENABLE`   | `bit`            | `1'b1`        | Enables/disables optional feature Z.            | Controls synthesis of feature Z logic. | N/A                                         |
@@ -118,7 +126,7 @@ alwaysApply: false
 # ## 5. Ports
 #
 # | Port Name         | Dir.  | Type / Width                 | Clock Domain (from `AI_TAG: PORT_CLK_DOMAIN`) | Default State (from `AI_TAG: PORT_DEFAULT_STATE`) | Timing (from `AI_TAG: PORT_TIMING`) | Description (from `AI_TAG: PORT_DESC`)                                           |
-# |-------------------|-------|------------------------------|-------------------------------------------|-----------------------------------------------|-------------------------------------|----------------------------------------------------------------------------------|
+# |----|----|---|----|-----|----|----|
 # | `clk_i`           | input | `logic`                      | `clk_i`                                   | N/A                                           | N/A                                 | System clock. All synchronous logic is clocked on its rising edge.               |
 # | `rst_ni`          | input | `logic`                      | `clk_i` (async assert)                    | N/A                                           | Asynchronous                        | Asynchronous active-low reset. Synchronously de-asserted internally if specified.  |
 # | `port_data_i`     | input | `logic [DATA_WIDTH-1:0]`     | `clk_i`                                   | N/A                                           | Registered Input                    | Input data bus.                                                                  |
@@ -215,7 +223,7 @@ alwaysApply: false
 # **Base Address:** `<from AI_TAG: REG_BASE_ADDRESS or "TODO: User to specify">`
 #
 # | Offset (from `AI_TAG: REG_OFFSET`) | Name (from `AI_TAG: REG_NAME`) | Width (from `AI_TAG: REG_WIDTH`) | Access (from `AI_TAG: REG_ACCESS`) | Reset Val. (from `AI_TAG: REG_RESET_VAL`) | Volatility (from `AI_TAG: REG_VOLATILITY`) | Description (from `AI_TAG: REG_DESC`) | Sensitivity (from `AI_TAG: REG_SENSITIVITY`) |
-# |-----------|------------------|-------|--------|--------------------|----------------|-------------------------------------------|-----------------|
+# |-----|---|----|-----|-----|----|----|-----|
 # | `0x00`    | `CONTROL_REG`    | 32    | RW     | `32'h0`            | Volatile       | Main control register.                    | N/A             |
 # |           | **Field Name** (from `AI_TAG: FIELD_NAME`) | **Bits** (from `AI_TAG: FIELD_BITS`) | **Access** (from `AI_TAG: FIELD_ACCESS`) | **Reset Val.** (from `AI_TAG: FIELD_RESET_VAL`) | **Enum** (from `AI_TAG: FIELD_ENUM_VALUE`) | **Description** (from `AI_TAG: FIELD_DESC`) | **Interrupt** (from `AI_TAG: FIELD_INTERRUPT`) |
 # |           | `ENABLE`         | `0`   | RW     | `1'b0`             | 0:Off, 1:On    | Module enable. `1`=Enable, `0`=Disable.   | None            |
@@ -311,10 +319,34 @@ alwaysApply: false
 # * **Safety Verification Notes (from `AI_TAG: SAFETY_VERIF_NOTE`):**
 #     * <e.g., Verify fault detection and reporting mechanisms for all safety features.>
 #
-# ## 17. Revision History
+# ## 17. Implementation Quality Metrics
 #
+# <This section captures key metrics and results from the file footer information.>
+#
+# * **Dependencies:** <Extracted from file footer Dependencies section>
+# * **Performance Metrics:**
+#   * **Critical Path:** <Extracted from file footer Performance section>
+#   * **Max Frequency:** <Extracted from file footer Performance section>
+#   * **Area:** <Extracted from file footer Performance section>
+# * **Verification Coverage Achieved:**
+#   * **Code Coverage:** <Extracted from file footer Verification Coverage section>
+#   * **Functional Coverage:** <Extracted from file footer Verification Coverage section>
+#   * **Branch Coverage:** <Extracted from file footer Verification Coverage section>
+# * **Synthesis Results:**
+#   * **Target Technology:** <Extracted from file footer Synthesis section>
+#   * **Synthesis Tool:** <Extracted from file footer Synthesis section>
+#   * **Clock Domains:** <Extracted from file footer Synthesis section>
+#   * **Constraints File:** <Extracted from file footer Synthesis section>
+# * **Testing Information:**
+#   * **Testbench:** <Extracted from file footer Testing section>
+#   * **Test Vectors:** <Extracted from file footer Testing section>
+#
+# ## 18. Revision History
+#
+# <This section will include both AI_TAG generated entries and manual entries from the file footer.>
 # | Version | Date       | Author         | Changes                                       |
-# |---------|------------|----------------|-----------------------------------------------|
+# |---|---|----|-----|
+# | <Version> | <Date> | <Author> | <Changes from file footer Revision History section> |
 # | 1.0     | YYYY-MM-DD | <Author Name>  | Initial design document generation (may include `AI_TAG: REVISION_ENTRY`). |
 # | 1.1     | YYYY-MM-DD | [User Name]    | Added details on register map and theory of op. |
 # | ...     |            |                |                                               |
@@ -656,5 +688,4 @@ alwaysApply: false
 # whenever the RTL code undergoes significant changes to its interface,
 # functionality, or internal architecture. [cite: 118, 119] The Assistant can be asked to
 # re-generate sections of the documentation based on updated code and AI_TAGS, but user-provided
-
 # details and high-level descriptions will always need manual review and update. [cite: 119]
