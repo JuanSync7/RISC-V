@@ -18,10 +18,7 @@
 `timescale 1ns/1ps
 `default_nettype none
 
-import riscv_config_pkg::*;
-import riscv_types_pkg::*;
-import riscv_mem_types_pkg::*;
-import riscv_qos_pkg::*;
+import riscv_core_pkg::*;
 
 module qos_memory_wrapper #(
     parameter integer NUM_PORTS = 4,           // Number of input ports

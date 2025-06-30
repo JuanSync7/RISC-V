@@ -18,9 +18,7 @@
 `timescale 1ns/1ps
 `default_nettype none
 
-import riscv_types_pkg::*;
-import riscv_exception_pkg::*;
-import riscv_qos_pkg::*;
+import riscv_core_pkg::*;
 
 module qos_exception_handler (
     input  logic        clk_i,

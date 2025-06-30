@@ -22,12 +22,9 @@
 `timescale 1ns/1ps
 `default_nettype none
 
-import riscv_config_pkg::*;
-import riscv_types_pkg::*;
-import riscv_bp_types_pkg::*;
+import riscv_core_pkg::*;
 
 module fetch_stage
-    import riscv_core_pkg::*;
 #(
     // AI_TAG: PARAMETER - RESET_VECTOR - The address where the core begins execution after reset.
     parameter addr_t RESET_VECTOR = DEFAULT_RESET_VECTOR,

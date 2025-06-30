@@ -21,9 +21,7 @@
 `timescale 1ns/1ps
 `default_nettype none
 
-import riscv_types_pkg::*;
-import riscv_exception_pkg::*;
-import riscv_qos_pkg::*;  // Add QoS package import
+import riscv_core_pkg::*;
 
 module exception_handler
 (

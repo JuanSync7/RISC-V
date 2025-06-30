@@ -17,9 +17,7 @@
 `timescale 1ns/1ps
 `default_nettype none
 
-import riscv_qos_pkg::*;
-import riscv_config_pkg::*;
-import riscv_types_pkg::*;
+import riscv_core_pkg::*;
 
 module qos_arbiter #(
     parameter integer NUM_REQUESTERS = 4,           // Number of requesting agents

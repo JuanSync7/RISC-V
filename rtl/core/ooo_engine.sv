@@ -32,9 +32,6 @@
 // AI_TAG: INTERNAL_BLOCK - ExecutionUnits - Multiple functional units
 // AI_TAG: INTERNAL_BLOCK - CommonDataBus - Result forwarding network
 
-import riscv_config_pkg::*;
-import riscv_types_pkg::*;
-import riscv_ooo_types_pkg::*;
 import riscv_core_pkg::*;
 
 module ooo_engine #(

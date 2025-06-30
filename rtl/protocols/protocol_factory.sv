@@ -31,9 +31,6 @@
 // AI_TAG: INTERNAL_BLOCK - ProtocolAdapters - Individual protocol translation modules using proper interfaces
 // AI_TAG: INTERNAL_BLOCK - PerformanceMonitor - Tracks protocol-specific metrics
 
-import riscv_config_pkg::*;
-import riscv_types_pkg::*;
-import riscv_protocol_types_pkg::*;
 import riscv_core_pkg::*;
 
 module protocol_factory #(

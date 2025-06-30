@@ -20,8 +20,7 @@
 `timescale 1ns/1ps
 `default_nettype none
 
-import riscv_types_pkg::*;
-import riscv_config_pkg::*;
+import riscv_core_pkg::*;
 
 module alu #(
     parameter integer DATA_WIDTH = XLEN

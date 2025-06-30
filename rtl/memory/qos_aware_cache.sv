@@ -18,10 +18,7 @@
 `timescale 1ns/1ps
 `default_nettype none
 
-import riscv_config_pkg::*;
-import riscv_types_pkg::*;
-import riscv_cache_types_pkg::*;
-import riscv_qos_pkg::*;
+import riscv_core_pkg::*;
 
 module qos_aware_cache #(
     parameter integer CACHE_SIZE = DEFAULT_L1_CACHE_SIZE,

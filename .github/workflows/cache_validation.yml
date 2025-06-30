@@ -1,0 +1,119 @@
+name: Cache Architecture Validation
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'rtl/core/**'
+      - 'rtl/memory/**'
+      - 'scripts/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'rtl/core/**'
+      - 'rtl/memory/**'
+      - 'scripts/**'
+  schedule:
+    # Run nightly at 2 AM UTC
+    - cron: '0 2 * * *'
+
+jobs:
+  cache-validation:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        test-type: [basic, full]
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        # Add any specific Python dependencies here if needed
+        
+    - name: Run Cache Architecture Validation
+      run: |
+        python scripts/validate_cache_architecture.py --verbose --report=cache_validation_report.json
+        
+    - name: Run Parameter Scenario Tests
+      run: |
+        python scripts/test_parameter_scenarios.py --scenarios=${{ matrix.test-type }} --verbose --report=parameter_test_report_${{ matrix.test-type }}.json
+        
+    - name: Upload validation reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: cache-validation-reports-${{ matrix.test-type }}
+        path: |
+          cache_validation_report.json
+          parameter_test_report_${{ matrix.test-type }}.json
+        retention-days: 30
+        
+    - name: Comment PR with results
+      if: github.event_name == 'pull_request' && matrix.test-type == 'basic'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          
+          // Read validation report
+          let reportContent = '';
+          try {
+            const report = JSON.parse(fs.readFileSync('cache_validation_report.json', 'utf8'));
+            const summary = report.summary;
+            
+            reportContent = `## 🔍 Cache Architecture Validation Results
+            
+            **Validation Summary:**
+            - ✅ Passed: ${summary.passed_validations}/${summary.total_validations} validations
+            - ❌ Failed: ${summary.failed_validations} validations
+            - ⚠️ Warnings: ${summary.warning_count}
+            - 🔥 Errors: ${summary.error_count}
+            
+            **Status:** ${summary.error_count === 0 ? '✅ PASSED' : '❌ FAILED'}
+            
+            Cache system integrity check completed. See full reports in job artifacts.`;
+          } catch (error) {
+            reportContent = `## ⚠️ Cache Architecture Validation
+            
+            Unable to parse validation report. Please check the job logs for details.`;
+          }
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: reportContent
+          });
+
+  syntax-check:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Install SystemVerilog tools
+      run: |
+        # This would install your preferred SystemVerilog compiler/linter
+        # For example: Verilator, VCS, ModelSim, etc.
+        sudo apt-get update
+        sudo apt-get install -y verilator
+        
+    - name: Basic syntax check
+      run: |
+        # Basic syntax validation of key cache files
+        find rtl/core -name "*.sv" -exec verilator --lint-only {} \; || true
+        find rtl/memory -name "*.sv" -exec verilator --lint-only {} \; || true
+        
+    - name: Check for basic compilation issues
+      run: |
+        # This is a placeholder for more sophisticated compilation testing
+        echo "Checking for basic SystemVerilog syntax issues..."
+        python scripts/validate_cache_architecture.py --verbose 

@@ -30,6 +30,7 @@ package riscv_core_pkg;
     // Memory hierarchy and coherency types
     import riscv_mem_types_pkg::*;
     import riscv_cache_types_pkg::*;
+    import riscv_cache_topology_pkg::*;
     
     // Branch prediction types
     import riscv_bp_types_pkg::*;

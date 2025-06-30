@@ -420,6 +420,29 @@ package riscv_config_pkg;
     parameter integer ASIC_VOLTAGE_MV = 800;                // Operating voltage (mV)
     parameter integer ASIC_TEMPERATURE_C = 25;              // Operating temperature (C)
 
+    //---------------------------------------------------------------------------
+    // 16. Cache Topology Configuration (NEW)
+    //---------------------------------------------------------------------------
+    // Cache topology selection - determines cache clustering strategy
+    parameter string DEFAULT_CACHE_TOPOLOGY = "UNIFIED";  // "UNIFIED", "CLUSTERED", "NUMA", "DISTRIBUTED"
+    parameter integer DEFAULT_CACHE_CLUSTERS = 1;         // Number of cache clusters
+    parameter integer DEFAULT_L2_INSTANCES = 1;           // Number of L2 cache instances
+    parameter integer DEFAULT_L3_INSTANCES = 1;           // Number of L3 cache instances
+    parameter integer DEFAULT_MEMORY_CONTROLLERS = 1;     // Number of memory controllers
+    
+    // Cache cluster configuration
+    parameter integer DEFAULT_CORES_PER_CLUSTER = 4;      // Cores per cache cluster
+    parameter logic   DEFAULT_NUMA_ENABLED = 1'b0;        // NUMA support enabled
+    parameter logic   DEFAULT_ADAPTIVE_CLUSTERING = 1'b0; // Dynamic cluster assignment
+    
+    // Cache interconnect configuration
+    parameter string DEFAULT_CACHE_INTERCONNECT = "BUS";   // "BUS", "CROSSBAR", "RING", "MESH"
+    parameter integer DEFAULT_INTERCONNECT_WIDTH = 32;     // Interconnect data width
+    parameter integer DEFAULT_INTERCONNECT_BANDWIDTH = 100; // Bandwidth in GB/s
+    
+    // Cache line size calculation helpers
+    parameter integer DEFAULT_CACHE_LINE_SIZE_BITS = $clog2(DEFAULT_CACHE_LINE_SIZE); // Cache line offset bits
+
 endpackage : riscv_config_pkg
 
 `default_nettype wire 

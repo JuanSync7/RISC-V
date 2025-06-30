@@ -22,10 +22,7 @@
 `timescale 1ns/1ps
 `default_nettype none
 
-import riscv_config_pkg::*;
-import riscv_types_pkg::*;
-import riscv_cache_types_pkg::*;
-import riscv_mem_types_pkg::*;
+import riscv_core_pkg::*;
 
 // AI_TAG: FEATURE - Unified L2 cache for instructions and data.
 // AI_TAG: FEATURE - 8-way set-associative with true LRU replacement policy.

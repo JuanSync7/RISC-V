@@ -39,15 +39,7 @@
 
 // AI_TAG: BLOCK_DIAGRAM_DESC - Core array connects to L2 cache subsystem via memory interfaces. L2 cache connects to L3 cache, which connects to external memory via protocol factory. Inter-core communication network manages core-to-core messages and synchronization primitives. QoS arbiter manages memory access priorities and bandwidth allocation.
 
-import riscv_config_pkg::*;
-import riscv_types_pkg::*;
 import riscv_core_pkg::*;
-import riscv_cache_types_pkg::*;
-import riscv_protocol_types_pkg::*;
-import riscv_mem_types_pkg::*;
-import riscv_protocol_constants_pkg::*;
-import riscv_inter_core_types_pkg::*;
-import riscv_qos_pkg::*;
 
 module multi_core_system #(
     parameter integer NUM_CORES = DEFAULT_NUM_CORES,                        // AI_TAG: PARAM_DESC - Number of cores in the system
@@ -388,66 +380,108 @@ module multi_core_system #(
         $countones(core_active_o) <= NUM_CORES);
 
     //-------------------------------------------------------------------------
-    // L2 Cache Subsystem 
+    // Cache Topology Configuration
     //-------------------------------------------------------------------------
-    // AI_TAG: DATAPATH_ELEMENT - L2Cache - Shared L2 cache - Provides shared L2 cache with coherency support
-    l2_cache #(
-        .L2_CACHE_SIZE(L2_CACHE_SIZE),
-        .NUM_CORES(NUM_CORES),
-        .NUM_WAYS(DEFAULT_L2_CACHE_WAYS),
-        .CACHE_LINE_SIZE(DEFAULT_CACHE_LINE_SIZE)
-    ) u_l2_cache (
-        .clk_i(clk_i),
-        .rst_ni(rst_ni),
-        
-        // Interfaces from L1 caches
-        .l1_if(l1_dcache_if), // Array interface for all cores
-        
-        // Interface to L3 cache
-        .l3_if(l3_if),
-        
-        // Cache coherency interface
-        .coherency_if(coherency_if) // Array of coherency interfaces
-    );
+    
+    // AI_TAG: CACHE_TOPOLOGY - Dynamic cache topology configuration
+    system_cache_topology_t cache_topology_config;
+    logic [MAX_MEMORY_CONTROLLERS-1:0][31:0] mem_controller_status;
+    
+    // Configure cache topology based on NUM_CORES and system configuration
+    always_comb begin
+        case (NUM_CORES)
+            1, 2: begin
+                // Small systems: unified cache
+                cache_topology_config = get_unified_topology(NUM_CORES, L2_CACHE_SIZE, L3_CACHE_SIZE);
+            end
+            3, 4: begin
+                // Medium systems: can use unified or clustered
+                if (DEFAULT_CACHE_TOPOLOGY == "CLUSTERED") begin
+                    cache_topology_config = get_clustered_topology(NUM_CORES, L2_CACHE_SIZE, L3_CACHE_SIZE);
+                end else begin
+                    cache_topology_config = get_unified_topology(NUM_CORES, L2_CACHE_SIZE, L3_CACHE_SIZE);
+                end
+            end
+            default: begin
+                // Large systems: use NUMA or clustered topology
+                if (DEFAULT_CACHE_TOPOLOGY == "NUMA") begin
+                    cache_topology_config = get_numa_topology(NUM_CORES, L2_CACHE_SIZE, L3_CACHE_SIZE);
+                end else begin
+                    cache_topology_config = get_clustered_topology(NUM_CORES, L2_CACHE_SIZE, L3_CACHE_SIZE);
+                end
+            end
+        endcase
+    end
 
     //-------------------------------------------------------------------------
-    // Cache Coherency Controller
+    // Cache Cluster Manager - Replaces Hard-coded L2/L3 Instances
     //-------------------------------------------------------------------------
-    // AI_TAG: DATAPATH_ELEMENT - CoherencyController - Cache coherency controller - Manages MESI protocol between cores
-    cache_coherency_controller #(
+    
+    // Memory controller interfaces
+    memory_req_rsp_if mem_controller_if [MAX_MEMORY_CONTROLLERS] (
+        .clk(clk_i),
+        .rst_n(rst_ni)
+    );
+    
+    // AI_TAG: DATAPATH_ELEMENT - CacheClusterManager - Multi-cache system manager - Manages multiple L2/L3 instances with flexible topology
+    cache_cluster_manager #(
         .NUM_CORES(NUM_CORES),
-        .ADDR_WIDTH(ADDR_WIDTH),
-        .L2_CACHE_WAYS(DEFAULT_L2_CACHE_WAYS),
-        .L2_CACHE_SETS(L2_CACHE_SIZE / (DEFAULT_CACHE_LINE_SIZE * DEFAULT_L2_CACHE_WAYS))
-    ) u_coherency_controller (
+        .CACHE_TOPOLOGY(CACHE_TOPOLOGY_UNIFIED), // Default, overridden by topology_config_i
+        .L2_CACHE_SIZE(L2_CACHE_SIZE),
+        .L3_CACHE_SIZE(L3_CACHE_SIZE)
+    ) u_cache_cluster_manager (
         .clk_i(clk_i),
         .rst_ni(rst_ni),
         
-        // Coherency interface array
+        // Topology configuration
+        .topology_config_i(cache_topology_config),
+        
+        // L1 cache interfaces from cores
+        .l1_dcache_if(l1_dcache_if),
+        .l1_icache_if(l1_icache_if),
+        
+        // External memory interfaces
+        .mem_if(mem_controller_if),
+        
+        // Cache coherency interfaces
         .coherency_if(coherency_if),
         
-        // Interface to L3/Memory for misses
-        .mem_if(l3_if)
+        // Status and control outputs
+        .l2_instance_active_o(/* connected to system status */),
+        .l3_instance_active_o(/* connected to system status */),
+        .cluster_status_o(/* connected to system status */),
+        .cache_miss_count_o(cache_miss_count_o),
+        .topology_valid_o(/* connected to system status */)
     );
-
+    
     //-------------------------------------------------------------------------
-    // L3 Cache
+    // Memory Controller Interface Routing
     //-------------------------------------------------------------------------
-    // AI_TAG: DATAPATH_ELEMENT - L3Cache - Last level cache - Provides final cache level before external memory
-    l3_cache #(
-        .L3_CACHE_SIZE(L3_CACHE_SIZE),
-        .NUM_WAYS(DEFAULT_L3_CACHE_WAYS),
-        .CACHE_LINE_SIZE(DEFAULT_CACHE_LINE_SIZE)
-    ) u_l3_cache (
-        .clk_i(clk_i),
-        .rst_ni(rst_ni),
-        
-        // Interface from L2 cache
-        .l2_if(l3_if),
-        
-        // Interface to external memory (via protocol factory)
-        .mem_if(protocol_generic_if)
-    );
+    
+    // Route cache cluster manager to protocol factory based on topology
+    // For unified/clustered topologies, use single memory controller
+    // For NUMA/distributed topologies, route to multiple controllers
+    
+    generate
+        for (genvar mc_id = 0; mc_id < MAX_MEMORY_CONTROLLERS; mc_id++) begin : gen_memory_controller_routing
+            if (mc_id == 0) begin : gen_primary_memory_controller
+                // Primary memory controller always gets routed to protocol factory
+                assign protocol_generic_if.req_valid = mem_controller_if[mc_id].req_valid;
+                assign protocol_generic_if.req = mem_controller_if[mc_id].req;
+                assign mem_controller_if[mc_id].req_ready = protocol_generic_if.req_ready;
+                assign mem_controller_if[mc_id].rsp_valid = protocol_generic_if.rsp_valid;
+                assign mem_controller_if[mc_id].rsp = protocol_generic_if.rsp;
+                assign protocol_generic_if.rsp_ready = mem_controller_if[mc_id].rsp_ready;
+            end else begin : gen_secondary_memory_controllers
+                // Secondary memory controllers for NUMA systems
+                // In full implementation, these would connect to additional protocol factories
+                // For now, tie off unused interfaces
+                assign mem_controller_if[mc_id].req_ready = 1'b0;
+                assign mem_controller_if[mc_id].rsp_valid = 1'b0;
+                assign mem_controller_if[mc_id].rsp = '0;
+            end
+        end : gen_memory_controller_routing
+    endgenerate
 
     //-------------------------------------------------------------------------
     // Protocol Factory

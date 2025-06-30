@@ -21,8 +21,7 @@
 `timescale 1ns/1ps
 `default_nettype none
 
-import riscv_config_pkg::*;
-import riscv_types_pkg::*;
+import riscv_core_pkg::*;
 
 module mult_unit #(
     parameter integer DATA_WIDTH = 32, // AI_TAG: PARAM_DESC - Width of the data path and operands.

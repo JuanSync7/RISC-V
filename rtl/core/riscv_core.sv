@@ -20,12 +20,9 @@
 `timescale 1ns/1ps
 `default_nettype none
 
-import riscv_config_pkg::*;
-import riscv_types_pkg::*;
 import riscv_core_pkg::*;
 
 module riscv_core
-    import riscv_core_pkg::*;
 #(
     // Core Configuration
     parameter string CORE_MODE = "MULTI_CORE",      // "SINGLE_CORE" or "MULTI_CORE"
