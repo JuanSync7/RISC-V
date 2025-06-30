@@ -84,28 +84,51 @@ RISC-V/
 │   ├── PHASE1_IMPROVEMENTS.md      # Phase 1 improvement roadmap
 │   └── README.md                   # This file
 ├── 🔧 RTL Design Files (rtl/)
-│   ├── core/                       # Core pipeline stages
+│   ├── config/                     # Configuration packages
+│   │   ├── core/                   # Core-specific configuration
+│   │   ├── memory/                 # Memory configuration  
+│   │   └── protocol/               # Protocol configuration
+│   ├── core/                       # Core processor implementation
 │   │   ├── riscv_core.sv           # Top-level core integration
-│   │   ├── riscv_core_pkg.sv       # Common types and constants
-│   │   ├── fetch_stage.sv          # Instruction fetch stage
-│   │   ├── decode_stage.sv         # Instruction decode stage
-│   │   ├── execute_stage.sv        # Execute stage with ALU/Mult/Div
-│   │   ├── mem_stage.sv            # Memory access stage
-│   │   └── writeback_stage.sv      # Writeback stage
+│   │   ├── pipeline/               # Pipeline stages
+│   │   │   ├── fetch_stage.sv      # Instruction fetch stage
+│   │   │   ├── decode_stage.sv     # Instruction decode stage
+│   │   │   ├── execute_stage.sv    # Execute stage with ALU/Mult/Div
+│   │   │   ├── mem_stage.sv        # Memory access stage
+│   │   │   └── writeback_stage.sv  # Writeback stage
+│   │   ├── control/                # Control and hazard logic
+│   │   │   └── hazard_unit.sv      # Hazard detection and forwarding
+│   │   ├── execution/              # Out-of-order execution
+│   │   │   ├── reorder_buffer.sv   # Reorder buffer
+│   │   │   └── reservation_station.sv # Reservation stations
+│   │   ├── prediction/             # Branch prediction components
+│   │   │   └── branch_predictor.sv # Tournament branch predictor
+│   │   └── integration/            # System integration
+│   │       └── multi_core_system.sv # Multi-core system
+│   ├── memory/                     # Memory subsystem
+│   │   ├── cache/                  # Cache implementations
+│   │   │   ├── icache.sv           # L1 instruction cache
+│   │   │   ├── l2_cache.sv         # L2 shared cache
+│   │   │   └── l3_cache.sv         # L3 cache
+│   │   └── wrappers/               # Memory interface wrappers
+│   │       └── memory_wrapper.sv   # Protocol abstraction
+│   ├── protocol/                   # Protocol implementations
+│   │   ├── axi/                    # AXI4 protocol
+│   │   │   └── axi4_adapter.sv     # AXI4 adapter
+│   │   └── chi/                    # CHI protocol
+│   │       └── chi_adapter.sv      # CHI adapter
+│   ├── shared/                     # Shared components
+│   │   ├── interfaces/             # Interface definitions
+│   │   │   ├── axi4_if.sv          # AXI4 interface
+│   │   │   └── memory_req_rsp_if.sv # Generic memory interface
+│   │   └── packages/               # Type definitions
+│   │       └── riscv_core_pkg.sv   # Core types and constants
 │   ├── units/                      # Functional units
 │   │   ├── alu.sv                  # Arithmetic Logic Unit
 │   │   ├── mult_unit.sv            # Multi-cycle multiplier
 │   │   ├── div_unit.sv             # Multi-cycle divider
 │   │   ├── reg_file.sv             # 32x32 register file
 │   │   └── csr_regfile.sv          # Control and status registers
-│   ├── control/                    # Control and hazard logic
-│   │   └── hazard_unit.sv          # Hazard detection and forwarding
-│   ├── prediction/                 # Branch prediction components
-│   │   └── branch_predictor.sv     # Branch prediction unit (Phase 1)
-│   ├── memory/                     # Memory system components
-│   │   └── (Future: icache.sv, dcache.sv)
-│   ├── interfaces/                 # Interface definitions
-│   │   └── (Future: axi4_lite.sv, wishbone.sv)
 │   └── peripherals/                # Peripheral components
 │       └── (Future: uart.sv, timer.sv)
 ├── 🧪 Testbench and Verification (tb/)
@@ -153,9 +176,13 @@ RISC-V/
 git clone <repository-url>
 cd RISC-V
 
-# Compile SystemVerilog files (new directory structure)
-# Core package and types
-vlog rtl/core/riscv_core_pkg.sv
+# Compile SystemVerilog files (updated directory structure)
+# Configuration packages (must be first)
+vlog rtl/config/core/*.sv
+
+# Shared packages and interfaces
+vlog rtl/shared/packages/*.sv
+vlog rtl/shared/interfaces/*.sv
 
 # Functional units
 vlog rtl/units/alu.sv
@@ -164,20 +191,27 @@ vlog rtl/units/div_unit.sv
 vlog rtl/units/reg_file.sv
 vlog rtl/units/csr_regfile.sv
 
-# Control logic
-vlog rtl/control/hazard_unit.sv
+# Memory subsystem
+vlog rtl/memory/cache/*.sv
+vlog rtl/memory/wrappers/*.sv
 
-# Branch prediction (Phase 1)
-vlog rtl/prediction/branch_predictor.sv
+# Protocol adapters
+vlog rtl/protocol/axi/*.sv
+
+# Core control and prediction
+vlog rtl/core/control/hazard_unit.sv
+vlog rtl/core/prediction/branch_predictor.sv
+vlog rtl/core/execution/*.sv
 
 # Core pipeline stages
-vlog rtl/core/fetch_stage.sv
-vlog rtl/core/decode_stage.sv
-vlog rtl/core/execute_stage.sv
-vlog rtl/core/mem_stage.sv
-vlog rtl/core/writeback_stage.sv
+vlog rtl/core/pipeline/fetch_stage.sv
+vlog rtl/core/pipeline/decode_stage.sv
+vlog rtl/core/pipeline/execute_stage.sv
+vlog rtl/core/pipeline/mem_stage.sv
+vlog rtl/core/pipeline/writeback_stage.sv
 
-# Top-level core
+# Core integration and top-level
+vlog rtl/core/integration/*.sv
 vlog rtl/core/riscv_core.sv
 
 # Run simulation (example with ModelSim)
