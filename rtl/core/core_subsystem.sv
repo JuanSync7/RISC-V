@@ -60,7 +60,13 @@ module core_subsystem #(
     
     input  logic                mem_rsp_valid_i,       // Memory response valid
     input  memory_rsp_t         mem_rsp_i,             // Memory response
-    output logic                mem_rsp_ready_o        // Memory response ready
+    output logic                mem_rsp_ready_o,       // Memory response ready
+
+    // Performance monitoring outputs
+    output logic                pipeline_stall_o,
+    output logic                branch_mispredicted_o,
+    output logic                instruction_retired_o,
+    output logic                core_active_o
 );
 
     // AI_TAG: INTERNAL_BLOCK - Pipeline register interfaces between stages
@@ -123,8 +129,6 @@ module core_subsystem #(
     addr_t       exception_pc;
 
     // Performance counters
-    logic [31:0] cycle_count_r;
-    logic [31:0] instruction_count_r;
     logic        instruction_retired;
 
     //---------------------------------------------------------------------------
@@ -270,24 +274,11 @@ module core_subsystem #(
         end
     end
     
-    // Memory response routing (round-robin or based on transaction tracking)
-    logic route_rsp_to_icache;
-    
-    always_ff @(posedge clk_i or negedge rst_ni) begin : proc_response_routing
-        if (!rst_ni) begin
-            route_rsp_to_icache <= 1'b0;
-        end else begin
-            if (mem_rsp_valid_i) begin
-                // Simple toggle for response routing (can be enhanced with transaction tracking)
-                route_rsp_to_icache <= ~route_rsp_to_icache;
-            end
-        end
-    end
-    
-    // Route responses back to appropriate cache
+    // Route responses back to appropriate cache based on transaction ID
     always_comb begin : proc_response_assignment
         if (mem_rsp_valid_i) begin
-            if (route_rsp_to_icache) begin
+            // ID 0 is for I-cache, all others are for D-cache
+            if (mem_rsp_i.id == 4'h0) begin
                 icache_if.rsp_valid = 1'b1;
                 icache_if.rsp = mem_rsp_i;
                 dcache_if.rsp_valid = 1'b0;
@@ -543,24 +534,13 @@ module core_subsystem #(
     
     // AI_TAG: INTERNAL_LOGIC - Pipeline control and hazard handling
     assign pipeline_stall = data_hazard_detected || structural_hazard_detected;
-    assign pipeline_flush = control_hazard_detected || exception_valid || interrupt_pending;
+    assign pipeline_flush = control_hazard_detected || exception_pending || interrupt_pending;
 
-    //------------------------------------------------------------------------- 
-    // Performance Counters
-    //-------------------------------------------------------------------------
-    
-    // AI_TAG: INTERNAL_LOGIC - Performance monitoring
-    always_ff @(posedge clk_i or negedge rst_ni) begin : proc_perf_counters
-        if (!rst_ni) begin
-            cycle_count_r <= '0;
-            instruction_count_r <= '0;
-        end else begin
-            cycle_count_r <= cycle_count_r + 1;
-            if (instruction_retired) begin
-                instruction_count_r <= instruction_count_r + 1;
-            end
-        end
-    end
+    // Connect to performance monitoring outputs
+    assign pipeline_stall_o = pipeline_stall;
+    assign branch_mispredicted_o = control_hazard_detected;
+    assign instruction_retired_o = instruction_retired;
+    assign core_active_o = |if_id_reg.valid; // Core is active if there is a valid instruction in pipeline
 
     //------------------------------------------------------------------------- 
     // Branch Prediction (if enabled)

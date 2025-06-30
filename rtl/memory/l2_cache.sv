@@ -50,7 +50,7 @@ module l2_cache #(
     parameter integer DATA_WIDTH      = XLEN,          // AI_TAG: PARAM_DESC - Data bus width
                                                         // AI_TAG: PARAM_USAGE - Must match core data width
                                                         // AI_TAG: PARAM_CONSTRAINTS - Must be XLEN (32 or 64)
-    parameter integer ADDR_WIDTH      = ADDR_WIDTH_BITS // AI_TAG: PARAM_DESC - Address bus width
+    parameter integer ADDR_WIDTH      = ADDR_WIDTH // AI_TAG: PARAM_DESC - Address bus width
                                                         // AI_TAG: PARAM_USAGE - Determines addressable memory space
                                                         // AI_TAG: PARAM_CONSTRAINTS - Typically 32 or 64 bits
 ) (
@@ -84,7 +84,11 @@ module l2_cache #(
     // AI_TAG: IF_DESC - Interface for snoop requests and coherency management.
     // AI_TAG: IF_CLOCKING - clk_i
     // AI_TAG: IF_RESET - rst_ni
-    cache_coherency_if.l2_cache_port coherency_if
+    cache_coherency_if.l2_cache_port coherency_if,
+
+    // Performance Monitoring
+    // AI_TAG: PORT_DESC - l1_miss_o - Pulses high for one cycle on an L1 miss for the corresponding core.
+    output logic [NUM_CORES-1:0] l1_miss_o
 );
 
     // AI_TAG: CLOCK_SOURCE - clk_i - System clock from clock manager
@@ -147,6 +151,9 @@ module l2_cache #(
     } cache_state_e;
 
     cache_state_e current_state_r, next_state_c;
+
+    // AI_TAG: INTERNAL_LOGIC - Miss tracking for performance monitoring
+    logic [NUM_CORES-1:0] l1_miss_w;
 
     // AI_TAG: FSM_OUTPUT_ACTIONS - cache_controller_fsm - IDLE - All interfaces idle, ready for new requests
     // AI_TAG: FSM_OUTPUT_ACTIONS - cache_controller_fsm - TAG_CHECK - Tag comparison active, way selection logic enabled
@@ -479,6 +486,7 @@ module l2_cache #(
 
         lru_update_en_c = 1'b0;
         lru_update_way_c = '0;
+        l1_miss_w = '0;
 
         case (current_state_r)
             IDLE: begin
@@ -536,6 +544,7 @@ module l2_cache #(
                 end else begin
                     // Cache miss - determine victim and check if writeback needed
                     victim_way_r = has_invalid_way_c ? invalid_way_idx_c : lru_victim_way_c;
+                    l1_miss_w[active_core_id_r] = 1'b1; // Signal miss for this core
                     
                     if (l2_state_q[index_c][victim_way_r] == CACHE_MODIFIED && !has_invalid_way_c) begin
                         // Victim is dirty and needs writeback
@@ -630,6 +639,17 @@ module l2_cache #(
         endcase
     end
     
+    // Register the miss signal to create a single-cycle pulse
+    logic [NUM_CORES-1:0] l1_miss_r;
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (!rst_ni) begin
+            l1_miss_r <= '0;
+        end else begin
+            l1_miss_r <= l1_miss_w;
+        end
+    end
+    assign l1_miss_o = l1_miss_r;
+
     //------------------------------------------------------------------------- 
     // Snoop Handling Logic for Cache Coherency
     //-------------------------------------------------------------------------

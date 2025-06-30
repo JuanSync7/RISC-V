@@ -23,30 +23,7 @@
 import riscv_mem_types_pkg::*;
 import riscv_qos_pkg::*;
 
-// Memory request/response types
-typedef struct packed {
-    addr_t                      addr;           // Memory address
-    logic [2:0]                 size;           // Deprecated in favor of burst, but kept for compatibility
-    logic                       write;          // 1=write, 0=read
-    word_t                      data;           // Write data for the current beat
-    logic [3:0]                 strb;           // Write strobes
-    logic [3:0]                 id;             // Transaction ID
-    logic                       cacheable;      // Cacheable transaction
-    logic [1:0]                 prot;           // Protection level
-
-    // Phase 2 Enhancements
-    logic [CORE_ID_WIDTH-1:0]   source_id;      // ID of the core/master initiating the request
-    logic                       coherent;       // Request requires coherency management
-    logic [7:0]                 burst_len;      // Number of beats in the burst (for cache lines)
-    logic                       burst_last;     // Indicates the last beat of a request burst
-} memory_req_t;
-
-typedef struct packed {
-    word_t                      data;           // Read data for the current beat
-    logic [3:0]                 id;             // Transaction ID
-    logic                       error;          // Error flag
-    logic                       last;           // Indicates the last beat of a response burst
-} memory_rsp_t;
+// Memory request/response types are now defined in riscv_mem_types_pkg
 
 //------------------------------------------------------------------------- 
 // Enhanced Memory Request/Response Interface with QoS Support

@@ -30,21 +30,22 @@ module div_unit_tb;
     localparam integer CLK_PERIOD = 10; // 100MHz
     localparam integer TEST_TIMEOUT = 1000000; // Longer timeout for division
     localparam integer NUM_RANDOM_TESTS = 500; // Fewer random tests due to longer latency
+    localparam integer DIV_LATENCY = 16; // Match DUT latency
 
     //-----
     // DUT Interface Signals
     //-----
     logic                               clk_i;
     logic                               rst_ni;
-    logic                               div_enable_i;
-    logic [DATA_WIDTH-1:0]              dividend_i;
-    logic [DATA_WIDTH-1:0]              divisor_i;
-    logic [1:0]                         div_op_i;         // 00: DIV, 01: DIVU, 10: REM, 11: REMU
-    logic                               div_valid_i;
-    logic                               div_ready_o;
-    logic [DATA_WIDTH-1:0]              div_result_o;
-    logic                               div_valid_o;
-    logic                               div_ready_i;
+    logic                               start_i;
+    logic [2:0]                         op_type_i;
+    logic [DATA_WIDTH-1:0]              operand_a_i;
+    logic [DATA_WIDTH-1:0]              operand_b_i;
+    logic [DATA_WIDTH-1:0]              result_o;
+    logic                               done_o;
+    logic                               busy_o;
+    logic                               exception_valid_o;
+    logic [31:0]                        exception_cause_o;
 
     //-----
     // Testbench Control Signals
@@ -61,8 +62,7 @@ module div_unit_tb;
     class DivUnitStimulus;
         rand bit [DATA_WIDTH-1:0]       rand_dividend;
         rand bit [DATA_WIDTH-1:0]       rand_divisor;
-        rand bit [1:0]                  rand_div_op;
-        rand bit                        rand_enable;
+        rand bit [2:0]                  rand_op_type;
         
         // Constraints for comprehensive testing
         constraint c_dividend {
@@ -93,12 +93,14 @@ module div_unit_tb;
             };
         }
         
-        constraint c_div_op {
-            rand_div_op inside {2'b00, 2'b01, 2'b10, 2'b11};
-        }
-        
-        constraint c_enable {
-            rand_enable dist {1'b1 := 95, 1'b0 := 5};
+        constraint c_op_type {
+            // Constrain to valid op types for div unit
+            rand_op_type inside {
+                3'b100, // DIV
+                3'b101, // DIVU
+                3'b110, // REM
+                3'b111  // REMU
+            };
         }
     endclass
 
@@ -110,15 +112,15 @@ module div_unit_tb;
         option.name = "div_unit_coverage";
         
         // Operation type coverage
-        cp_div_op: coverpoint div_op_i {
-            bins div_signed = {2'b00};      // DIV - signed division
-            bins div_unsigned = {2'b01};    // DIVU - unsigned division
-            bins rem_signed = {2'b10};      // REM - signed remainder
-            bins rem_unsigned = {2'b11};    // REMU - unsigned remainder
+        cp_op_type: coverpoint op_type_i {
+            bins div_signed = {3'b100};      // DIV - signed division
+            bins div_unsigned = {3'b101};    // DIVU - unsigned division
+            bins rem_signed = {3'b110};      // REM - signed remainder
+            bins rem_unsigned = {3'b111};    // REMU - unsigned remainder
         }
         
         // Dividend value categories
-        cp_dividend: coverpoint dividend_i {
+        cp_dividend: coverpoint operand_a_i {
             bins zero = {32'h0000_0000};
             bins one = {32'h0000_0001};
             bins max_pos = {32'h7FFF_FFFF};
@@ -131,7 +133,7 @@ module div_unit_tb;
         }
         
         // Divisor value categories
-        cp_divisor: coverpoint divisor_i {
+        cp_divisor: coverpoint operand_b_i {
             bins zero = {32'h0000_0000};     // Divide by zero
             bins one = {32'h0000_0001};
             bins neg_one = {32'hFFFF_FFFF};  // Divide by -1
@@ -144,16 +146,16 @@ module div_unit_tb;
         }
         
         // Control signal coverage
-        cp_valid_ready: coverpoint {div_valid_i, div_ready_o, div_valid_o, div_ready_i} {
-            bins idle = {4'b0000, 4'b0001, 4'b0010, 4'b0011};
-            bins handshake_start = {4'b1100, 4'b1110};
-            bins processing = {4'b0000, 4'b0001};
-            bins handshake_end = {4'b0011, 4'b0111};
-            bins backpressure = {4'b0010};
+        cp_control_signals: coverpoint {start_i, busy_o, done_o, exception_valid_o} {
+            bins idle         = {4'b0000};
+            bins start_op     = {4'b1100};
+            bins processing   = {4'b0100};
+            bins op_done      = {4'b0010};
+            bins op_exception = {4'b0101, 4'b0011};
         }
         
         // Cross coverage for comprehensive testing
-        cx_op_divisor: cross cp_div_op, cp_divisor {
+        cx_op_divisor: cross cp_op_type, cp_divisor {
             // Ensure divide by zero tested for all operations
             bins div_by_zero_all_ops = binsof(cp_divisor.zero);
         }
@@ -165,7 +167,7 @@ module div_unit_tb;
     function automatic logic [DATA_WIDTH-1:0] calculate_expected_result(
         logic [DATA_WIDTH-1:0] dividend,
         logic [DATA_WIDTH-1:0] divisor,
-        logic [1:0] op
+        logic [2:0] op
     );
         logic signed [DATA_WIDTH-1:0] signed_dividend, signed_divisor;
         logic [DATA_WIDTH-1:0] unsigned_dividend, unsigned_divisor;
@@ -178,7 +180,7 @@ module div_unit_tb;
         unsigned_divisor = divisor;
         
         case (op)
-            2'b00: begin // DIV - signed division
+            3'b100: begin // DIV - signed division
                 if (divisor == 32'h0000_0000) begin
                     return 32'hFFFF_FFFF; // Division by zero result
                 end else if (dividend == 32'h8000_0000 && divisor == 32'hFFFF_FFFF) begin
@@ -188,7 +190,7 @@ module div_unit_tb;
                     return signed_result;
                 end
             end
-            2'b01: begin // DIVU - unsigned division
+            3'b101: begin // DIVU - unsigned division
                 if (divisor == 32'h0000_0000) begin
                     return 32'hFFFF_FFFF; // Division by zero result
                 end else begin
@@ -196,7 +198,7 @@ module div_unit_tb;
                     return unsigned_result;
                 end
             end
-            2'b10: begin // REM - signed remainder
+            3'b110: begin // REM - signed remainder
                 if (divisor == 32'h0000_0000) begin
                     return dividend; // Division by zero remainder
                 end else if (dividend == 32'h8000_0000 && divisor == 32'hFFFF_FFFF) begin
@@ -206,7 +208,7 @@ module div_unit_tb;
                     return signed_result;
                 end
             end
-            2'b11: begin // REMU - unsigned remainder
+            3'b111: begin // REMU - unsigned remainder
                 if (divisor == 32'h0000_0000) begin
                     return dividend; // Division by zero remainder
                 end else begin
@@ -222,19 +224,20 @@ module div_unit_tb;
     // DUT Instantiation
     //-----
     div_unit #(
-        .DATA_WIDTH(DATA_WIDTH)
+        .DATA_WIDTH(DATA_WIDTH),
+        .LATENCY(DIV_LATENCY)
     ) dut (
         .clk_i(clk_i),
         .rst_ni(rst_ni),
-        .div_enable_i(div_enable_i),
-        .dividend_i(dividend_i),
-        .divisor_i(divisor_i),
-        .div_op_i(div_op_i),
-        .div_valid_i(div_valid_i),
-        .div_ready_o(div_ready_o),
-        .div_result_o(div_result_o),
-        .div_valid_o(div_valid_o),
-        .div_ready_i(div_ready_i)
+        .start_i(start_i),
+        .op_type_i(op_type_i),
+        .operand_a_i(operand_a_i),
+        .operand_b_i(operand_b_i),
+        .result_o(result_o),
+        .done_o(done_o),
+        .busy_o(busy_o),
+        .exception_valid_o(exception_valid_o),
+        .exception_cause_o(exception_cause_o)
     );
 
     //-----
@@ -261,25 +264,44 @@ module div_unit_tb;
     // Ready should be deasserted when not enabled
     property p_ready_when_disabled;
         @(posedge clk_i) disable iff (!rst_ni)
-        !div_enable_i |-> !div_ready_o;
+        !start_i |-> !busy_o;
     endproperty
     
     // Valid output should only be high when enabled
     property p_valid_when_enabled;
         @(posedge clk_i) disable iff (!rst_ni)
-        div_valid_o |-> div_enable_i;
+        done_o |-> start_i;
     endproperty
     
     // Handshake protocol check
     property p_handshake_protocol;
         @(posedge clk_i) disable iff (!rst_ni)
-        div_valid_i && div_ready_o |=> ##[1:50] div_valid_o;
+        start_i && busy_o |=> ##[1:50] done_o;
     endproperty
     
     // Result stability
     property p_result_stable;
         @(posedge clk_i) disable iff (!rst_ni)
-        div_valid_o && !div_ready_i |=> $stable(div_result_o);
+        done_o && !busy_o |=> $stable(result_o);
+    endproperty
+
+    // An operation should not take longer than the defined latency
+    property p_latency_check;
+        logic [7:0] cycle_counter;
+        @(posedge clk_i) disable iff (!rst_ni)
+        (start_i, cycle_counter = 0) |=> busy_o throughout (cycle_counter++ < DIV_LATENCY)[*1:DIV_LATENCY] ##1 done_o;
+    endproperty
+    
+    // Exception check for divide by zero
+    property p_exception_div_zero;
+        @(posedge clk_i) disable iff (!rst_ni)
+        (start_i && (op_type_i == 3'b100 || op_type_i == 3'b101 || op_type_i == 3'b110 || op_type_i == 3'b111) && operand_b_i == 0) |-> ##[DIV_LATENCY] exception_valid_o;
+    endproperty
+    
+    // Exception check for signed overflow
+    property p_exception_overflow;
+        @(posedge clk_i) disable iff (!rst_ni)
+        (start_i && op_type_i == 3'b100 && operand_a_i == 32'h8000_0000 && operand_b_i == 32'hFFFF_FFFF) |-> ##[DIV_LATENCY] exception_valid_o;
     endproperty
 
     assert_ready_when_disabled: assert property (p_ready_when_disabled)
@@ -294,6 +316,15 @@ module div_unit_tb;
     assert_result_stable: assert property (p_result_stable)
         else $error("Result not stable during valid");
 
+    assert_latency: assert property (p_latency_check)
+        else $error("Latency check failed");
+    
+    assert_exception_div_zero: assert property (p_exception_div_zero)
+        else $error("Divide by zero exception check failed");
+        
+    assert_exception_overflow: assert property (p_exception_overflow)
+        else $error("Signed overflow exception check failed");
+
     //-----
     // Test Tasks
     //-----
@@ -302,16 +333,15 @@ module div_unit_tb;
     task reset_dut();
         begin
             rst_ni = 1'b0;
-            div_enable_i = 1'b0;
-            dividend_i = 32'h0;
-            divisor_i = 32'h0;
-            div_op_i = 2'b00;
-            div_valid_i = 1'b0;
-            div_ready_i = 1'b1;
+            start_i = 1'b0;
+            operand_a_i = 32'h0;
+            operand_b_i = 32'h0;
+            op_type_i = 3'b000;
             
             repeat (5) @(posedge clk_i);
             rst_ni = 1'b1;
-            repeat (5) @(posedge clk_i);
+            wait(!busy_o);
+            @(posedge clk_i);
             
             $display("[%0t] Reset completed", $time);
         end
@@ -321,68 +351,55 @@ module div_unit_tb;
     task perform_div_operation(
         logic [DATA_WIDTH-1:0] dividend,
         logic [DATA_WIDTH-1:0] divisor,
-        logic [1:0] op,
+        logic [2:0] op,
         string test_name
     );
-        logic [DATA_WIDTH-1:0] expected;
-        int timeout_count;
+        logic [DATA_WIDTH-1:0] expected_result;
+        logic expected_exception;
         
         begin
-            expected = calculate_expected_result(dividend, divisor, op);
+            @(posedge clk_i);
+            wait(!busy_o);
+            
+            expected_result = calculate_expected_result(dividend, divisor, op);
+            expected_exception = (divisor == 0) || (op == 3'b100 && dividend == 32'h8000_0000 && divisor == 32'hFFFF_FFFF);
             
             // Setup inputs
-            div_enable_i = 1'b1;
-            dividend_i = dividend;
-            divisor_i = divisor;
-            div_op_i = op;
-            div_valid_i = 1'b1;
-            div_ready_i = 1'b1;
+            start_i = 1'b1;
+            operand_a_i = dividend;
+            operand_b_i = divisor;
+            op_type_i = op;
             
-            // Wait for ready
-            timeout_count = 0;
-            while (!div_ready_o && timeout_count < 100) begin
-                @(posedge clk_i);
-                timeout_count++;
-            end
-            
-            if (!div_ready_o) begin
-                $error("[%0t] Timeout waiting for ready in %s", $time, test_name);
-                fail_count++;
-                return;
-            end
+            @(posedge clk_i);
+            start_i = 1'b0;
             
             // Wait for result
-            @(posedge clk_i);
-            div_valid_i = 1'b0;
-            
-            timeout_count = 0;
-            while (!div_valid_o && timeout_count < 500) begin // Longer timeout for division
-                @(posedge clk_i);
-                timeout_count++;
-            end
-            
-            if (!div_valid_o) begin
-                $error("[%0t] Timeout waiting for valid result in %s", $time, test_name);
-                fail_count++;
-                return;
-            end
+            wait(done_o);
             
             // Check result
-            if (div_result_o === expected) begin
-                $display("[%0t] PASS: %s - %h / %h = %h (op=%b)", 
-                         $time, test_name, dividend, divisor, div_result_o, op);
-                pass_count++;
+            if (exception_valid_o == expected_exception) begin
+                if (!exception_valid_o) begin
+                    if (result_o === expected_result) begin
+                        $display("[%0t] PASS: %s - %h / %h = %h (op=%b)", 
+                                 $time, test_name, dividend, divisor, result_o, op);
+                        pass_count++;
+                    end else begin
+                        $error("[%0t] FAIL: %s - %h / %h = %h, expected %h (op=%b)", 
+                               $time, test_name, dividend, divisor, result_o, expected_result, op);
+                        fail_count++;
+                    end
+                end else begin
+                    $display("[%0t] PASS: %s - Exception correctly triggered for %h / %h (op=%b)",
+                             $time, test_name, dividend, divisor, op);
+                    pass_count++;
+                end
             end else begin
-                $error("[%0t] FAIL: %s - %h / %h = %h, expected %h (op=%b)", 
-                       $time, test_name, dividend, divisor, div_result_o, expected, op);
+                $error("[%0t] FAIL: %s - Exception mismatch. Expected=%b, Got=%b",
+                       $time, test_name, expected_exception, exception_valid_o);
                 fail_count++;
             end
             
             @(posedge clk_i);
-            div_ready_i = 1'b0;
-            @(posedge clk_i);
-            div_ready_i = 1'b1;
-            
             test_count++;
         end
     endtask
@@ -400,10 +417,10 @@ module div_unit_tb;
             reset_dut();
             
             // Test simple divisions for each operation type
-            perform_div_operation(32'h0000_0008, 32'h0000_0002, 2'b00, "DIV 8/2");
-            perform_div_operation(32'h0000_0008, 32'h0000_0002, 2'b01, "DIVU 8/2");
-            perform_div_operation(32'h0000_0009, 32'h0000_0002, 2'b10, "REM 9%2");
-            perform_div_operation(32'h0000_0009, 32'h0000_0002, 2'b11, "REMU 9%2");
+            perform_div_operation(32'h0000_0008, 32'h0000_0002, 3'b100, "DIV 8/2");
+            perform_div_operation(32'h0000_0008, 32'h0000_0002, 3'b101, "DIVU 8/2");
+            perform_div_operation(32'h0000_0009, 32'h0000_0002, 3'b110, "REM 9%2");
+            perform_div_operation(32'h0000_0009, 32'h0000_0002, 3'b111, "REMU 9%2");
         end
     endtask
 
@@ -416,10 +433,10 @@ module div_unit_tb;
             reset_dut();
             
             // Test divide by zero for all operation types
-            perform_div_operation(32'h1234_5678, 32'h0000_0000, 2'b00, "DIV by zero");
-            perform_div_operation(32'h1234_5678, 32'h0000_0000, 2'b01, "DIVU by zero");
-            perform_div_operation(32'h1234_5678, 32'h0000_0000, 2'b10, "REM by zero");
-            perform_div_operation(32'h1234_5678, 32'h0000_0000, 2'b11, "REMU by zero");
+            perform_div_operation(32'h1234_5678, 32'h0000_0000, 3'b100, "DIV by zero");
+            perform_div_operation(32'h1234_5678, 32'h0000_0000, 3'b101, "DIVU by zero");
+            perform_div_operation(32'h1234_5678, 32'h0000_0000, 3'b110, "REM by zero");
+            perform_div_operation(32'h1234_5678, 32'h0000_0000, 3'b111, "REMU by zero");
         end
     endtask
 
@@ -432,23 +449,23 @@ module div_unit_tb;
             reset_dut();
             
             // Test overflow case: MIN_INT / -1
-            perform_div_operation(32'h8000_0000, 32'hFFFF_FFFF, 2'b00, "Overflow DIV MIN/-1");
-            perform_div_operation(32'h8000_0000, 32'hFFFF_FFFF, 2'b10, "Overflow REM MIN/-1");
+            perform_div_operation(32'h8000_0000, 32'hFFFF_FFFF, 3'b100, "Overflow DIV MIN/-1");
+            perform_div_operation(32'h8000_0000, 32'hFFFF_FFFF, 3'b110, "Overflow REM MIN/-1");
             
             // Test divide by 1
-            perform_div_operation(32'h1234_5678, 32'h0000_0001, 2'b00, "DIV by 1");
-            perform_div_operation(32'h8765_4321, 32'h0000_0001, 2'b01, "DIVU by 1");
+            perform_div_operation(32'h1234_5678, 32'h0000_0001, 3'b100, "DIV by 1");
+            perform_div_operation(32'h8765_4321, 32'h0000_0001, 3'b101, "DIVU by 1");
             
             // Test divide by -1 (signed)
-            perform_div_operation(32'h1234_5678, 32'hFFFF_FFFF, 2'b00, "DIV by -1");
+            perform_div_operation(32'h1234_5678, 32'hFFFF_FFFF, 3'b100, "DIV by -1");
             
             // Test zero dividend
-            perform_div_operation(32'h0000_0000, 32'h1234_5678, 2'b00, "Zero DIV");
-            perform_div_operation(32'h0000_0000, 32'h1234_5678, 2'b10, "Zero REM");
+            perform_div_operation(32'h0000_0000, 32'h1234_5678, 3'b100, "Zero DIV");
+            perform_div_operation(32'h0000_0000, 32'h1234_5678, 3'b110, "Zero REM");
             
             // Test same values
-            perform_div_operation(32'h1234_5678, 32'h1234_5678, 2'b00, "Same values DIV");
-            perform_div_operation(32'h1234_5678, 32'h1234_5678, 2'b10, "Same values REM");
+            perform_div_operation(32'h1234_5678, 32'h1234_5678, 3'b100, "Same values DIV");
+            perform_div_operation(32'h1234_5678, 32'h1234_5678, 3'b110, "Same values REM");
         end
     endtask
 
@@ -474,7 +491,7 @@ module div_unit_tb;
                     perform_div_operation(
                         stimulus.rand_dividend,
                         stimulus.rand_divisor,
-                        stimulus.rand_div_op,
+                        stimulus.rand_op_type,
                         $sformatf("Random_%0d", i)
                     );
                 end
@@ -506,40 +523,47 @@ module div_unit_tb;
             $wlfdumpvars();
         `endif
         
-        // Run test suite
-        test_basic_functionality();
-        test_divide_by_zero();
-        test_overflow_corner_cases();
-        test_constrained_random();
+        // Fork all test scenarios
+        fork
+            test_basic_functionality();
+            test_divide_by_zero();
+            test_overflow_corner_cases();
+            test_constrained_random();
+        join_any
         
-        // Final results
-        repeat (50) @(posedge clk_i);
+        // Wait for all tests to complete or timeout
+        fork
+            begin
+                wait(test_count >= (4 + 4 + 6 + NUM_RANDOM_TESTS));
+                test_done = 1'b1;
+            end
+            begin
+                #(TEST_TIMEOUT);
+                if (!test_done) begin
+                    $error("TEST TIMEOUT: Simulation did not complete within the specified time.");
+                    fail_count++;
+                    test_done = 1'b1;
+                end
+            end
+        join_any
         
-        $display("\n=== Test Results Summary ===");
+        // Report results
+        $display("\n=== Testbench Finished ===");
         $display("Total Tests: %0d", test_count);
-        $display("Passed: %0d", pass_count);
-        $display("Failed: %0d", fail_count);
-        if (test_count > 0) begin
-            $display("Pass Rate: %0.1f%%", (pass_count * 100.0) / test_count);
+        $display("Passed:      %0d", pass_count);
+        $display("Failed:      %0d", fail_count);
+        
+        if (fail_count == 0) begin
+            $display("Verification SUCCESSFUL!");
+        end else begin
+            $display("Verification FAILED!");
         end
         
         // Coverage report
-        $display("\n=== Coverage Summary ===");
-        $display("Functional Coverage: %0.1f%%", cg_div_unit.get_inst_coverage());
-        
-        test_done = 1'b1;
-        
-        `ifdef VCS
-            $vcdplusoff;
-        `endif
-        
-        if (fail_count == 0) begin
-            $display("\n*** ALL TESTS PASSED ***");
-            $finish;
-        end else begin
-            $display("\n*** SOME TESTS FAILED ***");
-            $finish(1);
-        end
+        $display("\nCoverage Report:");
+        $display("div_unit_cg coverage: %0.2f%%", cg_div_unit.get_coverage());
+
+        $finish;
     end
 
     // Timeout watchdog

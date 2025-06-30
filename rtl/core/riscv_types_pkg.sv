@@ -159,25 +159,8 @@ package riscv_types_pkg;
     } branch_update_t;
 
     //---------------------------------------------------------------------------
-    // 8. Memory Interface Types
+    // 8. Memory Interface Types (DEPRECATED - Defined in riscv_mem_types_pkg)
     //---------------------------------------------------------------------------
-    typedef struct packed {
-        logic [3:0]  id;
-        addr_t       addr;
-        logic [2:0]  size;
-        logic        write;
-        word_t       data;
-        logic [3:0]  strb;
-        logic        cacheable;
-        logic [2:0]  prot;
-    } memory_req_t;
-
-    typedef struct packed {
-        word_t       data;
-        logic [3:0]  id;
-        logic        error;
-        logic        last;
-    } memory_rsp_t;
 
     //---------------------------------------------------------------------------
     // 9. Instruction Types

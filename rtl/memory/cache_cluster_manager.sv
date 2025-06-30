@@ -47,7 +47,12 @@ module cache_cluster_manager #(
     output logic [MAX_L3_INSTANCES-1:0]   l3_instance_active_o,
     output logic [31:0]                   cluster_status_o,
     output logic [31:0]                   cache_miss_count_o,
-    output logic                          topology_valid_o
+    output logic                          topology_valid_o,
+
+    // Performance monitoring
+    // TODO: Split into separate I-cache and D-cache miss signals when routing is updated.
+    output logic [NUM_CORES-1:0]           l1_icache_miss_o,
+    output logic [NUM_CORES-1:0]           l1_dcache_miss_o
 );
 
     //-------------------------------------------------------------------------
@@ -90,6 +95,7 @@ module cache_cluster_manager #(
     logic [MAX_L3_INSTANCES-1:0] l3_enable;
     logic [31:0] total_cache_misses [MAX_L2_INSTANCES];
     logic topology_validated_r;
+    logic [NUM_CORES-1:0] l1_miss_from_l2s [MAX_L2_INSTANCES-1:0];
     
     //-------------------------------------------------------------------------
     // Core-to-L2 Routing Logic
@@ -115,17 +121,45 @@ module cache_cluster_manager #(
                 end
             end
             
-            // Connect core's L1 D-cache to appropriate L2
-            assign l2_l1_if[target_l2_instance][l2_core_index].req_valid = l1_dcache_if[core_id].req_valid;
-            assign l2_l1_if[target_l2_instance][l2_core_index].req = l1_dcache_if[core_id].req;
-            assign l1_dcache_if[core_id].req_ready = l2_l1_if[target_l2_instance][l2_core_index].req_ready;
+            // Connect core's L1 I-cache to the same L2 target
+            // NOTE: A proper arbiter is needed if both can request simultaneously.
+            // For now, we assume I-cache and D-cache requests from a single core
+            // are serialized and won't conflict at the input to the L2.
+            // This is a simplifying assumption for this stage of development.
+            
+            // --- BEGIN FIX: Add arbiter for I-cache and D-cache requests ---
+            always_comb begin
+                // Default assignments
+                l2_l1_if[target_l2_instance][l2_core_index].req_valid = 1'b0;
+                l2_l1_if[target_l2_instance][l2_core_index].req = '0;
+                l1_icache_if[core_id].req_ready = 1'b0;
+                l1_dcache_if[core_id].req_ready = 1'b0;
+
+                // Prioritize I-cache over D-cache
+                if (l1_icache_if[core_id].req_valid) begin
+                    l2_l1_if[target_l2_instance][l2_core_index].req_valid = l1_icache_if[core_id].req_valid;
+                    l2_l1_if[target_l2_instance][l2_core_index].req       = l1_icache_if[core_id].req;
+                    l1_icache_if[core_id].req_ready = l2_l1_if[target_l2_instance][l2_core_index].req_ready;
+                    l1_dcache_if[core_id].req_ready = 1'b0;
+                end else if (l1_dcache_if[core_id].req_valid) begin
+                    l2_l1_if[target_l2_instance][l2_core_index].req_valid = l1_dcache_if[core_id].req_valid;
+                    l2_l1_if[target_l2_instance][l2_core_index].req       = l1_dcache_if[core_id].req;
+                    l1_dcache_if[core_id].req_ready = l2_l1_if[target_l2_instance][l2_core_index].req_ready;
+                    l1_icache_if[core_id].req_ready = 1'b0;
+                end
+            end
+            
+            // Route L2 responses back to both I-cache and D-cache interfaces.
+            // The core_subsystem will use the transaction ID to accept the correct one.
             assign l1_dcache_if[core_id].rsp_valid = l2_l1_if[target_l2_instance][l2_core_index].rsp_valid;
             assign l1_dcache_if[core_id].rsp = l2_l1_if[target_l2_instance][l2_core_index].rsp;
-            assign l2_l1_if[target_l2_instance][l2_core_index].rsp_ready = l1_dcache_if[core_id].rsp_ready;
+            assign l1_icache_if[core_id].rsp_valid = l2_l1_if[target_l2_instance][l2_core_index].rsp_valid;
+            assign l1_icache_if[core_id].rsp = l2_l1_if[target_l2_instance][l2_core_index].rsp;
             
-            // Note: For simplicity, routing I-cache through D-cache path
-            // In a full implementation, separate I-cache routing would be needed
-            
+            // The ready signal can be combined as only one will be active
+            assign l2_l1_if[target_l2_instance][l2_core_index].rsp_ready = l1_dcache_if[core_id].rsp_ready || l1_icache_if[core_id].rsp_ready;
+            // --- END FIX ---
+
         end : gen_core_routing
     endgenerate
     
@@ -162,7 +196,10 @@ module cache_cluster_manager #(
                 .l3_if(l2_l3_if[l2_id]),
                 
                 // Cache coherency interface
-                .coherency_if(l2_coherency_if[l2_id])
+                .coherency_if(l2_coherency_if[l2_id]),
+
+                // Performance Monitoring
+                .l1_miss_o(l1_miss_from_l2s[l2_id])
             );
             
             // Enable L2 instance based on topology
@@ -328,6 +365,20 @@ module cache_cluster_manager #(
         l3_instance_active_o[7:0]                       // L3 active status [7:0]
     };
     
+    //-------------------------------------------------------------------------
+    // Performance Signal Aggregation
+    //-------------------------------------------------------------------------
+    logic [NUM_CORES-1:0] combined_l1_misses;
+    always_comb begin
+        combined_l1_misses = '0;
+        for (int i = 0; i < MAX_L2_INSTANCES; i++) begin
+            combined_l1_misses |= l1_miss_from_l2s[i];
+        end
+    end
+
+    assign l1_icache_miss_o = combined_l1_misses;
+    assign l1_dcache_miss_o = combined_l1_misses;
+
     //-------------------------------------------------------------------------
     // Assertions for Design Validation
     //-------------------------------------------------------------------------

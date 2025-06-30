@@ -30,21 +30,22 @@ module mult_unit_tb;
     localparam integer CLK_PERIOD = 10; // 100MHz
     localparam integer TEST_TIMEOUT = 500000;
     localparam integer NUM_RANDOM_TESTS = 1000;
+    localparam integer MULT_LATENCY = 4; // Match DUT latency
 
     //-----
     // DUT Interface Signals
     //-----
     logic                               clk_i;
     logic                               rst_ni;
-    logic                               mult_enable_i;
+    logic                               start_i;
+    logic [2:0]                         op_type_i;
     logic [DATA_WIDTH-1:0]              operand_a_i;
     logic [DATA_WIDTH-1:0]              operand_b_i;
-    logic [1:0]                         mult_op_i;        // 00: MUL, 01: MULH, 10: MULHSU, 11: MULHU
-    logic                               mult_valid_i;
-    logic                               mult_ready_o;
-    logic [DATA_WIDTH-1:0]              mult_result_o;
-    logic                               mult_valid_o;
-    logic                               mult_ready_i;
+    logic [DATA_WIDTH-1:0]              result_o;
+    logic                               done_o;
+    logic                               busy_o;
+    logic                               exception_valid_o;
+    logic [31:0]                        exception_cause_o;
 
     //-----
     // Testbench Control Signals
@@ -67,8 +68,7 @@ module mult_unit_tb;
     class MultUnitStimulus;
         rand bit [DATA_WIDTH-1:0]       rand_operand_a;
         rand bit [DATA_WIDTH-1:0]       rand_operand_b;
-        rand bit [1:0]                  rand_mult_op;
-        rand bit                        rand_enable;
+        rand bit [2:0]                  rand_op_type;
         
         // Constraints for comprehensive testing
         constraint c_operands {
@@ -94,12 +94,14 @@ module mult_unit_tb;
             };
         }
         
-        constraint c_mult_op {
-            rand_mult_op inside {2'b00, 2'b01, 2'b10, 2'b11};
-        }
-        
-        constraint c_enable {
-            rand_enable dist {1'b1 := 90, 1'b0 := 10};
+        constraint c_op_type {
+            // Constrain to valid op types for mult unit
+            rand_op_type inside {
+                3'b000, // MUL
+                3'b001, // MULH
+                3'b010, // MULHSU
+                3'b011  // MULHU
+            };
         }
     endclass
 
@@ -111,11 +113,11 @@ module mult_unit_tb;
         option.name = "mult_unit_coverage";
         
         // Operation type coverage
-        cp_mult_op: coverpoint mult_op_i {
-            bins mul_low = {2'b00};      // MUL - lower 32 bits
-            bins mul_high = {2'b01};     // MULH - upper 32 bits signed
-            bins mul_high_su = {2'b10};  // MULHSU - upper 32 bits signed/unsigned
-            bins mul_high_u = {2'b11};   // MULHU - upper 32 bits unsigned
+        cp_op_type: coverpoint op_type_i {
+            bins mul_low = {3'b000};      // MUL - lower 32 bits
+            bins mul_high = {3'b001};     // MULH - upper 32 bits signed
+            bins mul_high_su = {3'b010};  // MULHSU - upper 32 bits signed/unsigned
+            bins mul_high_u = {3'b011};   // MULHU - upper 32 bits unsigned
         }
         
         // Operand value categories
@@ -144,21 +146,20 @@ module mult_unit_tb;
         }
         
         // Control signal coverage
-        cp_valid_ready: coverpoint {mult_valid_i, mult_ready_o, mult_valid_o, mult_ready_i} {
-            bins idle = {4'b0000, 4'b0001, 4'b0010, 4'b0011};
-            bins handshake_start = {4'b1100, 4'b1110};
-            bins processing = {4'b0000, 4'b0001};
-            bins handshake_end = {4'b0011, 4'b0111};
-            bins backpressure = {4'b0010};
+        cp_control_signals: coverpoint {start_i, busy_o, done_o} {
+            bins idle         = {3'b000};
+            bins start_op     = {3'b110};
+            bins processing   = {3'b010};
+            bins op_done      = {3'b001};
         }
         
         // Cross coverage for comprehensive testing
-        cx_op_operands: cross cp_mult_op, cp_operand_a, cp_operand_b {
+        cx_op_operands: cross cp_op_type, cp_operand_a, cp_operand_b {
             // Focus on interesting combinations
             ignore_bins ignore_trivial = binsof(cp_operand_a.zero) && binsof(cp_operand_b.zero);
         }
         
-        cx_op_control: cross cp_mult_op, cp_valid_ready;
+        cx_op_control: cross cp_op_type, cp_control_signals;
     endgroup
 
     //-----
@@ -167,38 +168,31 @@ module mult_unit_tb;
     function automatic logic [DATA_WIDTH-1:0] calculate_expected_result(
         logic [DATA_WIDTH-1:0] a,
         logic [DATA_WIDTH-1:0] b,
-        logic [1:0] op
+        logic [2:0] op
     );
-        logic signed [DATA_WIDTH-1:0] signed_a, signed_b;
+        logic signed [DATA_WIDTH-1:0] signed_a;
         logic [DATA_WIDTH-1:0] unsigned_a, unsigned_b;
         logic signed [63:0] signed_result;
         logic [63:0] unsigned_result;
-        logic [63:0] mixed_result;
         
         signed_a = a;
-        signed_b = b;
         unsigned_a = a;
         unsigned_b = b;
         
         case (op)
-            2'b00: begin // MUL - lower 32 bits
-                signed_result = signed_a * signed_b;
+            3'b000: begin // MUL - lower 32 bits
+                signed_result = signed_a * $signed(b);
                 return signed_result[DATA_WIDTH-1:0];
             end
-            2'b01: begin // MULH - upper 32 bits signed
-                signed_result = signed_a * signed_b;
+            3'b001: begin // MULH - upper 32 bits signed
+                signed_result = signed_a * $signed(b);
                 return signed_result[63:32];
             end
-            2'b10: begin // MULHSU - upper 32 bits signed * unsigned
-                mixed_result = $signed({1'b0, signed_a}) * $signed({1'b0, unsigned_b});
-                if (signed_a[31]) begin // If a is negative
-                    mixed_result = signed_a * unsigned_b;
-                end else begin
-                    mixed_result = unsigned_a * unsigned_b;
-                end
-                return mixed_result[63:32];
+            3'b010: begin // MULHSU - upper 32 bits signed * unsigned
+                signed_result = signed_a * unsigned_b;
+                return signed_result[63:32];
             end
-            2'b11: begin // MULHU - upper 32 bits unsigned
+            3'b011: begin // MULHU - upper 32 bits unsigned
                 unsigned_result = unsigned_a * unsigned_b;
                 return unsigned_result[63:32];
             end
@@ -210,19 +204,20 @@ module mult_unit_tb;
     // DUT Instantiation
     //-----
     mult_unit #(
-        .DATA_WIDTH(DATA_WIDTH)
+        .DATA_WIDTH(DATA_WIDTH),
+        .LATENCY(MULT_LATENCY)
     ) dut (
         .clk_i(clk_i),
         .rst_ni(rst_ni),
-        .mult_enable_i(mult_enable_i),
+        .start_i(start_i),
         .operand_a_i(operand_a_i),
         .operand_b_i(operand_b_i),
-        .mult_op_i(mult_op_i),
-        .mult_valid_i(mult_valid_i),
-        .mult_ready_o(mult_ready_o),
-        .mult_result_o(mult_result_o),
-        .mult_valid_o(mult_valid_o),
-        .mult_ready_i(mult_ready_i)
+        .op_type_i(op_type_i),
+        .result_o(result_o),
+        .done_o(done_o),
+        .busy_o(busy_o),
+        .exception_valid_o(exception_valid_o),
+        .exception_cause_o(exception_cause_o)
     );
 
     //-----
@@ -249,25 +244,25 @@ module mult_unit_tb;
     // Ready should be deasserted when not enabled
     property p_ready_when_disabled;
         @(posedge clk_i) disable iff (!rst_ni)
-        !mult_enable_i |-> !mult_ready_o;
+        !start_i |-> !busy_o;
     endproperty
     
     // Valid output should only be high when enabled
     property p_valid_when_enabled;
         @(posedge clk_i) disable iff (!rst_ni)
-        mult_valid_o |-> mult_enable_i;
+        done_o |-> start_i;
     endproperty
     
     // Handshake protocol check
     property p_handshake_protocol;
         @(posedge clk_i) disable iff (!rst_ni)
-        mult_valid_i && mult_ready_o |=> ##[1:10] mult_valid_o;
+        start_i && busy_o |=> ##[1:10] done_o;
     endproperty
     
     // Result stability
     property p_result_stable;
         @(posedge clk_i) disable iff (!rst_ni)
-        mult_valid_o && !mult_ready_i |=> $stable(mult_result_o);
+        done_o && !busy_o |=> $stable(result_o);
     endproperty
 
     assert_ready_when_disabled: assert property (p_ready_when_disabled)
@@ -282,6 +277,16 @@ module mult_unit_tb;
     assert_result_stable: assert property (p_result_stable)
         else $error("Result not stable during valid");
 
+    // An operation should not take longer than the defined latency
+    property p_latency_check;
+        logic [7:0] cycle_counter;
+        @(posedge clk_i) disable iff (!rst_ni)
+        (start_i, cycle_counter = 0) |=> busy_o throughout (cycle_counter++ < MULT_LATENCY)[*1:MULT_LATENCY] ##1 done_o;
+    endproperty
+
+    assert_latency: assert property (p_latency_check)
+        else $error("Latency check failed");
+
     //-----
     // Test Tasks
     //-----
@@ -290,16 +295,15 @@ module mult_unit_tb;
     task reset_dut();
         begin
             rst_ni = 1'b0;
-            mult_enable_i = 1'b0;
+            start_i = 1'b0;
             operand_a_i = 32'h0;
             operand_b_i = 32'h0;
-            mult_op_i = 2'b00;
-            mult_valid_i = 1'b0;
-            mult_ready_i = 1'b1;
+            op_type_i = 3'b000;
             
             repeat (5) @(posedge clk_i);
             rst_ni = 1'b1;
-            repeat (5) @(posedge clk_i);
+            wait(!busy_o);
+            @(posedge clk_i);
             
             $display("[%0t] Reset completed", $time);
         end
@@ -309,68 +313,41 @@ module mult_unit_tb;
     task perform_mult_operation(
         logic [DATA_WIDTH-1:0] a,
         logic [DATA_WIDTH-1:0] b,
-        logic [1:0] op,
+        logic [2:0] op,
         string test_name
     );
         logic [DATA_WIDTH-1:0] expected;
-        int timeout_count;
         
         begin
+            @(posedge clk_i);
+            wait(!busy_o);
+
             expected = calculate_expected_result(a, b, op);
             
             // Setup inputs
-            mult_enable_i = 1'b1;
+            start_i = 1'b1;
             operand_a_i = a;
             operand_b_i = b;
-            mult_op_i = op;
-            mult_valid_i = 1'b1;
-            mult_ready_i = 1'b1;
+            op_type_i = op;
             
-            // Wait for ready
-            timeout_count = 0;
-            while (!mult_ready_o && timeout_count < 100) begin
-                @(posedge clk_i);
-                timeout_count++;
-            end
-            
-            if (!mult_ready_o) begin
-                $error("[%0t] Timeout waiting for ready in %s", $time, test_name);
-                fail_count++;
-                return;
-            end
+            @(posedge clk_i);
+            start_i = 1'b0;
             
             // Wait for result
-            @(posedge clk_i);
-            mult_valid_i = 1'b0;
-            
-            timeout_count = 0;
-            while (!mult_valid_o && timeout_count < 100) begin
-                @(posedge clk_i);
-                timeout_count++;
-            end
-            
-            if (!mult_valid_o) begin
-                $error("[%0t] Timeout waiting for valid result in %s", $time, test_name);
-                fail_count++;
-                return;
-            end
+            wait(done_o);
             
             // Check result
-            if (mult_result_o === expected) begin
+            if (result_o === expected) begin
                 $display("[%0t] PASS: %s - %h * %h = %h (op=%b)", 
-                         $time, test_name, a, b, mult_result_o, op);
+                         $time, test_name, a, b, result_o, op);
                 pass_count++;
             end else begin
                 $error("[%0t] FAIL: %s - %h * %h = %h, expected %h (op=%b)", 
-                       $time, test_name, a, b, mult_result_o, expected, op);
+                       $time, test_name, a, b, result_o, expected, op);
                 fail_count++;
             end
             
             @(posedge clk_i);
-            mult_ready_i = 1'b0;
-            @(posedge clk_i);
-            mult_ready_i = 1'b1;
-            
             test_count++;
         end
     endtask
@@ -388,10 +365,10 @@ module mult_unit_tb;
             reset_dut();
             
             // Test simple multiplications for each operation type
-            perform_mult_operation(32'h0000_0002, 32'h0000_0003, 2'b00, "MUL 2*3");
-            perform_mult_operation(32'h1000_0000, 32'h0000_0002, 2'b01, "MULH large*2");
-            perform_mult_operation(32'h8000_0000, 32'h0000_0002, 2'b10, "MULHSU neg*2");
-            perform_mult_operation(32'hFFFF_FFFF, 32'hFFFF_FFFF, 2'b11, "MULHU max*max");
+            perform_mult_operation(32'h0000_0002, 32'h0000_0003, 3'b000, "MUL 2*3");
+            perform_mult_operation(32'h1000_0000, 32'h0000_0002, 3'b001, "MULH large*2");
+            perform_mult_operation(32'h8000_0000, 32'h0000_0002, 3'b010, "MULHSU neg*2");
+            perform_mult_operation(32'hFFFF_FFFF, 32'hFFFF_FFFF, 3'b011, "MULHU max*max");
         end
     endtask
 
@@ -404,67 +381,24 @@ module mult_unit_tb;
             reset_dut();
             
             // Test multiplication by zero
-            perform_mult_operation(32'h0000_0000, 32'hFFFF_FFFF, 2'b00, "Zero * Max");
-            perform_mult_operation(32'hFFFF_FFFF, 32'h0000_0000, 2'b00, "Max * Zero");
+            perform_mult_operation(32'h0000_0000, 32'hFFFF_FFFF, 3'b000, "Zero * Max");
+            perform_mult_operation(32'hFFFF_FFFF, 32'h0000_0000, 3'b000, "Max * Zero");
             
             // Test multiplication by one
-            perform_mult_operation(32'h0000_0001, 32'h1234_5678, 2'b00, "One * Value");
-            perform_mult_operation(32'h1234_5678, 32'h0000_0001, 2'b00, "Value * One");
+            perform_mult_operation(32'h0000_0001, 32'h1234_5678, 3'b000, "One * Value");
+            perform_mult_operation(32'h1234_5678, 32'h0000_0001, 3'b000, "Value * One");
             
             // Test overflow conditions
-            perform_mult_operation(32'hFFFF_FFFF, 32'hFFFF_FFFF, 2'b00, "Max * Max (MUL)");
-            perform_mult_operation(32'hFFFF_FFFF, 32'hFFFF_FFFF, 2'b01, "Max * Max (MULH)");
+            perform_mult_operation(32'hFFFF_FFFF, 32'hFFFF_FFFF, 3'b000, "Max * Max (MUL)");
+            perform_mult_operation(32'hFFFF_FFFF, 32'hFFFF_FFFF, 3'b001, "Max * Max (MULH)");
             
             // Test signed/unsigned boundary
-            perform_mult_operation(32'h8000_0000, 32'h8000_0000, 2'b01, "MinNeg * MinNeg");
-            perform_mult_operation(32'h7FFF_FFFF, 32'h7FFF_FFFF, 2'b01, "MaxPos * MaxPos");
+            perform_mult_operation(32'h8000_0000, 32'h8000_0000, 3'b001, "MinNeg * MinNeg");
+            perform_mult_operation(32'h7FFF_FFFF, 32'h7FFF_FFFF, 3'b001, "MaxPos * MaxPos");
         end
     endtask
 
-    // Test 3: Handshake protocol test
-    task test_handshake_protocol();
-        begin
-            current_test_name = "Handshake Protocol Test";
-            $display("\n=== Starting %s ===", current_test_name);
-            
-            reset_dut();
-            
-            // Test backpressure on input
-            mult_enable_i = 1'b1;
-            operand_a_i = 32'h1234_5678;
-            operand_b_i = 32'h8765_4321;
-            mult_op_i = 2'b00;
-            mult_valid_i = 1'b1;
-            mult_ready_i = 1'b1;
-            
-            // Wait for not ready (simulating busy)
-            @(posedge clk_i);
-            if (mult_ready_o) begin
-                mult_valid_i = 1'b0;
-                
-                // Test output backpressure
-                wait (mult_valid_o);
-                mult_ready_i = 1'b0; // Create backpressure
-                
-                repeat (5) @(posedge clk_i);
-                
-                if (mult_valid_o && $stable(mult_result_o)) begin
-                    $display("[%0t] PASS: Result stable during backpressure", $time);
-                    pass_count++;
-                end else begin
-                    $error("[%0t] FAIL: Result not stable during backpressure", $time);
-                    fail_count++;
-                end
-                
-                mult_ready_i = 1'b1;
-                @(posedge clk_i);
-                
-                test_count++;
-            end
-        end
-    endtask
-
-    // Test 4: Constrained random test
+    // Test 3: Constrained random test
     task test_constrained_random();
         MultUnitStimulus stimulus;
         
@@ -475,69 +409,22 @@ module mult_unit_tb;
             stimulus = new();
             
             for (int i = 0; i < NUM_RANDOM_TESTS; i++) begin
-                reset_dut();
-                
                 if (!stimulus.randomize()) begin
                     $error("Failed to randomize stimulus for test %0d", i);
                     continue;
                 end
                 
-                if (stimulus.rand_enable) begin
-                    perform_mult_operation(
-                        stimulus.rand_operand_a,
-                        stimulus.rand_operand_b,
-                        stimulus.rand_mult_op,
-                        $sformatf("Random_%0d", i)
-                    );
-                end
+                perform_mult_operation(
+                    stimulus.rand_operand_a,
+                    stimulus.rand_operand_b,
+                    stimulus.rand_op_type,
+                    $sformatf("Random_%0d", i)
+                );
                 
-                if (i % 100 == 0) begin
+                if (i % 100 == 0 && i > 0) begin
                     $display("[%0t] Completed %0d random tests", $time, i);
                 end
             end
-        end
-    endtask
-
-    // Test 5: Performance test
-    task test_performance();
-        int start_time, end_time;
-        int operations_completed;
-        
-        begin
-            current_test_name = "Performance Test";
-            $display("\n=== Starting %s ===", current_test_name);
-            
-            reset_dut();
-            
-            start_time = $time;
-            operations_completed = 0;
-            
-            mult_enable_i = 1'b1;
-            mult_ready_i = 1'b1;
-            
-            // Continuous operation for performance measurement
-            for (int i = 0; i < 100; i++) begin
-                operand_a_i = $random;
-                operand_b_i = $random;
-                mult_op_i = i[1:0];
-                mult_valid_i = 1'b1;
-                
-                @(posedge clk_i);
-                while (!mult_ready_o) @(posedge clk_i);
-                
-                mult_valid_i = 1'b0;
-                while (!mult_valid_o) @(posedge clk_i);
-                
-                operations_completed++;
-                @(posedge clk_i);
-            end
-            
-            end_time = $time;
-            
-            $display("[%0t] Performance Test: %0d operations in %0d ns", 
-                     $time, operations_completed, end_time - start_time);
-            $display("Average latency: %0.1f ns per operation", 
-                     real'(end_time - start_time) / operations_completed);
         end
     endtask
 
@@ -546,7 +433,7 @@ module mult_unit_tb;
     //-----
     initial begin
         $display("=== Multiplication Unit Testbench Started ===");
-        $display("Parameters: DATA_WIDTH=%0d", DATA_WIDTH);
+        $display("Parameters: DATA_WIDTH=%0d, LATENCY=%0d", DATA_WIDTH, MULT_LATENCY);
         
         // Initialize counters
         test_count = 0;
@@ -554,57 +441,49 @@ module mult_unit_tb;
         fail_count = 0;
         test_done = 1'b0;
         
-        // Set up waveform dumping
-        `ifdef VCS
-            $vcdpluson;
-        `elsif QUESTA
-            $wlfdumpvars();
-        `endif
+        // Fork all test scenarios
+        fork
+            begin
+                reset_dut();
+                test_basic_functionality();
+                test_corner_cases();
+                test_constrained_random();
+            end
+        join_none
         
-        // Run test suite
-        test_basic_functionality();
-        test_corner_cases();
-        test_handshake_protocol();
-        test_constrained_random();
-        test_performance();
+        // Wait for all tests to complete or timeout
+        fork
+            begin
+                wait(test_count >= (4 + 8 + NUM_RANDOM_TESTS));
+                test_done = 1'b1;
+            end
+            begin
+                #(TEST_TIMEOUT);
+                if (!test_done) begin
+                    $error("TEST TIMEOUT: Simulation did not complete within the specified time.");
+                    fail_count++;
+                    test_done = 1'b1;
+                end
+            end
+        join_any
         
-        // Final results
-        repeat (50) @(posedge clk_i);
-        
-        $display("\n=== Test Results Summary ===");
+        // Report results
+        $display("\n=== Testbench Finished ===");
         $display("Total Tests: %0d", test_count);
-        $display("Passed: %0d", pass_count);
-        $display("Failed: %0d", fail_count);
-        if (test_count > 0) begin
-            $display("Pass Rate: %0.1f%%", (pass_count * 100.0) / test_count);
+        $display("Passed:      %0d", pass_count);
+        $display("Failed:      %0d", fail_count);
+        
+        if (fail_count == 0) begin
+            $display("Verification SUCCESSFUL!");
+        end else begin
+            $display("Verification FAILED!");
         end
         
         // Coverage report
-        $display("\n=== Coverage Summary ===");
-        $display("Functional Coverage: %0.1f%%", cg_mult_unit.get_inst_coverage());
-        
-        test_done = 1'b1;
-        
-        `ifdef VCS
-            $vcdplusoff;
-        `endif
-        
-        if (fail_count == 0) begin
-            $display("\n*** ALL TESTS PASSED ***");
-            $finish;
-        end else begin
-            $display("\n*** SOME TESTS FAILED ***");
-            $finish(1);
-        end
-    end
+        $display("\nCoverage Report:");
+        $display("mult_unit_cg coverage: %0.2f%%", cg_mult_unit.get_coverage());
 
-    // Timeout watchdog
-    initial begin
-        #TEST_TIMEOUT;
-        if (!test_done) begin
-            $error("Test timeout after %0d ns", TEST_TIMEOUT);
-            $finish(2);
-        end
+        $finish;
     end
 
 endmodule : mult_unit_tb

@@ -42,6 +42,8 @@ module div_unit #(
     output word_t       result_o,
     // AI_TAG: PORT_DESC - done_o - Asserts high when the calculation is complete and the result is valid.
     output logic        done_o,
+    // AI_TAG: PORT_DESC - busy_o - Asserts high when the unit is performing a calculation.
+    output logic        busy_o,
     // AI_TAG: PORT_DESC - exception_valid_o - Asserts if the operation caused an exception.
     output logic        exception_valid_o,
     // AI_TAG: PORT_DESC - exception_cause_o - The cause of the exception.
@@ -116,20 +118,32 @@ module div_unit #(
     // AI_TAG: INTERNAL_LOGIC - Division and remainder calculations
     // These are simplified for illustration. In a real implementation,
     // these would be pipelined division algorithms.
-    assign div_result_signed   = (operand_a_q / operand_b_q);
+    assign div_result_signed   = ($signed(operand_a_q) / $signed(operand_b_q));
     assign div_result_unsigned = (operand_a_q / operand_b_q);
-    assign rem_result_signed   = (operand_a_q % operand_b_q);
+    assign rem_result_signed   = ($signed(operand_a_q) % $signed(operand_b_q));
     assign rem_result_unsigned = (operand_a_q % operand_b_q);
 
     // AI_TAG: INTERNAL_LOGIC - Result selection based on operation type
     always_comb begin
-        case (op_type_q)
-            OP_TYPE_DIV:  result_o = signed_overflow ? operand_a_q : {DATA_WIDTH{1'b1}}; // -1 for div by zero, dividend for overflow
-            OP_TYPE_DIVU: result_o = {DATA_WIDTH{1'b1}}; // -1 for div by zero
-            OP_TYPE_REM:  result_o = signed_overflow ? '0 : operand_a_q; // 0 for overflow, dividend for div by zero
-            OP_TYPE_REMU: result_o = operand_a_q; // dividend for div by zero
-            default:      result_o = '0;
-        endcase
+        if (use_default_result) begin
+            // Handle exception cases according to RISC-V specification
+            case (op_type_q)
+                OP_TYPE_DIV:  result_o = div_by_zero ? {DATA_WIDTH{1'b1}} : operand_a_q; // -1 for div by zero, dividend for overflow
+                OP_TYPE_DIVU: result_o = {DATA_WIDTH{1'b1}}; // -1 for div by zero
+                OP_TYPE_REM:  result_o = div_by_zero ? operand_a_q : '0; // dividend for div by zero, 0 for overflow
+                OP_TYPE_REMU: result_o = operand_a_q; // dividend for div by zero
+                default:      result_o = '0;
+            endcase
+        end else begin
+            // Normal operation cases - compute actual division/remainder
+            case (op_type_q)
+                OP_TYPE_DIV:  result_o = div_result_signed;   // Signed division result
+                OP_TYPE_DIVU: result_o = div_result_unsigned; // Unsigned division result
+                OP_TYPE_REM:  result_o = rem_result_signed;   // Signed remainder result
+                OP_TYPE_REMU: result_o = rem_result_unsigned; // Unsigned remainder result
+                default:      result_o = '0;
+            endcase
+        end
     end
 
     // AI_TAG: INTERNAL_LOGIC - Pipeline completion tracking
@@ -138,15 +152,18 @@ module div_unit #(
             busy_q <= '0;
         end else begin
             if (start_i) begin
-                busy_q <= {1'b1, {LATENCY-1{1'b0}}}; // Start new operation
+                busy_q <= {{(LATENCY-1){1'b0}}, 1'b1}; // Start new operation
             end else begin
-                busy_q <= {1'b0, busy_q[LATENCY-1:1]}; // Shift pipeline
+                busy_q <= {busy_q[LATENCY-2:0], 1'b0}; // Shift pipeline
             end
         end
     end
 
     // AI_TAG: INTERNAL_LOGIC - Done signal generation
-    assign done_o = busy_q[0]; // Operation complete when it reaches the end of pipeline
+    assign done_o = busy_q[LATENCY-1]; // Operation complete when it reaches the end of pipeline
+
+    // AI_TAG: INTERNAL_LOGIC - Busy signal generation
+    assign busy_o = |busy_q; // Unit is busy when any stage in pipeline is active
 
     // AI_TAG: ASSERTION - Division by zero should always generate an exception
     // AI_TAG: ASSERTION_TYPE - Both
@@ -167,7 +184,7 @@ module div_unit #(
     // AI_TAG: ASSERTION_SEVERITY - Error
     // AI_TAG: ASSERTION_COVERAGE_LINK - div_unit_coverage.done_signal_cp
     DoneSignalValid: assert property (@(posedge clk_i) disable iff (!rst_ni) 
-        (done_o |-> busy_q[0]));
+        (done_o |-> busy_q[LATENCY-1]));
 
 endmodule : div_unit
 

@@ -305,9 +305,10 @@ module multi_core_system #(
                 .debug_ack_o(debug_ack_o[i]),
                 
                 // Performance monitoring
-                .instructions_retired_o(instruction_retired_per_core[i]),
-                .cycles_o(cycles_per_core[i]),
-                .core_active_o(core_active_o[i])
+                .instruction_retired_o(instruction_retired_per_core[i]),
+                .core_active_o(core_active_o[i]),
+                .pipeline_stall_o(pipeline_stall_per_core[i]),
+                .branch_mispredicted_o(branch_mispredicted_per_core[i])
             );
             
         end : gen_cores
@@ -316,10 +317,16 @@ module multi_core_system #(
     //-------------------------------------------------------------------------
     // Performance Counter Signals for Generate Block
     //-------------------------------------------------------------------------
-    // AI_TAG: INTERNAL_SIGNAL - instruction_retired_per_core - Per-core instruction retirement counters - Tracks instructions completed by each core
-    logic [31:0] instruction_retired_per_core [NUM_CORES-1:0];
-    // AI_TAG: INTERNAL_SIGNAL - cycles_per_core - Per-core cycle counters - Tracks active cycles for each core  
-    logic [31:0] cycles_per_core [NUM_CORES-1:0];
+    // AI_TAG: INTERNAL_SIGNAL - instruction_retired_per_core - Per-core instruction retirement pulse
+    logic [NUM_CORES-1:0] instruction_retired_per_core;
+    // AI_TAG: INTERNAL_SIGNAL - pipeline_stall_per_core - Per-core pipeline stall pulse
+    logic [NUM_CORES-1:0] pipeline_stall_per_core;
+    // AI_TAG: INTERNAL_SIGNAL - branch_mispredicted_per_core - Per-core branch misprediction pulse
+    logic [NUM_CORES-1:0] branch_mispredicted_per_core;
+    // AI_TAG: INTERNAL_SIGNAL - l1_icache_miss - Per-core L1 I-cache miss pulse
+    logic [NUM_CORES-1:0] l1_icache_miss;
+    // AI_TAG: INTERNAL_SIGNAL - l1_dcache_miss - Per-core L1 D-cache miss pulse
+    logic [NUM_CORES-1:0] l1_dcache_miss;
 
     //-------------------------------------------------------------------------
     // Performance Monitoring Aggregation
@@ -340,34 +347,6 @@ module multi_core_system #(
             // For now, maintain reset state
         end
     end
-
-    // Aggregate performance outputs using proper signals from cores
-    always_comb begin : proc_aggregate_performance
-        total_instructions_o = '0;
-        total_cycles_o = '0;
-        cache_miss_count_o = '0;
-        
-        for (int i = 0; i < NUM_CORES; i++) begin
-            total_instructions_o += instruction_retired_per_core[i];
-            total_cycles_o += cycles_per_core[i];
-            cache_miss_count_o += cache_miss_counters[i];
-        end
-    end
-
-    //-----
-    // System Status Register
-    //-----
-    assign sys_status_o = {
-        16'h0,                    // Reserved [31:16]
-        4'h0,                     // Reserved [15:12]
-        NUM_CORES[3:0],           // Number of cores [11:8]
-        2'b0,                     // Reserved [7:6]
-        |core_active_o,           // Any core active [5]
-        |debug_ack_o,             // Any core in debug [4]
-        2'b0,                     // Reserved [3:2]
-        EXECUTION_MODE == "OUT_OF_ORDER" ? 1'b1 : 1'b0, // OoO mode [1]
-        1'b1                      // System ready [0]
-    };
 
     // AI_TAG: ASSERTION - Number of cores should be within valid range
     // AI_TAG: ASSERTION_TYPE - Both
@@ -451,7 +430,9 @@ module multi_core_system #(
         .l3_instance_active_o(/* connected to system status */),
         .cluster_status_o(/* connected to system status */),
         .cache_miss_count_o(cache_miss_count_o),
-        .topology_valid_o(/* connected to system status */)
+        .topology_valid_o(/* connected to system status */),
+        .l1_icache_miss_o(l1_icache_miss),
+        .l1_dcache_miss_o(l1_dcache_miss)
     );
     
     //-------------------------------------------------------------------------
@@ -704,14 +685,14 @@ module multi_core_system #(
         .core_active_i(core_active_o),
         .instruction_retired_i(instruction_retired_per_core),
         .branch_taken_i(|instruction_retired_per_core), // Simplified: assume branches when instructions retire
-        .branch_mispredicted_i('0), // TODO: Connect to actual branch predictor
-        .pipeline_stall_i('0), // TODO: Connect to actual pipeline stall signals
+        .branch_mispredicted_i(branch_mispredicted_per_core),
+        .pipeline_stall_i(pipeline_stall_per_core),
         
         // Cache performance monitoring
-        .l1_icache_hit_i(core_active_o), // Simplified: assume cache hits when cores active
-        .l1_icache_miss_i('0), // TODO: Connect to actual cache miss signals
-        .l1_dcache_hit_i(core_active_o), // Simplified: assume cache hits when cores active
-        .l1_dcache_miss_i('0), // TODO: Connect to actual cache miss signals
+        .l1_icache_hit_i(~l1_icache_miss & core_active_o), // Approximation: hit is not a miss on an active core
+        .l1_icache_miss_i(l1_icache_miss),
+        .l1_dcache_hit_i(~l1_dcache_miss & core_active_o), // Approximation: hit is not a miss on an active core
+        .l1_dcache_miss_i(l1_dcache_miss),
         .l2_cache_hit_i(|core_active_o), // Simplified: L2 hit when any core active
         .l2_cache_miss_i(cache_miss_count_o > 0), // Simplified: miss when miss count increases
         .l3_cache_hit_i(|core_active_o), // Simplified: L3 hit when any core active
