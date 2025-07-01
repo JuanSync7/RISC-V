@@ -32,6 +32,9 @@ module csr_regfile
     input  logic        clk_i,
     input  logic        rst_ni,
 
+    // Instruction retired signal for minstret
+    input  logic        instruction_retired_i,
+
     // --- CSR Access Port (from Execute stage) ---
     // AI_TAG: PORT_DESC - csr_addr_i - 12-bit address of the CSR to access.
     input  logic [11:0] csr_addr_i,
@@ -78,7 +81,13 @@ module csr_regfile
     // AI_TAG: PORT_DESC - mtvec_mode_o - Trap vector mode from mtvec
     output logic [1:0]  mtvec_mode_o,
     // AI_TAG: PORT_DESC - mtvec_base_o - Trap vector base address from mtvec
-    output addr_t       mtvec_base_o
+    output addr_t       mtvec_base_o,
+
+    // Cache performance inputs
+    input  logic [NUM_CORES-1:0]    l1_icache_hit_i,        // AI_TAG: PORT_DESC - Per-core L1 I-cache hits
+
+    // AI_TAG: PORT_DESC - pipeline_stall_i - Per-core pipeline stall indicators
+    input  logic        pipeline_stall_i
 );
 
     // AI_TAG: RISC-V_SPEC - CSR operation types from instruction's funct3 field.
@@ -89,9 +98,17 @@ module csr_regfile
     // AI_TAG: RISC-V_SPEC - MISA reset value for RV32IM. [31:30]=01 (RV32), [12]=M, [8]=I.
     localparam word_t MISA_RESET_VAL = 32'h40001101;
 
+    // Performance Counter CSR Addresses
+    localparam logic [11:0] MCYCLE_ADDR    = 12'hB00;
+    localparam logic [11:0] MINSTRET_ADDR  = 12'hB02;
+    localparam logic [11:0] MCYCLEH_ADDR   = 12'hB80;
+    localparam logic [11:0] MINSTRETH_ADDR = 12'hB82;
+
     // AI_TAG: INTERNAL_STORAGE - Registers for each implemented M-mode CSR.
     word_t mstatus_q, misa_q, mie_q, mtvec_q, mscratch_q, mepc_q, mcause_q, mtval_q, mip_q;
     word_t mhartid_q; // Modeled as a register, but read-only.
+    logic [63:0] mcycle_q;
+    logic [63:0] minstret_q;
 
     // AI_TAG: INTERNAL_LOGIC - CSR Read Mux
     // Description: Combinational logic to read the current value of a CSR based on its address.
@@ -108,6 +125,11 @@ module csr_regfile
             MTVAL_ADDR:    read_data_o = mtval_q;
             MIP_ADDR:      read_data_o = mip_q;
             MHARTID_ADDR:  read_data_o = mhartid_q;
+            // Performance Counters
+            MCYCLE_ADDR:    read_data_o = mcycle_q[31:0];
+            MINSTRET_ADDR:  read_data_o = minstret_q[31:0];
+            MCYCLEH_ADDR:   read_data_o = mcycle_q[63:32];
+            MINSTRETH_ADDR: read_data_o = minstret_q[63:32];
             default:       read_data_o = '0; // Reads to unimplemented CSRs return 0.
         endcase
     end
@@ -128,7 +150,15 @@ module csr_regfile
             mtval_q    <= '0;
             mip_q      <= '0;
             mhartid_q  <= HART_ID;
+            mcycle_q   <= '0;
+            minstret_q <= '0;
         end else begin
+            // Free-running counters
+            mcycle_q <= mcycle_q + 1;
+            if (instruction_retired_i) begin
+                minstret_q <= minstret_q + 1;
+            end
+
             // Priority 1: Trap event (Exception or Interrupt)
             if (trap_en_i) begin
                 mepc_q    <= mepc_i;
@@ -151,7 +181,7 @@ module csr_regfile
                     MCAUSE_ADDR:   mcause_q   <= csr_op(mcause_q, rs1_data_i, csr_op_i);
                     MTVAL_ADDR:    mtval_q    <= csr_op(mtval_q, rs1_data_i, csr_op_i);
                     MIP_ADDR:      mip_q      <= csr_op(mip_q, rs1_data_i, csr_op_i);
-                    // MISA and MHARTID are read-only; writes are ignored.
+                    // MISA, MHARTID, and performance counters are read-only; writes are ignored.
                     default: ;
                 endcase
             end

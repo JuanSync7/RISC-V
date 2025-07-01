@@ -457,7 +457,7 @@ module core_subsystem #(
         .mem_wb_reg_i(mem_wb_reg),
         
         // Register file write interface
-        .reg_file_write_en_o(reg_file_write_en),
+        .reg_write_en_o(reg_file_write_en),
         .reg_file_rd_addr_o(reg_file_rd_addr),
         .reg_file_rd_data_o(reg_file_rd_data),
         .instruction_retired_o(instruction_retired)

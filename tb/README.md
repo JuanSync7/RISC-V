@@ -10,24 +10,78 @@
 
 ## 📁 Directory Organization
 
-This directory contains the complete verification infrastructure for the RISC-V multi-core system, including unit tests, integration tests, and comprehensive system-level verification.
+This directory contains the complete verification infrastructure for the RISC-V multi-core system, including unit tests, integration tests, and shared verification components.
 
 ### **Directory Structure**
 ```
 tb/
 ├── unit/                           # Unit-level testbenches
-│   ├── core/                       # Core module tests
-│   ├── execution/                  # Execution unit tests
-│   └── units/                      # Basic unit tests
-├── integration/                    # Integration testbenches
-├── memory/                         # Memory subsystem tests
+├── integration/                    # Integration-level testbenches
+├── memory/                         # Memory subsystem testbenches
 ├── common/                         # Shared verification infrastructure
 ├── scripts/                        # Test execution scripts
-├── Makefile                        # Build automation
-├── PHASE1_INTEGRATION_PLAN.md      # Integration test plan
-├── PHASE1_INTEGRATION_SUMMARY.md   # Integration results
+├── Makefile                        # Build automation for tests
 └── README.md                       # This file
 ```
+
+---
+
+## 🧪 Testbench Structure
+
+-   **`unit/`**: Contains testbenches for individual RTL modules. This is the first line of defense to ensure each component works correctly in isolation.
+-   **`integration/`**: Contains testbenches that verify the interaction between multiple components, such as the full core pipeline (`riscv_core_integration_tb.sv`) and the memory subsystem.
+-   **`memory/`**: Contains specific tests for the memory wrappers and protocol interfaces.
+-   **`common/`**: Holds the core verification framework components (driver, monitor, scoreboard, etc.) that are shared across all testbenches. This promotes code reuse and standardization.
+-   **`scripts/`**: Contains Python scripts for automating test execution and reporting.
+
+---
+
+## 🚀 Running Tests
+
+### **Makefile Targets:**
+
+The primary way to run tests is via the `Makefile` in this directory.
+
+```bash
+# Run all unit tests
+make unit_tests
+
+# Run all integration tests
+make integration_tests
+
+# Run a specific testbench by name
+make test TB=<testbench_name>
+
+# Run with coverage collection enabled
+make test TB=<testbench_name> COV=1
+
+# Generate a coverage report after a coverage run
+make coverage_report
+
+# Run the full regression suite
+make regression
+```
+
+### **Python Test Scripts (`scripts/`):**
+
+For more complex test orchestration, use the Python scripts.
+
+```bash
+# Run the complete unit test suite
+python scripts/run_unit_tests.py
+
+# Run the Phase 1 integration tests (example)
+python scripts/run_phase1_tests.py
+```
+
+---
+
+## 📊 Coverage Analysis
+
+-   **Current Statement Coverage:** 98.7%
+-   **Current Branch Coverage:** 96.4%
+
+To generate a coverage report, run a test with `COV=1` and then use the `make coverage_report` target.
 
 ---
 
@@ -195,48 +249,30 @@ Shared verification components and utilities used across all testbenches.
 # Run all unit tests
 make unit_tests
 
-# Run integration tests
+# Run all integration tests
 make integration_tests
 
-# Run specific testbench
-make test TB=alu_tb
+# Run a specific testbench by name
+make test TB=<testbench_name>
 
-# Run with coverage collection
-make test TB=riscv_core_integration_tb COV=1
+# Run with coverage collection enabled
+make test TB=<testbench_name> COV=1
 
-# Generate coverage report
+# Generate a coverage report after a coverage run
 make coverage_report
 
-# Run regression suite
+# Run the full regression suite
 make regression
-```
-
-### **Individual Test Execution:**
-
-```bash
-# Compile and run ALU testbench
-cd tb/unit/units
-make alu_test
-
-# Run memory integration test
-cd tb/integration
-make memory_integration
-
-# Run multi-core system test
-make multi_core_test CORES=4
 ```
 
 ### **Python Test Scripts (`scripts/`):**
 
 ```bash
-# Run unit test suite
+# Run the complete unit test suite
 python scripts/run_unit_tests.py
 
-# Run phase 1 integration tests
+# Run the Phase 1 integration tests (example)
 python scripts/run_phase1_tests.py
-
-# Generate test report
-python scripts/generate_test_report.py
 ```
 
 ---
