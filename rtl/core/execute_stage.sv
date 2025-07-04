@@ -61,7 +61,23 @@ module execute_stage
 
     // AI_TAG: NEW_PORT - Exception detection output
     // AI_TAG: PORT_DESC - exception_o - Exception information from execute stage
-    output exception_info_t exception_o
+    output exception_info_t exception_o,
+    
+    // AI_TAG: NEW_PORT - Memory barrier request for FENCE instructions
+    // AI_TAG: PORT_DESC - mem_barrier_o - Request memory barrier for FENCE
+    output logic        mem_barrier_o,
+    input  logic        mem_barrier_ack_i,
+    
+    // AI_TAG: NEW_PORT - Cache control for FENCE instructions
+    // AI_TAG: PORT_DESC - icache_flush_o - Request I-cache flush for FENCE.I
+    output logic        icache_flush_o,
+    input  logic        icache_flush_ack_i,
+    output logic        dcache_flush_o,
+    input  logic        dcache_flush_ack_i,
+    
+    // AI_TAG: NEW_PORT - Multi-core synchronization for FENCE
+    output logic        global_sync_req_o,
+    input  logic        global_sync_ack_i
 );
 
     localparam logic [1:0] FWD_SEL_REG  = 2'b00;
@@ -82,6 +98,11 @@ module execute_stage
     word_t div_result;         // AI_TAG: NEW - Division result
     logic  div_done;           // AI_TAG: NEW - Division done flag
     word_t final_result; // AI_TAG: UPDATE - Muxed result from ALU, Multiplier, or Divider
+    
+    // AI_TAG: NEW - FENCE unit signals
+    logic  fence_done;
+    logic [3:0] fence_pred;
+    logic [3:0] fence_succ;
 
     // AI_TAG: INTERNAL_WIRE - Exception detection signals
     logic illegal_instruction;
@@ -150,6 +171,29 @@ module execute_stage
         .result_o     ( div_result                ),
         .done_o       ( div_done                  )
     );
+    
+    // AI_TAG: MODULE_INSTANCE - FENCE Unit Instantiation
+    // Extract fence predecessor and successor bits from rs1 and rs2
+    assign fence_pred = id_ex_reg_i.rs1_data[23:20];
+    assign fence_succ = id_ex_reg_i.rs1_data[27:24];
+    
+    fence_unit u_fence_unit (
+        .clk_i               ( clk_i                      ),
+        .rst_ni              ( rst_ni                     ),
+        .fence_req_i         ( id_ex_reg_i.ctrl.fence_en  ),
+        .fence_i_req_i       ( id_ex_reg_i.ctrl.fence_i_en ),
+        .fence_pred_i        ( fence_pred                 ),
+        .fence_succ_i        ( fence_succ                 ),
+        .fence_done_o        ( fence_done                 ),
+        .mem_barrier_o       ( mem_barrier_o              ),
+        .mem_barrier_ack_i   ( mem_barrier_ack_i          ),
+        .icache_flush_o      ( icache_flush_o             ),
+        .icache_flush_ack_i  ( icache_flush_ack_i         ),
+        .dcache_flush_o      ( dcache_flush_o             ),
+        .dcache_flush_ack_i  ( dcache_flush_ack_i         ),
+        .global_sync_req_o   ( global_sync_req_o          ),
+        .global_sync_ack_i   ( global_sync_ack_i          )
+    );
 
     // AI_TAG: INTERNAL_LOGIC - Final Result Mux
     // Selects the result from the active unit.
@@ -157,9 +201,10 @@ module execute_stage
                          id_ex_reg_i.ctrl.div_en  ? div_result  : alu_result;
 
     // AI_TAG: INTERNAL_LOGIC - Stall Request Generation
-    // Stall the pipeline if a multiplication or division is in progress and not yet complete.
+    // Stall the pipeline if a multiplication, division, or FENCE is in progress and not yet complete.
     assign exec_stall_req_o = (id_ex_reg_i.ctrl.mult_en & !mult_done) || 
-                             (id_ex_reg_i.ctrl.div_en  & !div_done);
+                             (id_ex_reg_i.ctrl.div_en  & !div_done) ||
+                             ((id_ex_reg_i.ctrl.fence_en || id_ex_reg_i.ctrl.fence_i_en) & !fence_done);
 
     // AI_TAG: INTERNAL_LOGIC - Branch Evaluation Logic
     always_comb begin

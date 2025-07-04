@@ -74,6 +74,8 @@ module decode_stage
         ctrl_d.mult_en        = 1'b0; // AI_TAG: UPDATE - Set default for new signal
         ctrl_d.div_en         = 1'b0; // AI_TAG: UPDATE - Set default for new signal
         ctrl_d.csr_cmd_en     = 1'b0; // AI_TAG: UPDATE - Set default for new signal
+        ctrl_d.fence_en       = 1'b0; // AI_TAG: UPDATE - Set default for FENCE
+        ctrl_d.fence_i_en     = 1'b0; // AI_TAG: UPDATE - Set default for FENCE.I
         ctrl_d.funct3         = funct3;
 
         // Only decode if the instruction from the fetch stage is valid
@@ -198,6 +200,17 @@ module decode_stage
                     ctrl_d.csr_cmd_en   = 1'b1;
                     ctrl_d.reg_write_en = 1'b1; // CSR reads write the old value back to rd
                     ctrl_d.wb_mux_sel   = WB_SEL_CSR;
+                end
+                // AI_TAG: UPDATE - Added handler for FENCE instructions
+                OPCODE_FENCE: begin
+                    // FENCE.I has funct3 = 001, regular FENCE has funct3 = 000
+                    if (funct3 == 3'b001) begin
+                        ctrl_d.fence_i_en = 1'b1;
+                    end else begin
+                        ctrl_d.fence_en = 1'b1;
+                    end
+                    // FENCE instructions don't write to registers
+                    ctrl_d.reg_write_en = 1'b0;
                 end
                 default:;
             endcase

@@ -1,0 +1,35 @@
+{
+  "isa": "RV32IM",
+  "num_cores": 1,
+  "pipeline": "in_order",
+  "cache": {
+    "icache_size_kb": 4,
+    "icache_ways": 2,
+    "dcache_size_kb": 4,
+    "dcache_ways": 2,
+    "l2_cache_size_kb": 0,
+    "l3_cache_size_kb": 0
+  },
+  "features": {
+    "branch_predictor": "simple",
+    "ooo_enable": false,
+    "mmu_enable": false,
+    "fpu_enable": false,
+    "atomic_enable": false,
+    "compressed_enable": false,
+    "vector_enable": false
+  },
+  "peripherals": {
+    "clint": true,
+    "plic": true,
+    "uart": true,
+    "gpio": true,
+    "spi": false,
+    "i2c": false
+  },
+  "memory": {
+    "ram_size_kb": 64,
+    "rom_size_kb": 16
+  },
+  "profile_name": "embedded"
+}

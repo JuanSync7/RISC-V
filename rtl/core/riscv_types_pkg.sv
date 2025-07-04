@@ -48,10 +48,65 @@ package riscv_types_pkg;
     typedef enum logic [0:0] { ALU_A_SEL_RS1, ALU_A_SEL_PC } alu_src_a_sel_e;
     typedef enum logic [0:0] { ALU_B_SEL_RS2, ALU_B_SEL_IMM } alu_src_b_sel_e;
     typedef enum logic [1:0] { WB_SEL_ALU, WB_SEL_MEM, WB_SEL_PC_P4, WB_SEL_CSR } wb_mux_sel_e;
+    
+    // Control signal structure
+    typedef struct packed {
+        alu_op_e      alu_op;
+        alu_src_a_sel_e   alu_src_a_sel;
+        alu_src_b_sel_e   alu_src_b_sel;
+        logic         mem_read_en;
+        logic         mem_write_en;
+        logic         reg_write_en;
+        wb_mux_sel_e  wb_mux_sel;
+        logic         is_branch;
+        logic         mult_en;       // M extension multiplication
+        logic         div_en;        // M extension division
+        logic         csr_cmd_en;    // CSR instructions
+        logic         fence_en;      // FENCE instruction
+        logic         fence_i_en;    // FENCE.I instruction
+        logic [2:0]   funct3;
+    } ctrl_signals_t;
 
     //---------------------------------------------------------------------------
     // 4. Pipeline Stage Data Structures
     //---------------------------------------------------------------------------
+    // IF/ID Pipeline Register
+    typedef struct packed {
+        logic        valid;
+        addr_t       pc;
+        word_t       instr;
+    } if_id_reg_t;
+    
+    // ID/EX Pipeline Register
+    typedef struct packed {
+        addr_t       pc;
+        word_t       rs1_data;
+        word_t       rs2_data;
+        word_t       immediate;
+        reg_addr_t   rd_addr;
+        reg_addr_t   rs1_addr;
+        reg_addr_t   rs2_addr;
+        ctrl_signals_t ctrl;
+    } id_ex_reg_t;
+    
+    // EX/MEM Pipeline Register
+    typedef struct packed {
+        addr_t       pc;
+        word_t       alu_result;
+        word_t       rs2_data;
+        reg_addr_t   rd_addr;
+        ctrl_signals_t ctrl;
+    } ex_mem_reg_t;
+    
+    // MEM/WB Pipeline Register
+    typedef struct packed {
+        addr_t       pc;
+        word_t       alu_result;
+        word_t       mem_data;
+        reg_addr_t   rd_addr;
+        ctrl_signals_t ctrl;
+    } mem_wb_reg_t;
+    
     typedef struct packed {
         logic        valid;
         addr_t       pc;
