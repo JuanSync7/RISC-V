@@ -281,24 +281,19 @@ make test
 
 ## 📈 Development Roadmap
 
-### ✅ **Current Status (v1.2.0)**
-- Complete RV32IM implementation
-- 5-stage pipeline with hazard handling
-- AXI4-Lite memory interfaces
-- Multi-cycle multiplication and division
-- Basic exception handling
+### ✅ **Current Status (v1.3.0)**
+- Complete RV32IMA implementation (including RV32A atomic extension)
+- Phase 3 interface refactoring **COMPLETED**
+  - Generic `memory_if` interface introduced
+  - Placeholder `axi4_if` interface for SoC integration
+  - Adapter path for future TileLink/CHI support
+- Comprehensive verification infrastructure (unit, subsystem, system)
+- New test automation script `scripts/run_tb.sh` (Icarus Verilog)
+- Development status report (`DEVELOPMENT_STATUS.md`) added
 
-### 🚧 **Phase 1 Improvements (In Progress)**
-- **Branch Prediction Unit:** 2-bit saturating counter with BTB
-- **Instruction Cache:** 4KB, 2-way set associative
-- **Enhanced Exception Handling:** Complete RISC-V M-mode support
-
-### 🔮 **Future Enhancements**
-- **Phase 2:** Data cache, advanced branch prediction
-- **Phase 3:** Superscalar execution, out-of-order processing
-- **Phase 4:** Advanced memory hierarchy, vector extensions
-
-For detailed roadmap information, see [PHASE1_IMPROVEMENTS.md](PHASE1_IMPROVEMENTS.md).
+### � **Next Milestones**
+- **Phase 4:** System-level configuration validation and performance counters
+- **Phase 5:** RV32F/D floating-point unit integration
 
 ---
 
@@ -375,7 +370,7 @@ This RISC-V core implementation aims to provide:
 
 ---
 
-**Version:** 1.2.0  
-**Last Updated:** 2025-06-28  
+**Version:** 1.3.0  
+**Last Updated:** 2025-01-29  
 **Status:** Production Ready  
 **Maintainer:** RISC-V Core Development Team
