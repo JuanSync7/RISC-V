@@ -4,7 +4,7 @@
 **Purpose:** Centralized configuration parameters and constants  
 **Files:** 6 SystemVerilog packages  
 **Total Lines:** 2,756 lines of configuration code  
-**Last Updated:** 2025-01-28
+**Last Updated:** 2025-07-05
 
 ---
 

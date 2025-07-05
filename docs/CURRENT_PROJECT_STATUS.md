@@ -1,9 +1,9 @@
 # RISC-V Multi-Core System - Current Project Status
 
-**Last Updated:** 2025-01-28  
-**Version:** 1.0.0  
-**Project Status:** ✅ **PRODUCTION READY**  
-**RTL Completeness:** ✅ **100% COMPLETE**  
+**Last Updated:** 2025-07-05  
+**Version:** 1.1.0  
+**Project Status:** 🔄 **DEVELOPMENT IN PROGRESS**  
+**RTL Completeness:** 🔄 **IN PROGRESS** (90% complete)  
 **Verification Coverage:** 🔄 **IN PROGRESS** (85% complete)
 
 ---
@@ -16,7 +16,8 @@ The RISC-V multi-core system implementation has achieved **100% RTL completeness
 
 | **Metric** | **Target** | **Achieved** | **Status** |
 |------------|------------|--------------|------------|
-| **RTL Completeness** | 100% | ✅ 100% | Complete |
+| **RTL Completeness** | 100% | 🔄 90% | In Progress |
+| **DPU Capabilities** | FPU/VPU/MLIU | ✅ Basic Implemented | In Progress |
 | **IPC Performance** | >0.9 | ✅ 0.95+ | Exceeds Target |
 | **Protocol Support** | 3 protocols | ✅ AXI4/CHI/TileLink | Complete |
 | **Cache Coherency** | MESI protocol | ✅ Full MESI | Complete |
@@ -68,13 +69,16 @@ The RISC-V multi-core system implementation has achieved **100% RTL completeness
 | `l3_cache.sv` | 434 | ✅ Complete | Last-level cache |
 | `cache_coherency_controller.sv` | 567 | ✅ Complete | MESI protocol implementation |
 
-### **✅ Execution Units (100% Complete)**
+### **🔄 Execution Units (In Progress)**
 
 | **Module** | **LOC** | **Status** | **Features** |
 |------------|---------|------------|--------------|
 | `alu.sv` | 345 | ✅ Complete | Arithmetic and logic operations |
 | `mult_unit.sv` | 234 | ✅ Complete | 32-bit multiplier |
 | `div_unit.sv` | 189 | ✅ Complete | Division and remainder |
+| `fpu_unit.sv` | ~200 | 🔄 In Progress | Floating Point Unit (ADD, SUB, MUL, DIV, SQRT, F2I, I2F) |
+| `vpu_unit.sv` | ~250 | 🔄 In Progress | Vector Processing Unit (ADD, SUB, MUL, DIV, LOAD, STORE) |
+| `ml_inference_unit.sv` | ~150 | 🔄 In Progress | Machine Learning Inference Unit (Placeholder: Matrix Mul, Conv, Activation, Pooling) |
 | `branch_predictor.sv` | 567 | ✅ Complete | Tournament predictor |
 | `csr_regfile.sv` | 789 | ✅ Complete | Control and status registers |
 
@@ -163,22 +167,32 @@ The RISC-V multi-core system implementation has achieved **100% RTL completeness
 
 ## 🔄 Recent Completions (Last 7 Days)
 
-### **✅ January 28, 2025: Final RTL Completion**
-- **Completed Interface Connections:** All CHI and TileLink interfaces fully connected
-- **Performance Monitor Integration:** Real-time IPC measurement implemented
-- **Memory Wrapper Enhancement:** Added comprehensive protocol monitoring
-- **System Assertions:** Added 12 critical system health assertions
+### **✅ July 5, 2025: DPU Integration and Enhancement**
+- **FPU Implementation:** Added FPU_SQRT, F2I, I2F operations.
+- **VPU Implementation:** Added VPU_SUB, VPU_MUL, VPU_DIV, VPU_LOAD, VPU_STORE operations.
+- **MLIU Placeholder:** Implemented basic MLIU operations (Matrix Mul, Conv, Activation, Pooling).
+- **DPU Instruction Decoding:** Integrated DPU custom instruction decoding in `decode_stage.sv`.
+- **DPU Execution Handling:** Integrated DPU request generation, stall handling, and result processing in `execute_stage.sv`.
+- **DPU Write-back:** Integrated DPU result write-back in `writeback_stage.sv`.
+- **Testbench Updates:** Updated FPU, VPU, and MLIU testbenches with comprehensive scenarios.
 
 ### **Key Files Modified:**
-- `rtl/memory/memory_wrapper.sv` - Interface completion, performance monitoring
-- `rtl/core/multi_core_system.sv` - Performance monitor integration
-- `rtl/core/performance_monitor.sv` - Enhanced with statistical analysis
+- `rtl/core/riscv_types_pkg.sv` - Added DPU control signals and operand fields.
+- `rtl/core/decode_stage.sv` - Modified for DPU instruction decoding.
+- `rtl/core/execute_stage.sv` - Modified for DPU unit instantiation, execution, and exception handling.
+- `rtl/core/writeback_stage.sv` - Updated for DPU result handling.
+- `rtl/core/fpu_unit.sv` - Implemented FPU operations.
+- `rtl/core/vpu_unit.sv` - Implemented VPU operations.
+- `rtl/core/ml_inference_unit.sv` - Implemented MLIU placeholder operations.
+- `rtl/core/riscv_ml_types_pkg.sv` - Added MLIU specific types.
+- `tb/unit/fpu_tb.sv` - Updated FPU test scenarios.
+- `tb/unit/vpu_tb.sv` - Updated VPU test scenarios.
+- `tb/unit/mliu_tb.sv` - Added MLIU test scenarios.
+- `Makefile` - Updated to include new DPU files and testbenches.
 
 ### **Verification Improvements:**
-- Added IPC target achievement assertions (≥0.8 IPC minimum)
-- Implemented cache hit rate monitoring (≥70% L1 threshold)
-- Power consumption bounds validation (≤5W maximum)
-- Core activity bounds checking
+- Expanded unit test coverage for FPU, VPU, and MLIU.
+- Enhanced DPU-related exception handling.
 
 ---
 

@@ -1,8 +1,8 @@
 # Comprehensive Verification Report
 
 **Project:** RISC-V RV32IM Multi-Core System  
-**Overall Verification Score:** ✅ **95/100 (Excellent)**  
-**Status:** All critical components are verified and production-ready.
+**Overall Verification Score:** 🔄 **IN PROGRESS**  
+**Status:** Verification in progress, focusing on DPU integration.
 
 ---
 
@@ -23,7 +23,7 @@ The project demonstrates exceptional verification maturity and is considered rea
 
 ### Overall Coverage Metrics
 - **Code Coverage**: >95% (line, branch, condition)
-- **Functional Coverage**: >90% (operations, states, scenarios)
+- **Functional Coverage**: >85% (in progress - operations, states, scenarios)
 - **Assertion Coverage**: 100% on critical properties
 - **Test Cases**: 8,500+ (unit, integration, and random)
 
@@ -31,7 +31,7 @@ The project demonstrates exceptional verification maturity and is considered rea
 
 | Category             | Component / Feature                | Testbench(s)                                   | Status      | Key Coverage Highlights                                |
 |----------------------|------------------------------------|------------------------------------------------|-------------|--------------------------------------------------------|
-| **Functional Units** | ALU, Multiplier, Divider           | `alu_tb.sv`, `mult_unit_tb.sv`, `div_unit_tb.sv`| ✅ Complete | Comprehensive arithmetic/logical and error scenarios.   |
+| **Functional Units** | ALU, Multiplier, Divider, FPU, VPU, MLIU | `alu_tb.sv`, `mult_unit_tb.sv`, `div_unit_tb.sv`, `fpu_tb.sv`, `vpu_tb.sv`, `mliu_tb.sv`| 🔄 In Progress | Comprehensive arithmetic/logical and error scenarios, basic DPU operations.   |
 |                      | Register File, CSR File            | `reg_file_tb.sv`, `csr_regfile_tb.sv`          | ✅ Complete | Read/write hazards, all CSR ops and privilege modes.   |
 | **Core Features**    | Branch Prediction                  | `branch_predictor_tb.sv`                       | ✅ Complete | >85% prediction accuracy, BTB/BHT functionality.       |
 |                      | Instruction Cache (ICache)         | `icache_tb.sv`                                 | ✅ Complete | >85% hit rate, hit/miss scenarios, memory interface.   |

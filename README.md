@@ -28,6 +28,13 @@ A complete, synthesizable RISC-V RV32IM core implementation featuring a 5-stage 
 - **Synthesizable Design:** Clean, lint-free RTL code following IEEE 1800-2017
 - **Configurable Parameters:** Easily adaptable for different target technologies
 
+### 🚀 **Configurable Data Processing Unit (DPU)**
+- **Modular Accelerators:** Integrated Floating Point Unit (FPU), Vector Processing Unit (VPU), and Machine Learning Inference Unit (MLIU) for specialized data processing.
+- **FPU Capabilities:** Basic arithmetic (ADD, SUB, MUL, DIV), Square Root (SQRT), Float-to-Integer (F2I), and Integer-to-Float (I2F) conversions.
+- **VPU Capabilities:** Vector arithmetic (ADD, SUB, MUL, DIV), Vector Load (VLOAD), and Vector Store (VSTORE) operations.
+- **MLIU Capabilities:** Placeholder for Matrix Multiplication, Convolution, Activation Functions, and Pooling operations.
+- **Flexible Integration:** Enable or disable specific accelerators via configuration parameters to tailor the core to different workloads.
+
 ### 🛡️ **Robust Design**
 - **Overflow Detection:** ALU overflow detection for arithmetic operations
 - **Exception Handling:** Basic exception detection and handling framework
@@ -287,6 +294,7 @@ make test
 - AXI4-Lite memory interfaces
 - Multi-cycle multiplication and division
 - Basic exception handling
+- Integrated FPU, VPU, and MLIU (basic functionality)
 
 ### 🚧 **Phase 1 Improvements (In Progress)**
 - **Branch Prediction Unit:** 2-bit saturating counter with BTB
@@ -375,7 +383,7 @@ This RISC-V core implementation aims to provide:
 
 ---
 
-**Version:** 1.2.0  
-**Last Updated:** 2025-06-28  
-**Status:** Production Ready  
+**Version:** 1.1.0  
+**Last Updated:** 2025-07-05  
+**Status:** Development In Progress  
 **Maintainer:** RISC-V Core Development Team

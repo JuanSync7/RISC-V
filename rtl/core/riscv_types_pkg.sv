@@ -47,7 +47,26 @@ package riscv_types_pkg;
 
     typedef enum logic [0:0] { ALU_A_SEL_RS1, ALU_A_SEL_PC } alu_src_a_sel_e;
     typedef enum logic [0:0] { ALU_B_SEL_RS2, ALU_B_SEL_IMM } alu_src_b_sel_e;
-    typedef enum logic [1:0] { WB_SEL_ALU, WB_SEL_MEM, WB_SEL_PC_P4, WB_SEL_CSR } wb_mux_sel_e;
+    typedef enum logic [1:0] { WB_SEL_ALU, WB_SEL_MEM, WB_SEL_PC_P4, WB_SEL_CSR, WB_SEL_DPU } wb_mux_sel_e;
+
+    // Control signals for the Execute stage
+    typedef struct packed {
+        alu_op_e        alu_op;
+        alu_src_a_sel_e alu_src_a_sel;
+        alu_src_b_sel_e alu_src_b_sel;
+        logic           mem_read_en;
+        logic           mem_write_en;
+        logic           reg_write_en;
+        wb_mux_sel_e    wb_mux_sel;
+        logic           is_branch;
+        logic           mult_en;
+        logic           div_en;
+        logic           csr_cmd_en;
+        logic [2:0]     funct3;
+        logic           dpu_en;         // Enable DPU operation
+        logic [1:0]     dpu_unit_sel;   // 0: FPU, 1: VPU, 2: MLIU
+        logic [6:0]     dpu_op_sel;     // Specific operation within the DPU unit (funct7)
+    } ctrl_signals_t;
 
     //---------------------------------------------------------------------------
     // 4. Pipeline Stage Data Structures
@@ -75,7 +94,32 @@ package riscv_types_pkg;
         logic        csr_read;
         logic        csr_write;
         logic [11:0] csr_addr;
+        logic        is_jal;
+        addr_t       jal_target;
+        logic        is_jalr;
     } decode_data_t;
+
+    typedef struct packed {
+        logic        valid;
+        addr_t       pc;
+        word_t       rs1_data;
+        word_t       rs2_data;
+        word_t       immediate;
+        logic [4:0]  rd_addr;
+        ctrl_signals_t ctrl;
+        logic [4:0]  rs1_addr; // For hazard unit
+        logic [4:0]  rs2_addr; // For hazard unit
+        logic        is_jal;
+        addr_t       jal_target;
+        logic        is_jalr;
+        // DPU specific fields
+        word_t       fpu_operand_a; // FPU operand A
+        word_t       fpu_operand_b; // FPU operand B
+        word_t       vpu_operand_a; // VPU operand A
+        word_t       vpu_operand_b; // VPU operand B
+        word_t       mliu_operand_a; // MLIU operand A
+        word_t       mliu_operand_b; // MLIU operand B
+    } id_ex_reg_t;
 
     typedef struct packed {
         logic        valid;
@@ -156,6 +200,9 @@ package riscv_types_pkg;
         logic        actual_taken;
         addr_t       actual_target;
         logic        is_branch;
+        logic        is_jal;
+        addr_t       jal_target;
+        logic        is_jalr;
     } branch_update_t;
 
     //---------------------------------------------------------------------------
@@ -188,4 +235,4 @@ package riscv_types_pkg;
         logic [31:0] stalls;
     } perf_counters_t;
 
-endpackage : riscv_types_pkg 
+endpackage : riscv_types_pkg

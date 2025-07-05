@@ -492,5 +492,5 @@ endmodule
 ---
 
 **Memory System Version:** 1.0  
-**Last Updated:** June 2025  
+**Last Updated:** 2025-07-05  
 **Core Version:** RV32IM 5-stage Pipeline 

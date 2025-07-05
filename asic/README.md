@@ -27,5 +27,5 @@ This directory is used during the ASIC implementation phase of the RISC-V proces
 
 ---
 **Document Version:** 1.0  
-**Last Updated:** 2024-12-19  
+**Last Updated:** 2025-07-05  
 **Status:** Active 

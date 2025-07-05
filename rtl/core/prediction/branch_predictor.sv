@@ -35,6 +35,11 @@ module branch_predictor #(
     // AI_TAG: PARAM_CONSTRAINTS - Must be a power of 2 for efficient indexing.
     parameter integer BHT_ENTRIES = DEFAULT_BHT_ENTRIES,
 
+    // AI_TAG: PARAM_DESC - RAS_ENTRIES - Number of entries in the Return Address Stack.
+    // AI_TAG: PARAM_USAGE - Determines the depth of the return address stack for JALR prediction.
+    // AI_TAG: PARAM_CONSTRAINTS - Must be a power of 2 for efficient indexing.
+    parameter integer RAS_ENTRIES = DEFAULT_RAS_ENTRIES,
+
     parameter integer GLOBAL_HISTORY_WIDTH = DEFAULT_GLOBAL_HISTORY_WIDTH
 ) (
     // AI_TAG: PORT_DESC - clk_i - System clock for synchronous operations.
@@ -89,7 +94,23 @@ module branch_predictor #(
     
     // AI_TAG: PORT_DESC - is_branch_i - Indicates if the instruction is a branch.
     // AI_TAG: PORT_CLK_DOMAIN - clk_i
-    input  logic        is_branch_i
+    input  logic        is_branch_i,
+
+    // AI_TAG: PORT_DESC - is_jal_i - Indicates if the instruction is a JAL (Jump and Link).
+    // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    input  logic        is_jal_i,
+
+    // AI_TAG: PORT_DESC - jal_target_i - Target address for JAL instruction (PC + imm).
+    // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    input  addr_t       jal_target_i,
+
+    // AI_TAG: PORT_DESC - is_jalr_i - Indicates if the instruction is a JALR (Jump and Link Register).
+    // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    input  logic        is_jalr_i,
+
+    // AI_TAG: PORT_DESC - ras_predict_target_o - Predicted return address from RAS.
+    // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    output addr_t       ras_predict_target_o
 );
 
     // AI_TAG: INTERNAL_STORAGE - Branch Target Buffer (BTB) structure
@@ -108,6 +129,17 @@ module branch_predictor #(
     
     // AI_TAG: INTERNAL_STORAGE - Global branch history register
     logic [GLOBAL_HISTORY_WIDTH-1:0] global_history_r;
+
+    // AI_TAG: INTERNAL_STORAGE - Return Address Stack (RAS) structure
+    typedef struct packed {
+        addr_t       address;    // Return address
+    } ras_entry_t;
+    
+    // AI_TAG: INTERNAL_STORAGE - RAS memory array
+    ras_entry_t ras_mem [RAS_ENTRIES-1:0];
+    
+    // AI_TAG: INTERNAL_STORAGE - RAS pointer
+    logic [$clog2(RAS_ENTRIES)-1:0] ras_ptr_r;
     
     // AI_TAG: INTERNAL_LOGIC - BTB indexing and tag calculation
     localparam integer BTB_INDEX_BITS = $clog2(BTB_ENTRIES);
@@ -159,12 +191,18 @@ module branch_predictor #(
             predict_taken_o = bht_counter[1];  // MSB of 2-bit counter
             predict_target_o = btb_mem[btb_index].target;
             btb_hit_o = 1'b1;
+        end else if (is_jalr_i) begin
+            // JALR instruction - predict using RAS
+            predict_taken_o = 1'b1; // JALR is always taken
+            predict_target_o = ras_mem[ras_ptr_r].address;
+            btb_hit_o = 1'b0; // Not a BTB hit
         end else begin
-            // BTB miss - predict not-taken
+            // BTB miss and not JALR - predict not-taken
             predict_taken_o = 1'b0;
             predict_target_o = pc_i + 4;  // Sequential next instruction
             btb_hit_o = 1'b0;
         end
+        ras_predict_target_o = ras_mem[ras_ptr_r].address;
     end
     
     // AI_TAG: INTERNAL_LOGIC - BTB update logic
@@ -200,6 +238,11 @@ module branch_predictor #(
                 bht_mem[i] <= 2'b01;
             end
             global_history_r <= '0;
+            // AI_TAG: RESET_STRATEGY - Initialize RAS
+            for (int i = 0; i < RAS_ENTRIES; i++) begin
+                ras_mem[i].address <= '0;
+            end
+            ras_ptr_r <= '0;
         end else if (update_i && is_branch_i) begin
             // Update BHT counter
             if (actual_taken_i && bht_mem[update_bht_index] != 2'b11) begin
@@ -210,6 +253,16 @@ module branch_predictor #(
             
             // Update global history register
             global_history_r <= {global_history_r[GLOBAL_HISTORY_WIDTH-2:0], actual_taken_i};
+
+            // Update RAS
+            if (is_jal_i) begin
+                // Push return address (PC+4) onto RAS
+                ras_mem[ras_ptr_r].address <= jal_target_i;
+                ras_ptr_r <= ras_ptr_r + 1;
+            end else if (is_jalr_i) begin
+                // Pop from RAS (if not empty)
+                ras_ptr_r <= ras_ptr_r - 1;
+            end
         end
     end
 

@@ -61,7 +61,11 @@ RTL_PKG_FILES = \
     $(RTL_DIR)/core/riscv_qos_pkg.sv \
     $(RTL_DIR)/core/riscv_inter_core_types_pkg.sv \
     $(RTL_DIR)/core/riscv_protocol_constants_pkg.sv \
-    $(RTL_DIR)/core/riscv_verif_types_pkg.sv
+    $(RTL_DIR)/core/riscv_verif_types_pkg.sv \
+    $(RTL_DIR)/core/riscv_fpu_types_pkg.sv \
+    $(RTL_DIR)/core/riscv_vpu_types_pkg.sv \
+    $(RTL_DIR)/core/riscv_dpu_types_pkg.sv \
+    $(RTL_DIR)/core/riscv_ml_types_pkg.sv
 
 RTL_IF_FILES = \
     $(RTL_DIR)/memory/memory_req_rsp_if.sv \
@@ -72,14 +76,7 @@ RTL_IF_FILES = \
     $(RTL_DIR)/interfaces/inter_core_comm_if.sv \
     $(RTL_DIR)/interfaces/sync_primitives_if.sv
 
-RTL_UNIT_FILES = \
-    $(RTL_DIR)/units/alu.sv \
-    $(RTL_DIR)/units/reg_file.sv \
-    $(RTL_DIR)/units/mult_unit.sv \
-    $(RTL_DIR)/units/div_unit.sv \
-    $(RTL_DIR)/units/csr_regfile.sv \
-    $(RTL_DIR)/units/exception_handler.sv \
-    $(RTL_DIR)/units/qos_exception_handler.sv
+RTL_UNIT_FILES =     $(RTL_DIR)/units/alu.sv     $(RTL_DIR)/units/reg_file.sv     $(RTL_DIR)/units/mult_unit.sv     $(RTL_DIR)/units/div_unit.sv     $(RTL_DIR)/units/csr_regfile.sv     $(RTL_DIR)/units/exception_handler.sv     $(RTL_DIR)/units/qos_exception_handler.sv     $(RTL_DIR)/core/fpu_unit.sv     $(RTL_DIR)/core/vpu_unit.sv     $(RTL_DIR)/core/ml_inference_unit.sv
 
 RTL_CORE_FILES = \
     $(RTL_DIR)/core/fetch_stage.sv \
@@ -138,21 +135,28 @@ ALL_RTL_FILES = $(RTL_PKG_FILES) $(RTL_IF_FILES) $(RTL_UNIT_FILES) \
                 $(RTL_CONTROL_FILES) $(RTL_SYSTEM_FILES)
 
 # Common testbench files
-TB_COMMON_FILES = \
-    $(TB_DIR)/common/test_utils.sv \
-    $(TB_DIR)/common/assertions.sv \
-    $(TB_DIR)/common/test_env.sv
+TB_COMMON_FILES =     $(TB_DIR)/common/test_utils.sv     $(TB_DIR)/common/assertions.sv     $(TB_DIR)/common/test_env.sv
 
 # Specific testbench definitions
 ALU_TB_FILES = $(RTL_PKG_FILES) $(RTL_DIR)/units/alu.sv $(TB_DIR)/unit/units/alu_tb.sv
 REG_FILE_TB_FILES = $(RTL_PKG_FILES) $(RTL_DIR)/units/reg_file.sv $(TB_DIR)/unit/units/reg_file_tb.sv
+BRANCH_PREDICTOR_TB_FILES = $(RTL_PKG_FILES) $(RTL_PREDICTION_FILES) $(TB_DIR)/unit/branch_predictor_tb.sv
+DCACHE_TB_FILES = $(RTL_PKG_FILES) $(RTL_IF_FILES) $(RTL_DIR)/memory/dcache.sv $(TB_DIR)/memory/dcache_tb.sv
 CORE_INTEGRATION_TB_FILES = $(ALL_RTL_FILES) $(TB_DIR)/integration/riscv_core_integration_tb.sv
+FPU_TB_FILES = $(RTL_PKG_FILES) $(RTL_DIR)/core/fpu_unit.sv $(TB_DIR)/unit/fpu_tb.sv
+VPU_TB_FILES = $(RTL_PKG_FILES) $(RTL_DIR)/core/vpu_unit.sv $(TB_DIR)/unit/vpu_tb.sv
+MLIU_TB_FILES = $(RTL_PKG_FILES) $(RTL_DIR)/core/ml_inference_unit.sv $(TB_DIR)/unit/mliu_tb.sv
 
 # Simulation directories
 SIM_ALU_DIR = $(SIM_DIR)/alu
 SIM_REG_FILE_DIR = $(SIM_DIR)/reg_file  
 SIM_CORE_DIR = $(SIM_DIR)/core_integration
 SIM_MULTI_CORE_DIR = $(SIM_DIR)/multi_core
+SIM_BRANCH_PREDICTOR_DIR = $(SIM_DIR)/branch_predictor
+SIM_DCACHE_DIR = $(SIM_DIR)/dcache
+SIM_FPU_DIR = $(SIM_DIR)/fpu
+SIM_VPU_DIR = $(SIM_DIR)/vpu
+SIM_MLIU_DIR = $(SIM_DIR)/mliu
 
 # Default target
 .PHONY: all
@@ -195,8 +199,9 @@ help:
 	@echo "================================================================="
 
 # Create simulation directories
-$(SIM_ALU_DIR) $(SIM_REG_FILE_DIR) $(SIM_CORE_DIR) $(SIM_MULTI_CORE_DIR):
+$(SIM_ALU_DIR) $(SIM_REG_FILE_DIR) $(SIM_CORE_DIR) $(SIM_MULTI_CORE_DIR) $(SIM_BRANCH_PREDICTOR_DIR) $(SIM_DCACHE_DIR) $(SIM_FPU_DIR) $(SIM_VPU_DIR):
 	@mkdir -p $@
+
 
 # Optional flags based on environment variables
 ifdef WAVES
@@ -247,8 +252,52 @@ reg_file: $(SIM_REG_FILE_DIR)
 	./reg_file_tb_sim $(SIM_FLAGS) +TEST_NAME=reg_file_unit_test
 	@echo "Register File test completed. Check $(SIM_REG_FILE_DIR) for results."
 
+.PHONY: branch_predictor
+branch_predictor: $(SIM_BRANCH_PREDICTOR_DIR)
+	@echo "================================================================="
+	@echo "Running Branch Predictor Unit Test"
+	@echo "================================================================="
+	cd $(SIM_BRANCH_PREDICTOR_DIR) && \
+	$(COMP) $(COMP_FLAGS) +incdir+$(RTL_DIR)/core +incdir+$(TB_DIR)/common \
+	    $(BRANCH_PREDICTOR_TB_FILES) -top branch_predictor_tb -o branch_predictor_tb_sim && \
+	./branch_predictor_tb_sim $(SIM_FLAGS) +TEST_NAME=branch_predictor_unit_test
+	@echo "Branch Predictor test completed. Check $(SIM_BRANCH_PREDICTOR_DIR) for results."
+
+.PHONY: dcache
+dcache: $(SIM_DCACHE_DIR)
+	@echo "================================================================="
+	@echo "Running D-Cache Unit Test"
+	@echo "================================================================="
+	cd $(SIM_DCACHE_DIR) && \
+	$(COMP) $(COMP_FLAGS) +incdir+$(RTL_DIR)/core +incdir+$(TB_DIR)/common \
+	    $(DCACHE_TB_FILES) -top dcache_tb -o dcache_tb_sim && \
+	./dcache_tb_sim $(SIM_FLAGS) +TEST_NAME=dcache_unit_test
+	@echo "D-Cache test completed. Check $(SIM_DCACHE_DIR) for results."
+
+.PHONY: fpu
+fpu: $(SIM_FPU_DIR)
+	@echo "================================================================="
+	@echo "Running FPU Unit Test"
+	@echo "================================================================="
+	cd $(SIM_FPU_DIR) && \
+	$(COMP) $(COMP_FLAGS) +incdir+$(RTL_DIR)/core +incdir+$(TB_DIR)/common \
+	    $(FPU_TB_FILES) -top fpu_tb -o fpu_tb_sim && \
+	./fpu_tb_sim $(SIM_FLAGS) +TEST_NAME=fpu_unit_test
+	@echo "FPU test completed. Check $(SIM_FPU_DIR) for results."
+
+.PHONY: vpu
+vpu: $(SIM_VPU_DIR)
+	@echo "================================================================="
+	@echo "Running VPU Unit Test"
+	@echo "================================================================="
+	cd $(SIM_VPU_DIR) && \
+	$(COMP) $(COMP_FLAGS) +incdir+$(RTL_DIR)/core +incdir+$(TB_DIR)/common \
+	    $(VPU_TB_FILES) -top vpu_tb -o vpu_tb_sim && \
+	./vpu_tb_sim $(SIM_FLAGS) +TEST_NAME=vpu_unit_test
+	@echo "VPU test completed. Check $(SIM_VPU_DIR) for results."
+
 .PHONY: units
-units: alu reg_file
+units: alu reg_file branch_predictor dcache fpu vpu
 	@echo "================================================================="
 	@echo "All Unit Tests Completed"
 	@echo "================================================================="
@@ -290,6 +339,7 @@ compile_check:
 	@mkdir -p $(SIM_DIR)/compile_check
 	cd $(SIM_DIR)/compile_check && \
 	$(COMP) $(COMP_FLAGS) +incdir+$(RTL_DIR)/core \
+	    +define+ENABLE_DATA_ACCELERATOR +define+ENABLE_FPU +define+ENABLE_VPU +define+ENABLE_ML_INFERENCE \
 	    $(ALL_RTL_FILES) -top multi_core_system -o compile_check
 	@echo "Compilation check completed successfully."
 

@@ -5,7 +5,7 @@
 The RISC-V core implements a comprehensive exception handling system that manages various types of exceptions and interrupts according to the RISC-V specification. This document describes the exception types, handling mechanisms, and implementation details.
 
 **Status:** ✅ **IMPLEMENTED** - Phase 1 Complete  
-**Last Updated:** 2025-06-28  
+**Last Updated:** 2025-07-05  
 
 ## Architecture Overview
 
@@ -494,7 +494,7 @@ end
 2. **Performance Counters:** Exception/interrupt performance monitoring
 3. **Debug Support:** Enhanced breakpoint and watchpoint support
 4. **Vector Exceptions:** Support for vector instruction exceptions
-5. **Floating-Point Exceptions:** FPU exception handling
+5. **Floating-Point Exceptions:** FPU exception handling (basic implemented)
 
 ### Extensibility
 The exception handling system is designed to be easily extensible:

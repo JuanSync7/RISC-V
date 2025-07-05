@@ -89,6 +89,7 @@ package riscv_bp_types_pkg;
         logic        bht_hit;     // BHT hit indicator
         logic        pht_hit;     // PHT hit indicator
         logic        rsb_hit;     // RSB hit indicator
+        addr_t       ras_target;  // Predicted return address from RAS
         logic [CONFIDENCE_WIDTH-1:0] confidence; // Prediction confidence
     } branch_prediction_t;
 

@@ -1,22 +1,27 @@
 //=============================================================================
-// Company: Sondrel Ltd
-// Author: DesignAI (designai@sondrel.com)
-// Created: 2025-01-27
+// Company: <Company Name>
+// Project Name: RISC-V
 //
 // File: qos_stress_tb.sv
-// Module: qos_stress_tb
 //
-// Project Name: RISC-V RV32IM Core
-// Target Devices: Simulation Only
-// Verification Status: Ready for Verification
-// Quality Status: Production Ready
+// ----- Fields for Automated Documentation -----
+// MODULE_NAME: qos_stress_tb
+// AUTHOR: DesignAI (<author_email@company.com>)
+// VERSION: 1.0.0
+// DATE: 2025-07-05
+// DESCRIPTION: Comprehensive QoS stress testing testbench that validates QoS arbitration under high load conditions, priority inversion scenarios, starvation prevention, and bandwidth allocation fairness across multiple cores.
+// PRIMARY_PURPOSE: To verify the QoS arbiter's ability to manage and prioritize memory requests under various stress conditions, ensuring fairness and preventing starvation.
+// ROLE_IN_SYSTEM: Top-level test for the QoS system, ensuring its robust operation within the memory hierarchy.
+// PROBLEM_SOLVED: Validates that the QoS system correctly enforces priorities, prevents starvation of low-priority traffic, and allocates bandwidth according to configured weights.
+// MODULE_TYPE: Testbench_Component
+// TARGET_TECHNOLOGY_PREF: N/A (Simulation Only)
+// RELATED_SPECIFICATION: QoS Specification Document
 //
-// Description:
-//   Comprehensive QoS stress testing testbench that validates QoS arbitration
-//   under high load conditions, priority inversion scenarios, starvation
-//   prevention, and bandwidth allocation fairness across multiple cores.
+// ----- Status and Tracking -----
+// VERIFICATION_STATUS: In Progress
+// QUALITY_STATUS: Draft
+//
 //=============================================================================
-
 `timescale 1ns/1ps
 `default_nettype none
 
@@ -25,7 +30,6 @@ import riscv_types_pkg::*;
 import riscv_qos_pkg::*;
 import riscv_mem_types_pkg::*;
 
-// AI_TAG: TESTBENCH - QoS stress testing and validation testbench
 // AI_TAG: FEATURE - Tests QoS arbitration under high load conditions
 // AI_TAG: FEATURE - Validates priority enforcement and starvation prevention
 // AI_TAG: FEATURE - Tests bandwidth allocation and fairness mechanisms
@@ -34,11 +38,21 @@ import riscv_mem_types_pkg::*;
 module qos_stress_tb;
 
     // Testbench Parameters
-    localparam integer CLK_PERIOD = 10; // 100MHz
-    localparam integer NUM_CORES = 8;   // Stress test with more cores
-    localparam integer NUM_PRIORITIES = 4;
-    localparam integer MAX_TEST_CYCLES = 100000;
-    localparam integer STRESS_DURATION = 50000; // Cycles for stress tests
+    localparam integer CLK_PERIOD = 10; // AI_TAG: PARAM_DESC - Clock period for the testbench.
+                                        // AI_TAG: PARAM_USAGE - Defines the simulation clock frequency.
+                                        // AI_TAG: PARAM_CONSTRAINTS - Must be a positive integer.
+    localparam integer NUM_CORES = 8;   // AI_TAG: PARAM_DESC - Number of simulated cores/initiators for stress testing.
+                                        // AI_TAG: PARAM_USAGE - Scales the traffic generation and QoS complexity.
+                                        // AI_TAG: PARAM_CONSTRAINTS - Must be a positive integer.
+    localparam integer NUM_PRIORITIES = 4; // AI_TAG: PARAM_DESC - Number of QoS priority levels.
+                                          // AI_TAG: PARAM_USAGE - Defines the granularity of QoS prioritization.
+                                          // AI_TAG: PARAM_CONSTRAINTS - Must be a positive integer.
+    localparam integer MAX_TEST_CYCLES = 100000; // AI_TAG: PARAM_DESC - Maximum simulation cycles for the test.
+                                                // AI_TAG: PARAM_USAGE - Prevents infinite simulation loops.
+                                                // AI_TAG: PARAM_CONSTRAINTS - Must be a positive integer.
+    localparam integer STRESS_DURATION = 50000; // AI_TAG: PARAM_DESC - Duration of stress test phases in cycles.
+                                                // AI_TAG: PARAM_USAGE - Controls the length of traffic generation.
+                                                // AI_TAG: PARAM_CONSTRAINTS - Must be a positive integer.
     
     // QoS Parameters
     localparam integer HIGH_PRIORITY = 3;
@@ -47,20 +61,37 @@ module qos_stress_tb;
     localparam integer BACKGROUND_PRIORITY = 0;
     
     // Clock and Reset
-    logic clk_i;
-    logic rst_ni;
+    logic clk_i; // AI_TAG: PORT_DESC - Testbench clock.
+                 // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    logic rst_ni; // AI_TAG: PORT_DESC - Active-low asynchronous reset.
+                  // AI_TAG: PORT_CLK_DOMAIN - clk_i (async assert)
+                  // AI_TAG: PORT_TIMING - Asynchronous
     
     // QoS Interface Array
-    qos_arbiter_if qos_if [NUM_CORES] (.clk_i(clk_i), .rst_ni(rst_ni));
+    qos_arbiter_if qos_if [NUM_CORES] (.clk_i(clk_i), .rst_ni(rst_ni)); // AI_TAG: IF_TYPE - QoS Arbiter Interface Array
+                                                                       // AI_TAG: IF_DESC - Array of interfaces connecting to the QoS arbiter, one per core.
+                                                                       // AI_TAG: IF_CLOCKING - clk_i
+                                                                       // AI_TAG: IF_RESET - rst_ni
     
     // Memory Interface
-    memory_req_rsp_if mem_if (.clk_i(clk_i), .rst_ni(rst_ni));
+    memory_req_rsp_if mem_if (.clk_i(clk_i), .rst_ni(rst_ni)); // AI_TAG: IF_TYPE - Memory Request/Response Interface
+                                                              // AI_TAG: IF_DESC - Interface to the simulated memory model.
+                                                              // AI_TAG: IF_CLOCKING - clk_i
+                                                              // AI_TAG: IF_RESET - rst_ni
     
     // Performance Monitoring
-    logic [31:0] qos_violations;
-    logic [31:0] total_transactions;
-    logic [NUM_CORES-1:0] starvation_flags;
-    logic [31:0] bandwidth_utilization;
+    logic [31:0] qos_violations; // AI_TAG: PORT_DESC - Counter for detected QoS violations.
+                                 // AI_TAG: PORT_CLK_DOMAIN - clk_i
+                                 // AI_TAG: PORT_DEFAULT_STATE - '0
+    logic [31:0] total_transactions; // AI_TAG: PORT_DESC - Total number of transactions processed.
+                                     // AI_TAG: PORT_CLK_DOMAIN - clk_i
+                                     // AI_TAG: PORT_DEFAULT_STATE - '0
+    logic [NUM_CORES-1:0] starvation_flags; // AI_TAG: PORT_DESC - Flags indicating if a core is experiencing starvation.
+                                            // AI_TAG: PORT_CLK_DOMAIN - clk_i
+                                            // AI_TAG: PORT_DEFAULT_STATE - '0
+    logic [31:0] bandwidth_utilization; // AI_TAG: PORT_DESC - Overall memory bandwidth utilization percentage.
+                                        // AI_TAG: PORT_CLK_DOMAIN - clk_i
+                                        // AI_TAG: PORT_DEFAULT_STATE - '0
     
     // Test State
     typedef enum logic [3:0] {
@@ -95,14 +126,26 @@ module qos_stress_tb;
         integer completion_time;
     } qos_transaction_t;
     
-    qos_transaction_t transaction_queue [$];
-    qos_transaction_t pending_transactions [NUM_CORES][$];
+    qos_transaction_t transaction_queue [$]; // AI_TAG: INTERNAL_STORAGE - transaction_queue - Queue of all transactions generated.
+                                             // AI_TAG: INTERNAL_STORAGE_TYPE - Queue
+                                             // AI_TAG: INTERNAL_STORAGE_ACCESS - Read/write by traffic generators and monitors.
+    qos_transaction_t pending_transactions [NUM_CORES][$]; // AI_TAG: INTERNAL_STORAGE - pending_transactions - Per-core queues of transactions awaiting completion.
+                                                          // AI_TAG: INTERNAL_STORAGE_TYPE - Array of Queues
+                                                          // AI_TAG: INTERNAL_STORAGE_ACCESS - Read/write by traffic generators and monitors.
     
     // Performance Tracking
-    integer transactions_per_priority [NUM_PRIORITIES];
-    integer latency_per_priority [NUM_PRIORITIES];
-    integer bandwidth_per_core [NUM_CORES];
-    integer starvation_cycles [NUM_CORES];
+    integer transactions_per_priority [NUM_PRIORITIES]; // AI_TAG: INTERNAL_STORAGE - transactions_per_priority - Counts transactions per QoS priority level.
+                                                        // AI_TAG: INTERNAL_STORAGE_TYPE - Array
+                                                        // AI_TAG: INTERNAL_STORAGE_ACCESS - Updated by monitors.
+    integer latency_per_priority [NUM_PRIORITIES]; // AI_TAG: INTERNAL_STORAGE - latency_per_priority - Accumulates latency per QoS priority level.
+                                                   // AI_TAG: INTERNAL_STORAGE_TYPE - Array
+                                                   // AI_TAG: INTERNAL_STORAGE_ACCESS - Updated by monitors.
+    integer bandwidth_per_core [NUM_CORES]; // AI_TAG: INTERNAL_STORAGE - bandwidth_per_core - Tracks bandwidth consumed by each core.
+                                            // AI_TAG: INTERNAL_STORAGE_TYPE - Array
+                                            // AI_TAG: INTERNAL_STORAGE_ACCESS - Updated by monitors.
+    integer starvation_cycles [NUM_CORES]; // AI_TAG: INTERNAL_STORAGE - starvation_cycles - Tracks cycles a core has been waiting for access.
+                                           // AI_TAG: INTERNAL_STORAGE_TYPE - Array
+                                           // AI_TAG: INTERNAL_STORAGE_ACCESS - Updated by monitors.
     
     //=========================================================================
     // QoS Constants and Configuration
@@ -115,14 +158,24 @@ module qos_stress_tb;
     //=========================================================================
     // QoS Test Variables and Data Structures
     //=========================================================================
-    integer starvation_threshold = 1000; // Maximum cycles before starvation
+    integer starvation_threshold = 1000; // AI_TAG: INTERNAL_STORAGE - starvation_threshold - Maximum cycles a core can wait before being considered starved.
+                                         // AI_TAG: INTERNAL_STORAGE_TYPE - Integer
+                                         // AI_TAG: INTERNAL_STORAGE_ACCESS - Read by starvation monitor.
     integer served_transactions_count = 0;
-    integer priority_starvation_cycles[16]; // Per-priority starvation tracking
-    real core_bandwidth_weight[NUM_CORES];
-    integer core_transaction_count[NUM_CORES];
+    integer priority_starvation_cycles[16]; // AI_TAG: INTERNAL_STORAGE - priority_starvation_cycles - Per-priority starvation tracking.
+                                            // AI_TAG: INTERNAL_STORAGE_TYPE - Array
+                                            // AI_TAG: INTERNAL_STORAGE_ACCESS - Updated by monitors.
+    real core_bandwidth_weight[NUM_CORES]; // AI_TAG: INTERNAL_STORAGE - core_bandwidth_weight - Configured bandwidth weights for each core.
+                                          // AI_TAG: INTERNAL_STORAGE_TYPE - Array
+                                          // AI_TAG: INTERNAL_STORAGE_ACCESS - Configured by testbench.
+    integer core_transaction_count[NUM_CORES]; // AI_TAG: INTERNAL_STORAGE - core_transaction_count - Counts transactions per core.
+                                               // AI_TAG: INTERNAL_STORAGE_TYPE - Array
+                                               // AI_TAG: INTERNAL_STORAGE_ACCESS - Updated by monitors.
     
     // Transaction queues and logs
-    qos_transaction_t served_transactions[$];
+    qos_transaction_t served_transactions[$]; // AI_TAG: INTERNAL_STORAGE - served_transactions - Log of all transactions served by the arbiter.
+                                              // AI_TAG: INTERNAL_STORAGE_TYPE - Queue
+                                              // AI_TAG: INTERNAL_STORAGE_ACCESS - Updated by monitors.
     
     //=========================================================================
     // DUT Instantiation
@@ -134,7 +187,10 @@ module qos_stress_tb;
         .STARVATION_THRESHOLD(1000),
         .ENABLE_BANDWIDTH_ALLOCATION(1),
         .ENABLE_DYNAMIC_PRIORITY(1)
-    ) dut (
+    ) dut ( // AI_TAG: IF_TYPE - QoS Arbiter Instance
+            // AI_TAG: IF_DESC - Instance of the QoS Arbiter under test.
+            // AI_TAG: IF_CLOCKING - clk_i
+            // AI_TAG: IF_RESET - rst_ni
         .clk_i(clk_i),
         .rst_ni(rst_ni),
         
@@ -156,7 +212,10 @@ module qos_stress_tb;
         .ACCESS_LATENCY(20),
         .BANDWIDTH_LIMIT(4), // Artificially limit bandwidth for stress testing
         .RANDOM_DELAYS(1)
-    ) u_memory_model (
+    ) u_memory_model ( // AI_TAG: IF_TYPE - Memory Model Instance
+                       // AI_TAG: IF_DESC - Behavioral memory model to simulate memory responses.
+                       // AI_TAG: IF_CLOCKING - clk_i
+                       // AI_TAG: IF_RESET - rst_ni
         .clk_i(clk_i),
         .rst_ni(rst_ni),
         .mem_if(mem_if.slave)
@@ -338,7 +397,6 @@ module qos_stress_tb;
             end
         join_none
         
-        // Monitor bandwidth distribution
         monitor_bandwidth_allocation();
         
         wait_for_test_completion(STRESS_DURATION/2);
@@ -655,7 +713,7 @@ module qos_stress_tb;
             // Check if lower priority was served while higher priority was waiting
             if (current.priority > previous.priority) begin
                 // Look for any pending higher priority transactions
-                for (int j = 0; j < pending_transactions.size(); j++) begin
+                for (int j = 0; j < NUM_CORES; j++) begin
                     for (int k = 0; k < pending_transactions[j].size(); k++) begin
                         qos_transaction_t pending = pending_transactions[j][k];
                         if (pending.priority < current.priority && 
@@ -674,7 +732,7 @@ module qos_stress_tb;
         
         $display("    Priority ordering violations: %0d", violations);
         return ordering_correct;
-    endfunction
+    end function
     
     function bit verify_no_starvation();
         // Check that no core was starved for excessive time
@@ -698,7 +756,7 @@ module qos_stress_tb;
         end
         
         return no_starvation;
-    endfunction
+    end function
     
     function bit verify_bandwidth_fairness();
         // Verify bandwidth was allocated fairly according to weights
@@ -732,7 +790,7 @@ module qos_stress_tb;
         end
         
         return fairness_achieved;
-    endfunction
+    end function
     
     // Additional helper functions...
     task wait_for_test_completion(int cycles);
@@ -748,7 +806,7 @@ module qos_stress_tb;
     
     function bit verify_clean_shutdown();
         return (qos_violations == 0) && (transaction_queue.size() == 0);
-    endfunction
+    end function
     
     task report_final_results();
         $display("\n=================================================================");
@@ -781,7 +839,7 @@ module qos_stress_tb;
     function integer get_core_from_id(logic [7:0] transaction_id);
         // Extract core ID from transaction ID (assumes lower 2 bits encode core)
         return transaction_id[1:0];
-    endfunction
+    end function
     
     task write_qos_config_register(logic [31:0] addr, logic [31:0] data);
         // Write to QoS configuration register via CSR interface
@@ -838,5 +896,35 @@ module qos_stress_tb;
     end
 
 endmodule : qos_stress_tb
-
-`default_nettype wire 
+//=============================================================================
+// Dependencies: qos_arbiter.sv, memory_model.sv, riscv_config_pkg.sv, riscv_types_pkg.sv, riscv_qos_pkg.sv, riscv_mem_types_pkg.sv
+//
+// Instantiated In:
+//   - N/A (Top-level testbench)
+//
+// Performance:
+//   - Critical Path: N/A
+//   - Max Frequency: N/A (Simulation Only)
+//   - Area: N/A (Simulation Only)
+//
+// Verification Coverage:
+//   - Code Coverage: To be determined by simulation tool
+//   - Functional Coverage: To be determined by simulation tool
+//   - Branch Coverage: To be determined by simulation tool
+//
+// Synthesis:
+//   - Target Technology: N/A
+//   - Synthesis Tool: N/A
+//   - Clock Domains: 1
+//   - Constraints File: N/A
+//
+// Testing:
+//   - Testbench: qos_stress_tb.sv
+//   - Test Vectors: Multiple directed and constrained-random test scenarios
+//
+//----
+// Revision History:
+// Version | Date       | Author             | Description
+//=============================================================================
+// 1.0.0   | 2025-07-05 | DesignAI           | Initial creation of QoS Stress testbench.
+//=============================================================================

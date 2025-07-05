@@ -144,7 +144,8 @@ module memory_wrapper #(
 
     // AI_TAG: INTERNAL_LOGIC - Memory interfaces for protocol adapters
     memory_req_rsp_if instr_mem_if();
-    memory_req_rsp_if data_mem_if();
+    memory_req_rsp_if dcache_cpu_if(); // Interface between memory_wrapper and D-Cache (CPU side)
+    memory_req_rsp_if dcache_mem_if(); // Interface between D-Cache and protocol adapter (Memory side)
     
     // AI_TAG: INTERNAL_LOGIC - Transaction ID counters
     logic [ID_WIDTH-1:0] instr_id_counter;
@@ -191,27 +192,57 @@ module memory_wrapper #(
         instr_mem_if.rsp_ready = instr_rsp_ready_i;
     end
     
-    // AI_TAG: INTERNAL_LOGIC - Data memory interface control
+    // AI_TAG: INTERNAL_LOGIC - Data memory interface control (CPU side to D-Cache)
     always_comb begin
         // Request side
-        data_mem_if.req_valid = data_req_valid_i;
-        data_mem_if.req.addr = data_req_addr_i;
-        data_mem_if.req.size = data_req_size_i;
-        data_mem_if.req.write = data_req_write_i;
-        data_mem_if.req.data = data_req_data_i;
-        data_mem_if.req.strb = data_req_strb_i;
-        data_mem_if.req.id = data_id_counter;
-        data_mem_if.req.cacheable = 1'b1;
-        data_mem_if.req.prot = 2'b10; // Privileged, secure
+        dcache_cpu_if.req_valid = data_req_valid_i;
+        dcache_cpu_if.req.addr = data_req_addr_i;
+        dcache_cpu_if.req.size = data_req_size_i;
+        dcache_cpu_if.req.write = data_req_write_i;
+        dcache_cpu_if.req.data = data_req_data_i;
+        dcache_cpu_if.req.strb = data_req_strb_i;
+        dcache_cpu_if.req.id = data_id_counter;
+        dcache_cpu_if.req.cacheable = 1'b1;
+        dcache_cpu_if.req.prot = 2'b10; // Privileged, secure
         
-        data_req_ready_o = data_mem_if.req_ready;
+        data_req_ready_o = dcache_cpu_if.req_ready;
         
         // Response side
-        data_rsp_valid_o = data_mem_if.rsp_valid;
-        data_rsp_data_o = data_mem_if.rsp.data;
-        data_rsp_error_o = data_mem_if.rsp.error;
-        data_mem_if.rsp_ready = data_rsp_ready_i;
+        data_rsp_valid_o = dcache_cpu_if.rsp_valid;
+        data_rsp_data_o = dcache_cpu_if.rsp.data;
+        data_rsp_error_o = dcache_cpu_if.rsp.error;
+        dcache_cpu_if.rsp_ready = data_rsp_ready_i;
     end
+
+    // AI_TAG: INTERNAL_LOGIC - D-Cache instantiation
+    dcache #(
+        .DCACHE_SIZE(DEFAULT_L1_DCACHE_SIZE),
+        .DCACHE_LINE_SIZE(DEFAULT_L1_DCACHE_LINE_SIZE),
+        .DCACHE_WAYS(DEFAULT_L1_DCACHE_WAYS)
+    ) u_dcache (
+        .clk_i(clk_i),
+        .rst_ni(rst_ni),
+
+        // CPU Interface
+        .req_valid_i(dcache_cpu_if.req_valid),
+        .req_ready_o(dcache_cpu_if.req_ready),
+        .req_addr_i(dcache_cpu_if.req.addr),
+        .req_write_i(dcache_cpu_if.req.write),
+        .req_wdata_i(dcache_cpu_if.req.data),
+        .req_wstrb_i(dcache_cpu_if.req.strb),
+        .rsp_valid_o(dcache_cpu_if.rsp_valid),
+        .rsp_ready_i(dcache_cpu_if.rsp_ready),
+        .rsp_rdata_o(dcache_cpu_if.rsp.data),
+        .rsp_error_o(dcache_cpu_if.rsp.error),
+
+        // Memory Interface
+        .mem_req_valid_o(dcache_mem_if.req_valid),
+        .mem_req_ready_i(dcache_mem_if.req_ready),
+        .mem_req_o(dcache_mem_if.req),
+        .mem_rsp_valid_i(dcache_mem_if.rsp_valid),
+        .mem_rsp_ready_o(dcache_mem_if.rsp_ready),
+        .mem_rsp_i(dcache_mem_if.rsp)
+    );
     
     // AI_TAG: INTERNAL_LOGIC - Transaction ID counters
     always_ff @(posedge clk_i or negedge rst_ni) begin
@@ -336,7 +367,7 @@ module memory_wrapper #(
             ) data_axi4_adapter (
                 .clk_i(clk_i),
                 .rst_ni(rst_ni),
-                .mem_if(data_mem_if.slave),
+                .mem_if(dcache_mem_if.slave),
                 .m_axi_arvalid_o(d_arvalid_o),
                 .m_axi_arready_i(d_arready_i),
                 .m_axi_araddr_o(d_araddr_o),

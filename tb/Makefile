@@ -3,7 +3,7 @@
 #=============================================================================
 # Company: Sondrel Ltd
 # Author: DesignAI (designai@sondrel.com)
-# Created: 2025-06-28
+# Created: 2025-07-05
 #
 # Description:
 #   Makefile for compiling and running RISC-V unit testbenches.
@@ -65,7 +65,10 @@ help:
 	@echo "  icache_test  - Compile and run ICache test"
 	@echo "  mem_test     - Compile and run Memory Wrapper test"
 	@echo "  axi_test     - Compile and run AXI4 Adapter test"
-	@echo "  bp_test      - Compile and run Branch Predictor test"
+	@echo "  bp_test      - Compile and run Branch Predictor test
+  fpu_test     - Compile and run FPU test
+  vpu_test     - Compile and run VPU test
+  mliu_test    - Compile and run MLIU test"
 	@echo ""
 	@echo "Variables:"
 	@echo "  SIMULATOR    - Simulator to use (vcs/modelsim, default: vcs)"
@@ -166,6 +169,64 @@ compile_branch_predictor_tb: $(UNIT_DIR)/prediction/branch_predictor_tb.sv
 		-f $(TB_DIR)/filelists/branch_predictor_tb.f \
 		-o branch_predictor_tb
 
+# FPU Test
+compile_fpu_tb: $(UNIT_DIR)/units/fpu_tb.sv
+	@echo "Compiling FPU testbench..."
+	@cd $(UNIT_DIR)/units && \
+	$(SIMULATOR) $(VCS_FLAGS) \
+		-f $(TB_DIR)/filelists/fpu_tb.f \
+		-o fpu_tb
+
+# VPU Test
+compile_vpu_tb: $(UNIT_DIR)/units/vpu_tb.sv
+	@echo "Compiling VPU testbench..."
+	@cd $(UNIT_DIR)/units && \
+	$(SIMULATOR) $(VCS_FLAGS) \
+		-f $(TB_DIR)/filelists/vpu_tb.f \
+		-o vpu_tb
+
+# MLIU Test
+compile_mliu_tb: $(UNIT_DIR)/units/mliu_tb.sv
+	@echo "Compiling MLIU testbench..."
+	@cd $(UNIT_DIR)/units && \
+	$(SIMULATOR) $(VCS_FLAGS) \
+		-f $(TB_DIR)/filelists/mliu_tb.f \
+		-o mliu_tb
+
+# Decode Stage Test
+compile_decode_stage_tb: $(UNIT_DIR)/decode_stage_tb.sv
+	@echo "Compiling Decode Stage testbench..."
+	@cd $(UNIT_DIR) && \
+	$(SIMULATOR) $(VCS_FLAGS) \
+		-f $(TB_DIR)/filelists/decode_stage_tb.f \
+		-o decode_stage_tb
+
+
+
+# Memory Stage Test
+compile_mem_stage_tb: $(UNIT_DIR)/mem_stage_tb.sv
+	@echo "Compiling Memory Stage testbench..."
+	@cd $(UNIT_DIR) && \
+	$(SIMULATOR) $(VCS_FLAGS) \
+		-f $(TB_DIR)/filelists/mem_stage_tb.f \
+		-o mem_stage_tb
+
+# Writeback Stage Test
+compile_writeback_stage_tb: $(UNIT_DIR)/writeback_stage_tb.sv
+	@echo "Compiling Writeback Stage testbench..."
+	@cd $(UNIT_DIR) && \
+	$(SIMULATOR) $(VCS_FLAGS) \
+		-f $(TB_DIR)/filelists/writeback_stage_tb.f \
+		-o writeback_stage_tb
+
+# Writeback Stage Test
+compile_writeback_stage_tb: $(UNIT_DIR)/writeback_stage_tb.sv
+	@echo "Compiling Writeback Stage testbench..."
+	@cd $(UNIT_DIR) && \
+	$(SIMULATOR) $(VCS_FLAGS) \
+		-f $(TB_DIR)/filelists/writeback_stage_tb.f \
+		-o writeback_stage_tb
+
 #===========================================================================
 # Execution targets
 #===========================================================================
@@ -227,6 +288,21 @@ run_branch_predictor_tb: compile_branch_predictor_tb
 	@echo "Running Branch Predictor testbench..."
 	@cd $(UNIT_DIR)/prediction && ./branch_predictor_tb
 
+# FPU Test
+run_fpu_tb: compile_fpu_tb
+	@echo "Running FPU testbench..."
+	@cd $(UNIT_DIR)/units && ./fpu_tb
+
+# VPU Test
+run_vpu_tb: compile_vpu_tb
+	@echo "Running VPU testbench..."
+	@cd $(UNIT_DIR)/units && ./vpu_tb
+
+# MLIU Test
+run_mliu_tb: compile_mliu_tb
+	@echo "Running MLIU testbench..."
+	@cd $(UNIT_DIR)/units && ./mliu_tb
+
 #===========================================================================
 # Individual test targets
 #===========================================================================
@@ -242,6 +318,9 @@ icache_test: run_icache_tb
 mem_test: run_memory_wrapper_tb
 axi_test: run_axi4_adapter_tb
 bp_test: run_branch_predictor_tb
+fpu_test: run_fpu_tb
+vpu_test: run_vpu_tb
+mliu_test: run_mliu_tb
 
 #===========================================================================
 # Clean target
@@ -292,6 +371,27 @@ filelists:
 	@echo "$(UNIT_DIR)/units/reg_file_tb.sv" >> $(TB_DIR)/filelists/reg_file_tb.f
 	
 	# Add more filelists as needed...
+	# FPU testbench filelist
+	@echo "$(COMMON_FILES)" > $(TB_DIR)/filelists/fpu_tb.f
+	@echo "$(RTL_PKG)" >> $(TB_DIR)/filelists/fpu_tb.f
+	@echo "$(RTL_DIR)/core/fpu_unit.sv" >> $(TB_DIR)/filelists/fpu_tb.f
+	@echo "$(UNIT_DIR)/units/fpu_tb.sv" >> $(TB_DIR)/filelists/fpu_tb.f
+	@echo "$(RTL_DIR)/core/riscv_fpu_types_pkg.sv" >> $(TB_DIR)/filelists/fpu_tb.f
+
+	# VPU testbench filelist
+	@echo "$(COMMON_FILES)" > $(TB_DIR)/filelists/vpu_tb.f
+	@echo "$(RTL_PKG)" >> $(TB_DIR)/filelists/vpu_tb.f
+	@echo "$(RTL_DIR)/core/vpu_unit.sv" >> $(TB_DIR)/filelists/vpu_tb.f
+	@echo "$(UNIT_DIR)/units/vpu_tb.sv" >> $(TB_DIR)/filelists/vpu_tb.f
+	@echo "$(RTL_DIR)/core/riscv_vpu_types_pkg.sv" >> $(TB_DIR)/filelists/vpu_tb.f
+
+	# MLIU testbench filelist
+	@echo "$(COMMON_FILES)" > $(TB_DIR)/filelists/mliu_tb.f
+	@echo "$(RTL_PKG)" >> $(TB_DIR)/filelists/mliu_tb.f
+	@echo "$(RTL_DIR)/core/ml_inference_unit.sv" >> $(TB_DIR)/filelists/mliu_tb.f
+	@echo "$(UNIT_DIR)/units/mliu_tb.sv" >> $(TB_DIR)/filelists/mliu_tb.f
+	@echo "$(RTL_DIR)/core/riscv_ml_types_pkg.sv" >> $(TB_DIR)/filelists/mliu_tb.f
+
 	@echo "Filelists generated."
 
 #===========================================================================
@@ -323,4 +423,8 @@ $(UNIT_DIR)/control/hazard_unit_tb.sv: $(COMMON_FILES) $(RTL_PKG) $(RTL_DIR)/con
 $(UNIT_DIR)/memory/icache_tb.sv: $(COMMON_FILES) $(RTL_PKG) $(RTL_DIR)/memory/icache.sv
 $(UNIT_DIR)/memory/memory_wrapper_tb.sv: $(COMMON_FILES) $(RTL_PKG) $(RTL_DIR)/memory/memory_wrapper.sv
 $(UNIT_DIR)/protocols/axi4_adapter_tb.sv: $(COMMON_FILES) $(RTL_PKG) $(RTL_DIR)/protocols/axi4_adapter.sv
-$(UNIT_DIR)/prediction/branch_predictor_tb.sv: $(COMMON_FILES) $(RTL_PKG) $(RTL_DIR)/prediction/branch_predictor.sv 
+$(UNIT_DIR)/prediction/branch_predictor_tb.sv: $(COMMON_FILES) $(RTL_PKG) $(RTL_DIR)/prediction/branch_predictor.sv
+$(UNIT_DIR)/units/fpu_tb.sv: $(COMMON_FILES) $(RTL_PKG) $(RTL_DIR)/core/fpu_unit.sv $(RTL_DIR)/core/riscv_fpu_types_pkg.sv
+$(UNIT_DIR)/units/vpu_tb.sv: $(COMMON_FILES) $(RTL_PKG) $(RTL_DIR)/core/vpu_unit.sv $(RTL_DIR)/core/riscv_vpu_types_pkg.sv
+$(UNIT_DIR)/units/mliu_tb.sv: $(COMMON_FILES) $(RTL_PKG) $(RTL_DIR)/core/ml_inference_unit.sv $(RTL_DIR)/core/riscv_ml_types_pkg.sv
+$(UNIT_DIR)/writeback_stage_tb.sv: $(COMMON_FILES) $(RTL_PKG) $(RTL_DIR)/core/riscv_config_pkg.sv $(RTL_DIR)/core/writeback_stage.sv 

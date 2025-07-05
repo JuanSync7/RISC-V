@@ -62,7 +62,13 @@ module execute_stage
 
     // AI_TAG: NEW_PORT - Exception detection output
     // AI_TAG: PORT_DESC - exception_o - Exception information from execute stage
-    output exception_info_t exception_o
+    output exception_info_t exception_o,
+
+    // AI_TAG: NEW_PORT - DPU Interface
+    input  dpu_rsp_t    dpu_rsp_i, // DPU response from dpu_subsystem
+    output dpu_req_t    dpu_req_o, // DPU request to dpu_subsystem
+    input  logic        dpu_busy_i, // DPU busy signal
+    input  logic        dpu_error_i // DPU error signal
 );
 
     // AI_TAG: INTERNAL_WIRE - Wires for operand selection, ALU and Multiplier interfaces.
@@ -86,6 +92,7 @@ module execute_stage
     logic ecall_exception;
     logic breakpoint_exception;
     logic overflow_exception;
+    logic dpu_error_exception; // AI_TAG: NEW - DPU error exception
     exception_info_t exception_detected;
 
     ex_mem_reg_t ex_mem_reg_q;
@@ -150,13 +157,15 @@ module execute_stage
 
     // AI_TAG: INTERNAL_LOGIC - Final Result Mux
     // Selects the result from the active unit.
-    assign final_result = id_ex_reg_i.ctrl.mult_en ? mult_result : 
-                         id_ex_reg_i.ctrl.div_en  ? div_result  : alu_result;
+    assign final_result = id_ex_reg_i.ctrl.mult_en ? mult_result :
+                         id_ex_reg_i.ctrl.div_en  ? div_result  :
+                         id_ex_reg_i.ctrl.dpu_ctrl.is_dpu_op ? dpu_rsp_i.data : alu_result;
 
     // AI_TAG: INTERNAL_LOGIC - Stall Request Generation
-    // Stall the pipeline if a multiplication or division is in progress and not yet complete.
-    assign exec_stall_req_o = (id_ex_reg_i.ctrl.mult_en & !mult_done) || 
-                             (id_ex_reg_i.ctrl.div_en  & !div_done);
+    // Stall the pipeline if a multi-cycle operation or DPU operation is in progress and not yet complete.
+    assign exec_stall_req_o = (id_ex_reg_i.ctrl.mult_en & !mult_done) ||
+                             (id_ex_reg_i.ctrl.div_en  & !div_done) ||
+                             (id_ex_reg_i.ctrl.dpu_ctrl.is_dpu_op && dpu_busy_i);
 
     // AI_TAG: INTERNAL_LOGIC - Branch Evaluation Logic
     always_comb begin
@@ -211,6 +220,14 @@ module execute_stage
         end
     end
 
+    // AI_TAG: INTERNAL_LOGIC - DPU Error Detection
+    always_comb begin
+        dpu_error_exception = 1'b0;
+        if (id_ex_reg_i.ctrl.dpu_ctrl.is_dpu_op && dpu_error_i) begin
+            dpu_error_exception = 1'b1;
+        end
+    end
+
     // AI_TAG: INTERNAL_LOGIC - System Call Detection
     always_comb begin
         ecall_exception = 1'b0;
@@ -247,6 +264,14 @@ module execute_stage
             exception_detected.pc = id_ex_reg_i.pc;
             exception_detected.tval = alu_result; // The result that overflowed
             exception_detected.priority = riscv_config_pkg::PRIO_ARITH_OVERFLOW;
+        end
+        else if (dpu_error_exception) begin
+            exception_detected.valid = 1'b1;
+            exception_detected.exc_type = EXC_TYPE_EXCEPTION;
+            exception_detected.cause = riscv_config_pkg::CAUSE_ILLEGAL_INSTRUCTION; // Or a specific DPU error cause
+            exception_detected.pc = id_ex_reg_i.pc;
+            exception_detected.tval = id_ex_reg_i.instruction; // The instruction that caused the DPU error
+            exception_detected.priority = riscv_config_pkg::PRIO_ILLEGAL;
         end
         else if (ecall_exception) begin
             exception_detected.valid = 1'b1;
@@ -286,6 +311,24 @@ module execute_stage
         bp_update_o.is_branch = id_ex_reg_i.ctrl.is_branch;
     end
 
+    // AI_TAG: INTERNAL_LOGIC - DPU Request Generation
+    always_comb begin
+        dpu_req_o.valid = id_ex_reg_i.ctrl.dpu_ctrl.is_dpu_op;
+        dpu_req_o.opcode = id_ex_reg_i.ctrl.dpu_ctrl.dpu_opcode;
+        dpu_req_o.data = fwd_operand_a; // Operand 1 for DPU
+        dpu_req_o.addr = fwd_operand_b; // Operand 2 or address for DPU
+        dpu_req_o.rd_addr = id_ex_reg_i.rd_addr;
+        dpu_req_o.rs1_addr = id_ex_reg_i.rs1_addr;
+        dpu_req_o.rs2_addr = id_ex_reg_i.rs2_addr;
+        // For VPU, vector_length might be encoded in immediate or a specific register
+        // For now, assuming it's part of the immediate for simplicity, or a default
+        if (id_ex_reg_i.ctrl.dpu_ctrl.dpu_unit_id == FUNCT3_DPU_VPU) begin
+            dpu_req_o.vector_length = id_ex_reg_i.immediate[($clog2(MAX_VECTOR_LENGTH))-1:0];
+        end else begin
+            dpu_req_o.vector_length = '0; // Not applicable for FPU/MLIU
+        end
+    end
+
     // AI_TAG: INTERNAL_LOGIC - PC Redirect Logic
     assign pc_redirect_o        = branch_taken || (id_ex_reg_i.ctrl.wb_mux_sel == WB_SEL_PC_P4);
     assign pc_redirect_target_o = (id_ex_reg_i.ctrl.wb_mux_sel == WB_SEL_PC_P4 && id_ex_reg_i.ctrl.alu_op == ALU_OP_ADD)
@@ -311,6 +354,7 @@ module execute_stage
                 ex_mem_reg_q.alu_overflow <= alu_overflow_flag;  // AI_TAG: NEW - Latch overflow flag
                 ex_mem_reg_q.exception  <= exception_detected;   // AI_TAG: NEW - Latch exception info
                 ex_mem_reg_q.ctrl       <= id_ex_reg_i.ctrl;
+                ex_mem_reg_q.dpu_result <= dpu_rsp_i.data; // Latch DPU result
             end
         end
     end

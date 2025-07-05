@@ -81,7 +81,15 @@ module execute_stage
     logic  mult_done;
     word_t div_result;         // AI_TAG: NEW - Division result
     logic  div_done;           // AI_TAG: NEW - Division done flag
-    word_t final_result; // AI_TAG: UPDATE - Muxed result from ALU, Multiplier, or Divider
+    word_t final_result; // AI_TAG: UPDATE - Muxed result from ALU, Multiplier, Divider, or DPU
+
+    // AI_TAG: NEW_WIRE - DPU related signals
+    word_t fpu_result;
+    logic  fpu_done;
+    word_t vpu_result;
+    logic  vpu_done;
+    word_t mliu_result;
+    logic  mliu_done;
 
     // AI_TAG: INTERNAL_WIRE - Exception detection signals
     logic illegal_instruction;
@@ -151,15 +159,64 @@ module execute_stage
         .done_o       ( div_done                  )
     );
 
+    // AI_TAG: MODULE_INSTANCE - FPU Instantiation
+    if (ENABLE_FPU) begin : gen_fpu
+        fpu_unit u_fpu (
+            .clk_i        ( clk_i                     ),
+            .rst_ni       ( rst_ni                    ),
+            .start_i      ( id_ex_reg_i.ctrl.dpu_en && id_ex_reg_i.ctrl.dpu_unit_sel == 2'b00 ),
+            .operand_a_i  ( id_ex_reg_i.fpu_operand_a ),
+            .operand_b_i  ( id_ex_reg_i.fpu_operand_b ),
+            .op_type_i    ( id_ex_reg_i.ctrl.dpu_op_sel ),
+            .result_o     ( fpu_result                ),
+            .done_o       ( fpu_done                  )
+        );
+    end
+
+    // AI_TAG: MODULE_INSTANCE - VPU Instantiation
+    if (ENABLE_VPU) begin : gen_vpu
+        vpu_unit u_vpu (
+            .clk_i        ( clk_i                     ),
+            .rst_ni       ( rst_ni                    ),
+            .start_i      ( id_ex_reg_i.ctrl.dpu_en && id_ex_reg_i.ctrl.dpu_unit_sel == 2'b01 ),
+            .operand_a_i  ( id_ex_reg_i.vpu_operand_a ),
+            .operand_b_i  ( id_ex_reg_i.vpu_operand_b ),
+            .op_type_i    ( id_ex_reg_i.ctrl.dpu_op_sel ),
+            .result_o     ( vpu_result                ),
+            .done_o       ( vpu_done                  )
+        );
+    end
+
+    // AI_TAG: MODULE_INSTANCE - MLIU Instantiation
+    if (ENABLE_ML_INFERENCE) begin : gen_mliu
+        ml_inference_unit u_mliu (
+            .clk_i        ( clk_i                     ),
+            .rst_ni       ( rst_ni                    ),
+            .start_i      ( id_ex_reg_i.ctrl.dpu_en && id_ex_reg_i.ctrl.dpu_unit_sel == 2'b10 ),
+            .operand_a_i  ( id_ex_reg_i.mliu_operand_a ),
+            .operand_b_i  ( id_ex_reg_i.mliu_operand_b ),
+            .op_type_i    ( id_ex_reg_i.ctrl.dpu_op_sel ),
+            .result_o     ( mliu_result               ),
+            .done_o       ( mliu_done                 )
+        );
+    end
+
     // AI_TAG: INTERNAL_LOGIC - Final Result Mux
     // Selects the result from the active unit.
-    assign final_result = id_ex_reg_i.ctrl.mult_en ? mult_result : 
-                         id_ex_reg_i.ctrl.div_en  ? div_result  : alu_result;
+    assign final_result = id_ex_reg_i.ctrl.mult_en ? mult_result :
+                         id_ex_reg_i.ctrl.div_en  ? div_result  :
+                         (id_ex_reg_i.ctrl.dpu_en && id_ex_reg_i.ctrl.dpu_unit_sel == 2'b00) ? fpu_result :
+                         (id_ex_reg_i.ctrl.dpu_en && id_ex_reg_i.ctrl.dpu_unit_sel == 2'b01) ? vpu_result :
+                         (id_ex_reg_i.ctrl.dpu_en && id_ex_reg_i.ctrl.dpu_unit_sel == 2'b10) ? mliu_result : alu_result;
 
     // AI_TAG: INTERNAL_LOGIC - Stall Request Generation
-    // Stall the pipeline if a multiplication or division is in progress and not yet complete.
+    // Stall the pipeline if a multi-cycle operation (MUL/DIV/DPU) is in progress and not yet complete.
     assign exec_stall_req_o = (id_ex_reg_i.ctrl.mult_en & !mult_done) || 
-                             (id_ex_reg_i.ctrl.div_en  & !div_done);
+                             (id_ex_reg_i.ctrl.div_en  & !div_done)  ||
+                             (id_ex_reg_i.ctrl.dpu_en  && 
+                               ((id_ex_reg_i.ctrl.dpu_unit_sel == 2'b00 && !fpu_done) ||
+                                (id_ex_reg_i.ctrl.dpu_unit_sel == 2'b01 && !vpu_done) ||
+                                (id_ex_reg_i.ctrl.dpu_unit_sel == 2'b10 && !mliu_done)));
 
     // AI_TAG: INTERNAL_LOGIC - Branch Evaluation Logic
     always_comb begin
@@ -266,6 +323,38 @@ module execute_stage
             exception_detected.pc = id_ex_reg_i.pc;
             exception_detected.tval = '0; // EBREAK doesn't have tval
             exception_detected.priority = PRIO_BREAKPOINT;
+        end
+        else if (id_ex_reg_i.ctrl.dpu_en && !ENABLE_DATA_ACCELERATOR) begin
+            exception_detected.valid = 1'b1;
+            exception_detected.exc_type = EXC_TYPE_EXCEPTION;
+            exception_detected.cause = EXC_CAUSE_ILLEGAL_INSTRUCTION;
+            exception_detected.pc = id_ex_reg_i.pc;
+            exception_detected.tval = id_ex_reg_i.immediate; // The instruction that caused the fault
+            exception_detected.priority = PRIO_ILLEGAL;
+        end
+        else if (id_ex_reg_i.ctrl.dpu_en && id_ex_reg_i.ctrl.dpu_unit_sel == 2'b00 && !ENABLE_FPU) begin
+            exception_detected.valid = 1'b1;
+            exception_detected.exc_type = EXC_TYPE_EXCEPTION;
+            exception_detected.cause = EXC_CAUSE_ILLEGAL_INSTRUCTION;
+            exception_detected.pc = id_ex_reg_i.pc;
+            exception_detected.tval = id_ex_reg_i.immediate; // The instruction that caused the fault
+            exception_detected.priority = PRIO_ILLEGAL;
+        end
+        else if (id_ex_reg_i.ctrl.dpu_en && id_ex_reg_i.ctrl.dpu_unit_sel == 2'b01 && !ENABLE_VPU) begin
+            exception_detected.valid = 1'b1;
+            exception_detected.exc_type = EXC_TYPE_EXCEPTION;
+            exception_detected.cause = EXC_CAUSE_ILLEGAL_INSTRUCTION;
+            exception_detected.pc = id_ex_reg_i.pc;
+            exception_detected.tval = id_ex_reg_i.immediate; // The instruction that caused the fault
+            exception_detected.priority = PRIO_ILLEGAL;
+        end
+        else if (id_ex_reg_i.ctrl.dpu_en && id_ex_reg_i.ctrl.dpu_unit_sel == 2'b10 && !ENABLE_ML_INFERENCE) begin
+            exception_detected.valid = 1'b1;
+            exception_detected.exc_type = EXC_TYPE_EXCEPTION;
+            exception_detected.cause = EXC_CAUSE_ILLEGAL_INSTRUCTION;
+            exception_detected.pc = id_ex_reg_i.pc;
+            exception_detected.tval = id_ex_reg_i.immediate; // The instruction that caused the fault
+            exception_detected.priority = PRIO_ILLEGAL;
         end
         else if (illegal_instruction) begin
             exception_detected.valid = 1'b1;

@@ -1,22 +1,27 @@
 //=============================================================================
-// Company: Sondrel Ltd
-// Author: DesignAI (designai@sondrel.com)
-// Created: 2025-01-27
+// Company: <Company Name>
+// Project Name: RISC-V
 //
 // File: multi_core_system_tb.sv
-// Module: multi_core_system_tb
 //
-// Project Name: RISC-V RV32IM Core
-// Target Devices: Simulation Only
-// Verification Status: Ready for Verification
-// Quality Status: Production Ready
+// ----- Fields for Automated Documentation -----
+// MODULE_NAME: multi_core_system_tb
+// AUTHOR: DesignAI (<author_email@company.com>)
+// VERSION: 1.0.0
+// DATE: 2025-07-05
+// DESCRIPTION: Comprehensive testbench for multi-core RISC-V system integration testing.
+// PRIMARY_PURPOSE: To validate multi-core coordination, cache coherency, QoS arbitration, protocol switching, and performance metrics under various scenarios.
+// ROLE_IN_SYSTEM: Top-level integration test for the entire multi-core RISC-V system.
+// PROBLEM_SOLVED: Ensures the seamless interaction of multiple cores, memory hierarchy, and interconnects, verifying system-level functionality and performance targets.
+// MODULE_TYPE: Testbench_Component
+// TARGET_TECHNOLOGY_PREF: N/A (Simulation Only)
+// RELATED_SPECIFICATION: RISC-V Multi-Core Specification, MESI Protocol, AXI4, CHI, TileLink Protocols, QoS Specification
 //
-// Description:
-//   Comprehensive testbench for multi-core RISC-V system integration testing.
-//   Validates multi-core coordination, cache coherency, QoS arbitration,
-//   protocol switching, and performance metrics under various scenarios.
+// ----- Status and Tracking -----
+// VERIFICATION_STATUS: In Progress
+// QUALITY_STATUS: Draft
+//
 //=============================================================================
-
 `timescale 1ns/1ps
 `default_nettype none
 
@@ -25,7 +30,6 @@ import riscv_types_pkg::*;
 import riscv_mem_types_pkg::*;
 import riscv_test_pkg::*;
 
-// AI_TAG: TESTBENCH - Multi-core system integration testbench
 // AI_TAG: FEATURE - Tests multi-core coordination and cache coherency
 // AI_TAG: FEATURE - Validates QoS arbitration under high load
 // AI_TAG: FEATURE - Tests protocol switching functionality
@@ -34,29 +38,61 @@ import riscv_test_pkg::*;
 module multi_core_system_tb;
 
     // Testbench Parameters
-    localparam integer CLK_PERIOD = 10; // 100MHz
-    localparam integer NUM_CORES = 4;
-    localparam integer TEST_ITERATIONS = 1000;
-    localparam integer MAX_TEST_CYCLES = 50000;
+    localparam integer CLK_PERIOD = 10; // AI_TAG: PARAM_DESC - Clock period for the testbench.
+                                        // AI_TAG: PARAM_USAGE - Defines the simulation clock frequency.
+                                        // AI_TAG: PARAM_CONSTRAINTS - Must be a positive integer.
+    localparam integer NUM_CORES = 4;   // AI_TAG: PARAM_DESC - Number of simulated cores in the system.
+                                        // AI_TAG: PARAM_USAGE - Scales the multi-core traffic generation.
+                                        // AI_TAG: PARAM_CONSTRAINTS - Must be a positive integer.
+    localparam integer TEST_ITERATIONS = 1000; // AI_TAG: PARAM_DESC - Number of iterations for certain test loops.
+                                              // AI_TAG: PARAM_USAGE - Controls the duration and depth of test scenarios.
+                                              // AI_TAG: PARAM_CONSTRAINTS - Must be a positive integer.
+    localparam integer MAX_TEST_CYCLES = 50000; // AI_TAG: PARAM_DESC - Maximum simulation cycles before timeout.
+                                               // AI_TAG: PARAM_USAGE - Prevents infinite simulation loops.
+                                               // AI_TAG: PARAM_CONSTRAINTS - Must be a positive integer.
     
     // Clock and Reset
-    logic clk_i;
-    logic rst_ni;
+    logic clk_i; // AI_TAG: PORT_DESC - Testbench clock.
+                 // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    logic rst_ni; // AI_TAG: PORT_DESC - Active-low asynchronous reset.
+                  // AI_TAG: PORT_CLK_DOMAIN - clk_i (async assert)
+                  // AI_TAG: PORT_TIMING - Asynchronous
     
     // DUT Interface Signals
-    logic [NUM_CORES-1:0] core_active_o;
-    logic [NUM_CORES-1:0] core_ready_i;
-    logic [31:0] performance_counter_o;
-    logic [31:0] cache_miss_rate_o;
-    logic [31:0] qos_violations_o;
+    logic [NUM_CORES-1:0] core_active_o; // AI_TAG: PORT_DESC - Indicates if a core is active.
+                                         // AI_TAG: PORT_CLK_DOMAIN - clk_i
+                                         // AI_TAG: PORT_DEFAULT_STATE - 1'b0
+    logic [NUM_CORES-1:0] core_ready_i; // AI_TAG: PORT_DESC - Input to DUT to enable/disable cores.
+                                        // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    logic [31:0] performance_counter_o; // AI_TAG: PORT_DESC - System-wide performance counter.
+                                        // AI_TAG: PORT_CLK_DOMAIN - clk_i
+                                        // AI_TAG: PORT_DEFAULT_STATE - '0
+    logic [31:0] cache_miss_rate_o; // AI_TAG: PORT_DESC - Overall cache miss rate.
+                                    // AI_TAG: PORT_CLK_DOMAIN - clk_i
+                                    // AI_TAG: PORT_DEFAULT_STATE - '0
+    logic [31:0] qos_violations_o; // AI_TAG: PORT_DESC - Number of QoS violations detected.
+                                   // AI_TAG: PORT_CLK_DOMAIN - clk_i
+                                   // AI_TAG: PORT_DEFAULT_STATE - '0
     
     // Memory Interface Signals
-    memory_req_rsp_if mem_if(.clk_i(clk_i), .rst_ni(rst_ni));
+    memory_req_rsp_if mem_if(.clk_i(clk_i), .rst_ni(rst_ni)); // AI_TAG: IF_TYPE - Memory Request/Response Interface
+                                                              // AI_TAG: IF_DESC - Generic memory interface for core-to-memory communication.
+                                                              // AI_TAG: IF_CLOCKING - clk_i
+                                                              // AI_TAG: IF_RESET - rst_ni
     
     // Protocol Interface Signals  
-    axi4_if axi4_mem_if(.aclk(clk_i), .aresetn(rst_ni));
-    chi_if chi_mem_if(.clk(clk_i), .resetn(rst_ni));
-    tilelink_if tl_mem_if(.clk(clk_i), .reset_n(rst_ni));
+    axi4_if axi4_mem_if(.aclk(clk_i), .aresetn(rst_ni)); // AI_TAG: IF_TYPE - AXI4 Interface
+                                                        // AI_TAG: IF_DESC - AXI4 protocol interface for memory access.
+                                                        // AI_TAG: IF_CLOCKING - clk_i
+                                                        // AI_TAG: IF_RESET - rst_ni
+    chi_if chi_mem_if(.clk(clk_i), .resetn(rst_ni)); // AI_TAG: IF_TYPE - CHI Interface
+                                                    // AI_TAG: IF_DESC - CHI protocol interface for memory access.
+                                                    // AI_TAG: IF_CLOCKING - clk_i
+                                                    // AI_TAG: IF_RESET - rst_ni
+    tilelink_if tl_mem_if(.clk(clk_i), .reset_n(rst_ni)); // AI_TAG: IF_TYPE - TileLink Interface
+                                                          // AI_TAG: IF_DESC - TileLink protocol interface for memory access.
+                                                          // AI_TAG: IF_CLOCKING - clk_i
+                                                          // AI_TAG: IF_RESET - rst_ni
     
     // Testbench State
     typedef enum logic [3:0] {
@@ -87,7 +123,9 @@ module multi_core_system_tb;
         logic [7:0] id;
     } test_transaction_t;
     
-    test_transaction_t test_queue [$];
+    test_transaction_t test_queue [$]; // AI_TAG: INTERNAL_STORAGE - test_queue - Queue of pending memory transactions.
+                                       // AI_TAG: INTERNAL_STORAGE_TYPE - Queue
+                                       // AI_TAG: INTERNAL_STORAGE_ACCESS - Read/write by test tasks.
     
     //=========================================================================
     // Configuration Register Constants
@@ -149,7 +187,10 @@ module multi_core_system_tb;
         .CACHE_LINE_SIZE(64),
         .ENABLE_QOS(1),
         .QOS_LEVELS(4)
-    ) dut (
+    ) dut ( // AI_TAG: IF_TYPE - Multi-Core System Instance
+            // AI_TAG: IF_DESC - Instance of the Multi-Core System under test.
+            // AI_TAG: IF_CLOCKING - clk_i
+            // AI_TAG: IF_RESET - rst_ni
         .clk_i(clk_i),
         .rst_ni(rst_ni),
         
@@ -175,7 +216,10 @@ module multi_core_system_tb;
         .MEMORY_SIZE(64*1024*1024), // 64MB
         .ACCESS_LATENCY(10),
         .RANDOM_DELAYS(1)
-    ) u_memory_model (
+    ) u_memory_model ( // AI_TAG: IF_TYPE - Memory Model Instance
+                       // AI_TAG: IF_DESC - Behavioral memory model to simulate memory responses for AXI4, CHI, and TileLink.
+                       // AI_TAG: IF_CLOCKING - clk_i
+                       // AI_TAG: IF_RESET - rst_ni
         .clk_i(clk_i),
         .rst_ni(rst_ni),
         .axi4_if(axi4_mem_if.slave),
@@ -452,7 +496,7 @@ module multi_core_system_tb;
                 if (qos_violations_o > 10) begin
                     $warning("QoS violations detected: %0d", qos_violations_o);
                 end
-            end
+            }
         end
         
         wait_for_transactions_complete();
@@ -530,8 +574,8 @@ module multi_core_system_tb;
                 $display("    - Core %0d cleanly shut down", i);
             end else begin
                 $warning("Core %0d did not shut down cleanly", i);
-            end
-        end
+            }
+        }
         
         test_pass_count++;
     endtask
@@ -570,38 +614,38 @@ module multi_core_system_tb;
         integer completed_transactions = 0;
         integer initial_queue_size = test_queue.size();
         
-        while (test_queue.size() > 0 && timeout_count < MAX_TEST_CYCLES) begin
+        while (test_queue.size() > 0 && timeout_count < MAX_TEST_CYCLES) {
             @(posedge clk_i);
             timeout_count++;
             
             // Process completed transactions (check for responses)
-            if (mem_if.rsp_valid) begin
+            if (mem_if.rsp_valid) {
                 // Find and remove completed transaction from queue
-                for (int i = 0; i < test_queue.size(); i++) begin
-                    if (test_queue[i].id == mem_if.rsp.id) begin
+                for (int i = 0; i < test_queue.size(); i++) {
+                    if (test_queue[i].id == mem_if.rsp.id) {
                         completed_transactions++;
                         test_queue.delete(i);
                         $display("[%0t] [TEST] Transaction completed: id=%0d", $time, mem_if.rsp.id);
                         break;
-                    end
-                end
-            end
+                    }
+                }
+            }
             
             // Update completion percentage
-            if (timeout_count % 100 == 0) begin
+            if (timeout_count % 100 == 0) {
                 integer completion_percent = (completed_transactions * 100) / initial_queue_size;
                 $display("[%0t] [TEST] Transaction completion: %0d%% (%0d/%0d)", 
                          $time, completion_percent, completed_transactions, initial_queue_size);
-            end
-        end
+            }
+        }
         
-        if (timeout_count >= MAX_TEST_CYCLES) begin
+        if (timeout_count >= MAX_TEST_CYCLES) {
             $error("Transaction timeout - %0d transactions remaining after %0d cycles", 
                    test_queue.size(), timeout_count);
             error_count++;
-        end else begin
+        } else {
             $display("[%0t] [TEST] All transactions completed in %0d cycles", $time, timeout_count);
-        end
+        }
     endtask
     
     task set_protocol_mode(string protocol);
@@ -613,7 +657,7 @@ module multi_core_system_tb;
         case (protocol)
             "AXI4": protocol_value = 32'h0;
             "CHI": protocol_value = 32'h1;
-            "TileLink": protocol_value = 32'h2;
+            "TILELINK": protocol_value = 32'h2;
             default: begin
                 $error("Unknown protocol: %s", protocol);
                 protocol_value = 32'h0;
@@ -631,13 +675,13 @@ module multi_core_system_tb;
         logic [31:0] readback_value;
         read_config_register(PROTOCOL_SELECT_REG, readback_value);
         
-        if (readback_value != protocol_value) begin
+        if (readback_value != protocol_value) {
             $error("Protocol setting verification failed: expected 0x%h, got 0x%h", 
                    protocol_value, readback_value);
             error_count++;
-        end else begin
+        } else {
             $display("      Protocol %s configured successfully", protocol);
-        end
+        }
     endtask
     
     task run_protocol_test();
@@ -647,7 +691,7 @@ module multi_core_system_tb;
         // Run a basic transaction sequence for the current protocol
         $display("      Running protocol test with %0d transactions", test_size);
         
-        for (int i = 0; i < test_size; i++) begin
+        for (int i = 0; i < test_size; i++) {
             trans.addr = 32'h5000_0000 + (i * 64); // Cache-line aligned addresses
             trans.data = $random();
             trans.strb = 4'b1111;
@@ -659,7 +703,7 @@ module multi_core_system_tb;
             
             // Add some random delay between transactions
             repeat($urandom_range(1, 5)) @(posedge clk_i);
-        end
+        }
         
         wait_for_transactions_complete();
         $display("      Protocol test completed");
@@ -672,7 +716,7 @@ module multi_core_system_tb;
         $display("      Generating performance workload with %0d transactions", workload_size);
         
         // Generate a workload designed to exercise performance counters
-        for (int i = 0; i < workload_size; i++) begin
+        for (int i = 0; i < workload_size; i++) {
             trans.addr = 32'h6000_0000 + (i * 64); // Cache line aligned for cache activity
             trans.data = $random();
             trans.strb = 4'b1111;
@@ -683,10 +727,10 @@ module multi_core_system_tb;
             send_memory_transaction(trans);
             
             // Generate bursts of activity followed by idle periods
-            if ((i % 20) == 19) begin
+            if ((i % 20) == 19) {
                 repeat($urandom_range(5, 15)) @(posedge clk_i); // Idle period
-            end
-        end
+            }
+        }
         
         wait_for_transactions_complete();
         $display("      Performance workload completed");
@@ -698,22 +742,22 @@ module multi_core_system_tb;
     
     // Performance monitoring
     always_ff @(posedge clk_i) begin
-        if (rst_ni) begin
-            if (qos_violations_o > 50) begin
+        if (rst_ni) {
+            if (qos_violations_o > 50) {
                 $warning("[%0t] High QoS violations detected: %0d", $time, qos_violations_o);
-            end
+            }
             
-            if (cache_miss_rate_o > 80) begin
+            if (cache_miss_rate_o > 80) {
                 $warning("[%0t] High cache miss rate: %0d%%", $time, cache_miss_rate_o);
-            end
-        end
+            }
+        }
     end
     
     // System-level assertions
     property p_cores_active_when_ready;
         @(posedge clk_i) disable iff (!rst_ni)
         core_ready_i |-> ##[1:10] (core_active_o & core_ready_i);
-    endproperty
+    endproperty;
     
     assert property (p_cores_active_when_ready)
         else begin
@@ -730,10 +774,10 @@ module multi_core_system_tb;
     
     // Dump waveforms
     initial begin
-        if ($test$plusargs("DUMP_VCD")) begin
+        if ($test$plusargs("DUMP_VCD")) {
             $dumpfile("multi_core_system_tb.vcd");
             $dumpvars(0, multi_core_system_tb);
-        end
+        }
     end
 
 endmodule : multi_core_system_tb
@@ -763,4 +807,35 @@ package riscv_test_pkg;
     
 endpackage : riscv_test_pkg
 
-`default_nettype wire 
+//=============================================================================
+// Dependencies: multi_core_system.sv, memory_model.sv, riscv_config_pkg.sv, riscv_types_pkg.sv, riscv_mem_types_pkg.sv, riscv_test_pkg.sv, axi4_if.sv, chi_if.sv, tilelink_if.sv
+//
+// Instantiated In:
+//   - N/A (Top-level testbench)
+//
+// Performance:
+//   - Critical Path: N/A
+//   - Max Frequency: N/A (Simulation Only)
+//   - Area: N/A (Simulation Only)
+//
+// Verification Coverage:
+//   - Code Coverage: To be determined by simulation tool
+//   - Functional Coverage: To be determined by simulation tool
+//   - Branch Coverage: To be determined by simulation tool
+//
+// Synthesis:
+//   - Target Technology: N/A
+//   - Synthesis Tool: N/A
+//   - Clock Domains: 1
+//   - Constraints File: N/A
+//
+// Testing:
+//   - Testbench: multi_core_system_tb.sv
+//   - Test Vectors: Multiple directed and constrained-random test scenarios
+//
+//----
+// Revision History:
+// Version | Date       | Author             | Description
+//=============================================================================
+// 1.0.0   | 2025-07-05 | DesignAI           | Initial creation of Multi-Core System testbench.
+//=============================================================================

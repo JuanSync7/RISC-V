@@ -32,7 +32,9 @@ module fetch_stage
     // AI_TAG: PARAMETER - BTB_ENTRIES - Number of entries in the Branch Target Buffer.
     parameter integer BTB_ENTRIES = DEFAULT_BTB_ENTRIES,
     // AI_TAG: PARAMETER - BHT_ENTRIES - Number of entries in the Branch History Table.
-    parameter integer BHT_ENTRIES = DEFAULT_BHT_ENTRIES
+    parameter integer BHT_ENTRIES = DEFAULT_BHT_ENTRIES,
+    // AI_TAG: PARAMETER - RAS_ENTRIES - Number of entries in the Return Address Stack.
+    parameter integer RAS_ENTRIES = DEFAULT_RAS_ENTRIES
 )
 (
     input  logic        clk_i,
@@ -109,6 +111,7 @@ module fetch_stage
     logic        bp_predict_taken;
     addr_t       bp_predict_target;
     logic        bp_btb_hit;
+    addr_t       bp_ras_predict_target;
 
     // AI_TAG: INTERNAL_WIRE - Exception detection signals
     logic instr_addr_misaligned;
@@ -130,7 +133,11 @@ module fetch_stage
         .update_pc_i(bp_update_i.update_pc),
         .actual_taken_i(bp_update_i.actual_taken),
         .actual_target_i(bp_update_i.actual_target),
-        .is_branch_i(bp_update_i.is_branch)
+        .is_branch_i(bp_update_i.is_branch),
+        .is_jal_i(bp_update_i.is_jal),
+        .jal_target_i(bp_update_i.jal_target),
+        .is_jalr_i(bp_update_i.is_jalr),
+        .ras_predict_target_o(bp_ras_predict_target)
     );
 
     // AI_TAG: INTERNAL_LOGIC - Next PC Selection Logic
@@ -141,6 +148,8 @@ module fetch_stage
     always_comb begin
         if (pc_redirect_en_i) begin
             pc_d = pc_redirect_target_i;
+        end else if (bp_update_i.is_jalr) begin
+            pc_d = bp_ras_predict_target;
         end else if (bp_predict_taken && bp_btb_hit) begin
             pc_d = bp_predict_target;
         end else begin
@@ -263,7 +272,7 @@ module fetch_stage
     // --- Module Outputs ---
     assign if_id_reg_o = if_id_reg_q;
     assign pc_f_o      = pc_q;
-    assign bp_prediction_o = {bp_predict_taken, bp_predict_target, bp_btb_hit};
+    assign bp_prediction_o = {bp_predict_taken, bp_predict_target, bp_btb_hit, bp_ras_predict_target};
 
 endmodule : fetch_stage
 

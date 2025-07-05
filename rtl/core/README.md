@@ -12,7 +12,10 @@ This directory contains the core pipeline implementation of the RISC-V RV32IM pr
 | `riscv_core_pkg.sv` | Package containing core-wide definitions and types |
 | `fetch_stage.sv` | Instruction fetch stage |
 | `decode_stage.sv` | Instruction decode stage |
-| `execute_stage.sv` | Execute stage with ALU operations |
+| `execute_stage.sv` | Execute stage with ALU operations and DPU integration |
+| `fpu_unit.sv` | Floating Point Unit (FPU) |
+| `vpu_unit.sv` | Vector Processing Unit (VPU) |
+| `ml_inference_unit.sv` | Machine Learning Inference Unit (MLIU) |
 | `mem_stage.sv` | Memory access stage |
 | `writeback_stage.sv` | Writeback stage for register updates |
 

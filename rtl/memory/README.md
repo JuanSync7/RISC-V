@@ -5,7 +5,7 @@
 **Subdirectories:** 3 (cache, coherency, controllers, wrappers)  
 **Total Files:** 9 SystemVerilog modules  
 **Total Lines:** 3,547 lines of memory system code  
-**Last Updated:** 2025-01-28
+**Last Updated:** 2025-07-05
 
 ---
 
@@ -249,6 +249,6 @@ l2_cache #(
 ---
 
 **Document Version:** 1.0  
-**Last Updated:** 2025-01-28  
+**Last Updated:** 2025-07-05  
 **Maintainer:** RISC-V RTL Team  
 **Status:** Complete

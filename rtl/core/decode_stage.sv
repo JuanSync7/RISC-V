@@ -75,6 +75,9 @@ module decode_stage
         ctrl_d.div_en         = 1'b0; // AI_TAG: UPDATE - Set default for new signal
         ctrl_d.csr_cmd_en     = 1'b0; // AI_TAG: UPDATE - Set default for new signal
         ctrl_d.funct3         = funct3;
+        ctrl_d.dpu_en         = 1'b0;
+        ctrl_d.dpu_unit_sel   = 2'b00;
+        ctrl_d.dpu_op_sel     = 7'b0;
 
         // Only decode if the instruction from the fetch stage is valid
         if (if_id_reg_i.valid) begin
@@ -199,6 +202,34 @@ module decode_stage
                     ctrl_d.reg_write_en = 1'b1; // CSR reads write the old value back to rd
                     ctrl_d.wb_mux_sel   = WB_SEL_CSR;
                 end
+                OPCODE_CUSTOM0: begin
+                    ctrl_d.dpu_en       = 1'b1;
+                    ctrl_d.reg_write_en = 1'b1; // DPU operations write back to rd
+                    ctrl_d.wb_mux_sel   = WB_SEL_DPU;
+                    ctrl_d.alu_src_a_sel = ALU_A_SEL_RS1; // DPU operands come from RS1 and RS2
+                    ctrl_d.alu_src_b_sel = ALU_B_SEL_RS2;
+
+                    case (funct3)
+                        FUNCT3_DPU_FPU: begin
+                            ctrl_d.dpu_unit_sel = 2'b00; // FPU
+                            ctrl_d.dpu_op_sel   = funct7;
+                        end
+                        FUNCT3_DPU_VPU: begin
+                            ctrl_d.dpu_unit_sel = 2'b01; // VPU
+                            ctrl_d.dpu_op_sel   = funct7;
+                        end
+                        FUNCT3_DPU_MLIU: begin
+                            ctrl_d.dpu_unit_sel = 2'b10; // MLIU
+                            ctrl_d.dpu_op_sel   = funct7;
+                        end
+                        default: begin
+                            // Invalid DPU funct3, treat as illegal instruction
+                            ctrl_d.dpu_en       = 1'b0;
+                            ctrl_d.reg_write_en = 1'b0;
+                            ctrl_d.wb_mux_sel   = WB_SEL_ALU; // Default to ALU to avoid unexpected behavior
+                        end
+                    endcase
+                end
                 default:;
             endcase
         end
@@ -240,6 +271,13 @@ module decode_stage
                 // AI_TAG: CRITICAL_UPDATE - Latch source register addresses for the hazard unit.
                 id_ex_reg_q.rs1_addr   <= rs1_addr;
                 id_ex_reg_q.rs2_addr   <= rs2_addr;
+                // AI_TAG: NEW_UPDATE - Latch DPU operands
+                id_ex_reg_q.fpu_operand_a  <= rs1_data_i;
+                id_ex_reg_q.fpu_operand_b  <= rs2_data_i;
+                id_ex_reg_q.vpu_operand_a  <= rs1_data_i;
+                id_ex_reg_q.vpu_operand_b  <= rs2_data_i;
+                id_ex_reg_q.mliu_operand_a <= rs1_data_i;
+                id_ex_reg_q.mliu_operand_b <= rs2_data_i;
             end
         end
     end

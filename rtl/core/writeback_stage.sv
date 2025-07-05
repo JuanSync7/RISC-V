@@ -75,7 +75,7 @@ module writeback_stage
     property p_valid_wb_sel_on_write;
         @(posedge clk_i)
         disable iff(!rst_ni)
-        (mem_wb_reg_i.reg_write_en) |-> (mem_wb_reg_i.wb_mux_sel inside {WB_SEL_ALU, WB_SEL_MEM, WB_SEL_PC_P4, WB_SEL_CSR});
+        (mem_wb_reg_i.reg_write_en) |-> (mem_wb_reg_i.wb_mux_sel inside {WB_SEL_ALU, WB_SEL_MEM, WB_SEL_PC_P4, WB_SEL_CSR, WB_SEL_DPU});
     endproperty
 
     a_valid_wb_sel_on_write: assert property (p_valid_wb_sel_on_write) else

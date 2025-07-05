@@ -39,29 +39,9 @@ module mem_stage
     // AI_TAG: PORT_DESC - ex_mem_reg_i - The EX/MEM pipeline register data.
     input  ex_mem_reg_t ex_mem_reg_i,
 
-    // --- Memory Wrapper Data Interface ---
-    // AI_TAG: PORT_DESC - data_req_valid_o - Data request valid.
-    output logic        data_req_valid_o,
-    // AI_TAG: PORT_DESC - data_req_ready_i - Data request ready.
-    input  logic        data_req_ready_i,
-    // AI_TAG: PORT_DESC - data_req_addr_o - Data request address.
-    output addr_t       data_req_addr_o,
-    // AI_TAG: PORT_DESC - data_req_write_o - Data request write flag.
-    output logic        data_req_write_o,
-    // AI_TAG: PORT_DESC - data_req_size_o - Data request size.
-    output logic [2:0]  data_req_size_o,
-    // AI_TAG: PORT_DESC - data_req_data_o - Data request write data.
-    output word_t       data_req_data_o,
-    // AI_TAG: PORT_DESC - data_req_strb_o - Data request write strobes.
-    output logic [3:0]  data_req_strb_o,
-    // AI_TAG: PORT_DESC - data_rsp_valid_i - Data response valid.
-    input  logic        data_rsp_valid_i,
-    // AI_TAG: PORT_DESC - data_rsp_ready_o - Data response ready.
-    output logic        data_rsp_ready_o,
-    // AI_TAG: PORT_DESC - data_rsp_data_i - Data response data.
-    input  word_t       data_rsp_data_i,
-    // AI_TAG: PORT_DESC - data_rsp_error_i - Data response error.
-    input  logic        data_rsp_error_i,
+    // --- Data Cache Interface ---
+    // AI_TAG: PORT_DESC - dcache_if - Interface to the Data Cache.
+    memory_req_rsp_if.master dcache_if,
 
     // --- Output to Write-back Stage ---
     // AI_TAG: PORT_DESC - mem_wb_reg_o - The MEM/WB pipeline register data.
@@ -135,27 +115,27 @@ module mem_stage
     // AI_TAG: INTERNAL_LOGIC - Write-back Data Selection Mux
     // Description: Selects the data source for the write-back stage. For LOADs, it's the
     // aligned data from memory. For all other instructions, it's the ALU result.
-    assign wb_data_d = (ex_mem_reg_i.ctrl.mem_read_en) ? read_data_aligned : ex_mem_reg_i.alu_result;
+    assign wb_data_d = (ex_mem_reg_i.ctrl.mem_read_en) ? dcache_if.rsp.data : ex_mem_reg_i.alu_result;
 
-    // AI_TAG: INTERNAL_LOGIC - Memory Wrapper Interface Control
-    // Description: Drives the memory wrapper signals based on control signals from the EX/MEM register.
-    // The Hazard Unit is expected to stall this stage until the memory handshake completes.
-    assign data_req_valid_o = ex_mem_reg_i.ctrl.mem_read_en || ex_mem_reg_i.ctrl.mem_write_en;
-    assign data_req_addr_o  = ex_mem_reg_i.alu_result;
-    assign data_req_write_o = ex_mem_reg_i.ctrl.mem_write_en;
-    assign data_req_data_o  = write_data_aligned;
-    assign data_req_strb_o  = write_strobes;
-    assign data_rsp_ready_o = 1'b1; // Always ready to accept response
+    // AI_TAG: INTERNAL_LOGIC - Data Cache Interface Control
+    // Description: Drives the data cache signals based on control signals from the EX/MEM register.
+    // The Hazard Unit is expected to stall this stage until the cache handshake completes.
+    assign dcache_if.req_valid = ex_mem_reg_i.ctrl.mem_read_en || ex_mem_reg_i.ctrl.mem_write_en;
+    assign dcache_if.req.addr  = ex_mem_reg_i.alu_result;
+    assign dcache_if.req.write = ex_mem_reg_i.ctrl.mem_write_en;
+    assign dcache_if.req.data  = write_data_aligned;
+    assign dcache_if.req.strb  = write_strobes;
+    assign dcache_if.rsp_ready = 1'b1; // Always ready to accept response
     
     // Map funct3 to AXI size for memory wrapper
     always_comb begin
         case (ex_mem_reg_i.ctrl.funct3)
-            3'b000: data_req_size_o = 3'b000; // SB/LB - 1 byte
-            3'b001: data_req_size_o = 3'b001; // SH/LH - 2 bytes
-            3'b010: data_req_size_o = 3'b010; // SW/LW - 4 bytes
-            3'b100: data_req_size_o = 3'b000; // LBU - 1 byte
-            3'b101: data_req_size_o = 3'b001; // LHU - 2 bytes
-            default: data_req_size_o = 3'b010; // Default to word
+            3'b000: dcache_if.req.size = 3'b000; // SB/LB - 1 byte
+            3'b001: dcache_if.req.size = 3'b001; // SH/LH - 2 bytes
+            3'b010: dcache_if.req.size = 3'b010; // SW/LW - 4 bytes
+            3'b100: dcache_if.req.size = 3'b000; // LBU - 1 byte
+            3'b101: dcache_if.req.size = 3'b001; // LHU - 2 bytes
+            default: dcache_if.req.size = 3'b010; // Default to word
         endcase
     end
 
@@ -196,11 +176,11 @@ module mem_stage
         store_access_fault = 1'b0;
         
         // Check for memory response errors
-        if (ex_mem_reg_i.ctrl.mem_read_en && data_rsp_valid_i && data_rsp_error_i) begin
+        if (ex_mem_reg_i.ctrl.mem_read_en && dcache_if.rsp_valid && dcache_if.rsp.error) begin
             load_access_fault = 1'b1;
         end
         
-        if (ex_mem_reg_i.ctrl.mem_write_en && data_rsp_valid_i && data_rsp_error_i) begin
+        if (ex_mem_reg_i.ctrl.mem_write_en && dcache_if.rsp_valid && dcache_if.rsp.error) begin
             store_access_fault = 1'b1;
         end
     end

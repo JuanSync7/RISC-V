@@ -46,7 +46,28 @@ package riscv_config_pkg;
     parameter logic [6:0] OPCODE_OP     = 7'b0110011;
     parameter logic [6:0] OPCODE_FENCE  = 7'b0001111;
     parameter logic [6:0] OPCODE_SYSTEM = 7'b1110011;
-    
+
+    // DPU Custom Opcodes
+    parameter logic [6:0] OPCODE_CUSTOM0 = 7'b0001011; // Example custom opcode
+
+    // DPU Funct3 fields for unit selection
+    parameter logic [2:0] FUNCT3_DPU_FPU = 3'b000;
+    parameter logic [2:0] FUNCT3_DPU_VPU = 3'b001;
+    parameter logic [2:0] FUNCT3_DPU_MLIU = 3'b010;
+
+    // DPU Funct7 fields for operation selection (examples)
+    // FPU Operations (used with FUNCT3_DPU_FPU)
+    parameter logic [6:0] FUNCT7_FPU_ADD = 7'b0000000;
+    parameter logic [6:0] FUNCT7_FPU_SUB = 7'b0000001;
+    parameter logic [6:0] FUNCT7_FPU_MUL = 7'b0000010;
+
+    // VPU Operations (used with FUNCT3_DPU_VPU)
+    parameter logic [6:0] FUNCT7_VPU_ADD = 7'b0000000;
+    parameter logic [6:0] FUNCT7_VPU_SUB = 7'b0000001;
+
+    // MLIU Operations (used with FUNCT3_DPU_MLIU)
+    parameter logic [6:0] FUNCT7_MLIU_INFER = 7'b0000000;
+
     // Function codes
     parameter logic [6:0] FUNCT7_M_EXT = 7'b0000001;
     
@@ -122,6 +143,7 @@ package riscv_config_pkg;
     parameter integer DEFAULT_SELECTOR_ENTRIES = 512;
     parameter integer DEFAULT_GLOBAL_HISTORY_WIDTH = 8;
     parameter integer DEFAULT_RSB_ENTRIES = 16;
+    parameter integer DEFAULT_RAS_ENTRIES = 8;
     
     // Branch predictor counter widths
     parameter integer BTB_COUNTER_WIDTH = 2;
@@ -379,6 +401,14 @@ package riscv_config_pkg;
     parameter logic   ENABLE_DIRECTED_TESTS = 1'b1;         // Enable directed tests
     parameter logic   ENABLE_RANDOM_TESTS = 1'b1;           // Enable random tests
     
+    //---------------------------------------------------------------------------
+    // 21. Accelerator Configuration
+    //---------------------------------------------------------------------------
+    parameter logic ENABLE_DATA_ACCELERATOR = 1'b0; // Enable/Disable Data Processing Unit (DPU)
+    parameter logic ENABLE_FPU = 1'b0;              // Enable/Disable Floating Point Unit
+    parameter logic ENABLE_VPU = 1'b0;              // Enable/Disable Vector Processing Unit
+    parameter logic ENABLE_ML_INFERENCE = 1'b0;     // Enable/Disable Machine Learning Inference Unit
+
     //---------------------------------------------------------------------------
     // 19. Enhanced Memory System Configuration  
     //---------------------------------------------------------------------------

@@ -47,6 +47,11 @@ package riscv_core_pkg;
     // Verification types
     import riscv_verif_types_pkg::*;
 
+    // Data Processing Unit types
+    import riscv_dpu_types_pkg::*;
+    import riscv_fpu_types_pkg::*;
+    import riscv_vpu_types_pkg::*;
+
     //---------------------------------------------------------------------------
     // 1. Core Configuration Presets
     //---------------------------------------------------------------------------

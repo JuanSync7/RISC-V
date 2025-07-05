@@ -277,5 +277,5 @@ typedef struct packed {
 ---
 
 **Document Version:** 1.0  
-**Last Updated:** June 2025  
+**Last Updated:** 2025-07-05  
 **Pipeline Version:** RV32IM 5-stage 

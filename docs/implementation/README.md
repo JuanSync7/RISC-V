@@ -15,3 +15,12 @@ This directory contains key technical documents that provide a detailed view of 
 
 -   **[MEMORY_WRAPPER_IMPLEMENTATION.md](./MEMORY_WRAPPER_IMPLEMENTATION.md)**  
     A focused document explaining the design and implementation of the `memory_wrapper.sv` module, which serves as the primary interface between the core's memory hierarchy and the external protocol adapters.
+
+-   **[FPU_IMPLEMENTATION.md](./FPU_IMPLEMENTATION.md)**
+    Details the implementation of the Floating Point Unit, including supported operations and IEEE 754 compliance.
+
+-   **[VPU_IMPLEMENTATION.md](./VPU_IMPLEMENTATION.md)**
+    Describes the Vector Processing Unit implementation, covering vector operations and memory access.
+
+-   **[ML_INFERENCE_IMPLEMENTATION.md](./ML_INFERENCE_IMPLEMENTATION.md)**
+    Outlines the conceptual implementation of the Machine Learning Inference Unit, focusing on its role in accelerating ML tasks.

@@ -28,7 +28,14 @@ module core_subsystem #(
     parameter integer CORE_ID = 0,
     parameter string EXECUTION_MODE = DEFAULT_EXECUTION_MODE,
     parameter string BRANCH_PREDICTOR_TYPE = DEFAULT_BRANCH_PREDICTOR_TYPE,
-    parameter int unsigned L1_CACHE_SIZE = DEFAULT_L1_CACHE_SIZE
+    parameter int unsigned L1_CACHE_SIZE = DEFAULT_L1_CACHE_SIZE,
+    parameter logic ENABLE_FPU = ENABLE_FPU,
+    parameter logic ENABLE_VPU = ENABLE_VPU,
+    parameter logic ENABLE_ML_INFERENCE = ENABLE_ML_INFERENCE
+) (
+    parameter logic ENABLE_FPU = ENABLE_FPU,
+    parameter logic ENABLE_VPU = ENABLE_VPU,
+    parameter logic ENABLE_ML_INFERENCE = ENABLE_ML_INFERENCE
 ) (
     // Clock and Reset
     input  logic        clk_i,
@@ -66,7 +73,13 @@ module core_subsystem #(
     output logic                pipeline_stall_o,
     output logic                branch_mispredicted_o,
     output logic                instruction_retired_o,
-    output logic                core_active_o
+    output logic                core_active_o,
+
+    // Data Processing Unit Interface (Optional)
+    output dpu_req_t            dpu_req_o,
+    input  dpu_rsp_t            dpu_rsp_i,
+    output logic                dpu_busy_o,
+    output logic                dpu_error_o
 );
 
     // AI_TAG: INTERNAL_BLOCK - Pipeline register interfaces between stages
@@ -389,7 +402,12 @@ module core_subsystem #(
         .rs2_data_i(reg_file_rs2_data),
         
         // Pipeline output to ID/EX - structured interface
-        .id_ex_reg_o(id_ex_reg)
+        .id_ex_reg_o(id_ex_reg),
+
+        // Outputs for Branch Predictor Update
+        .is_jal_o(bp_update.is_jal),
+        .jal_target_o(bp_update.jal_target),
+        .is_jalr_o(bp_update.is_jalr)
     );
 
     // AI_TAG: INTERNAL_BLOCK - Execute stage with ALU and branch resolution
@@ -427,17 +445,8 @@ module core_subsystem #(
         // Pipeline input from EX/MEM - structured interface
         .ex_mem_reg_i(ex_mem_reg),
         
-        // Data cache interface - connect to data cache interface
-        .data_req_valid_o(dcache_if.req_valid),
-        .data_req_ready_i(dcache_if.req_ready),
-        .data_req_addr_o(dcache_if.req.addr),
-        .data_req_write_o(dcache_if.req.write),
-        .data_req_strb_o(dcache_if.req.strb),
-        .data_req_data_o(dcache_if.req.data),
-        .data_rsp_valid_i(dcache_if.rsp_valid),
-        .data_rsp_ready_o(dcache_if.rsp_ready),
-        .data_rsp_data_i(dcache_if.rsp.data),
-        .data_rsp_error_i(dcache_if.rsp.error),
+        // Data cache interface
+        .dcache_if(dcache_if),
         
         // Pipeline output to MEM/WB - structured interface  
         .mem_wb_reg_o(mem_wb_reg),
@@ -550,20 +559,25 @@ module core_subsystem #(
         if (BRANCH_PREDICTOR_TYPE != "STATIC") begin : gen_branch_predictor
             // AI_TAG: INTERNAL_BLOCK - Dynamic branch predictor
             branch_predictor #(
-                .PREDICTOR_TYPE(BRANCH_PREDICTOR_TYPE),
                 .BTB_ENTRIES(DEFAULT_BTB_ENTRIES),
-                .BHT_ENTRIES(DEFAULT_BHT_ENTRIES)
+                .BHT_ENTRIES(DEFAULT_BHT_ENTRIES),
+                .RAS_ENTRIES(DEFAULT_RAS_ENTRIES)
             ) u_branch_predictor (
                 .clk_i(clk_i),
                 .rst_ni(rst_ni),
-                .req_valid_i(bp_req_valid),
-                .req_pc_i(bp_req_pc),
-                .rsp_valid_o(bp_rsp_valid),
-                .rsp_data_o(bp_rsp_data),
-                .update_valid_i(ex_mem_valid),
-                .update_pc_i(ex_mem_pc),
-                .update_taken_i(ex_mem_branch_taken),
-                .update_target_i(ex_mem_branch_target)
+                .pc_i(pc_f),
+                .predict_taken_o(bp_prediction.taken),
+                .predict_target_o(bp_prediction.target),
+                .btb_hit_o(bp_prediction.btb_hit),
+                .ras_predict_target_o(bp_prediction.ras_target),
+                .update_i(bp_update.update_valid),
+                .update_pc_i(bp_update.update_pc),
+                .actual_taken_i(bp_update.actual_taken),
+                .actual_target_i(bp_update.actual_target),
+                .is_branch_i(bp_update.is_branch),
+                .is_jal_i(bp_update.is_jal),
+                .jal_target_i(bp_update.jal_target),
+                .is_jalr_i(bp_update.is_jalr)
             );
         end else begin : gen_static_prediction
             // Static prediction - always not taken
@@ -583,6 +597,9 @@ module core_subsystem #(
         bp_update.actual_taken = ex_mem_branch_taken;
         bp_update.actual_target = ex_mem_branch_target;
         bp_update.is_branch = ex_mem_reg.ctrl.is_branch;
+        bp_update.is_jal = id_ex_reg.ctrl.is_jal;
+        bp_update.jal_target = id_ex_reg.jal_target;
+        bp_update.is_jalr = id_ex_reg.ctrl.is_jalr;
     end
 
     //------------------------------------------------------------------------- 
@@ -630,6 +647,35 @@ module core_subsystem #(
     PipelineIntegrity: assert property (@(posedge clk_i) disable iff (!rst_ni) 
         (!(pipeline_stall && pipeline_flush)))
     else $warning("Pipeline stall and flush should not occur simultaneously");
+
+    //------------------------------------------------------------------------- 
+    // Data Processing Unit (DPU) Instance (Optional)
+    //------------------------------------------------------------------------- 
+    generate
+        if (ENABLE_DATA_ACCELERATOR) begin : gen_data_accelerator
+            // AI_TAG: INTERNAL_BLOCK - Data Processing Unit
+            dpu_subsystem #(
+                .DPU_ID(CORE_ID),
+                .ENABLE_FPU(ENABLE_FPU),
+                .ENABLE_VPU(ENABLE_VPU),
+                .ENABLE_ML_INFERENCE(ENABLE_ML_INFERENCE)
+            ) u_dpu_subsystem (
+                .clk_i(clk_i),
+                .rst_ni(rst_ni),
+                .dpu_req_i(dpu_req_o),
+                .dpu_req_ready_o(dpu_req_o.ready),
+                .dpu_rsp_o(dpu_rsp_i),
+                .dpu_busy_o(dpu_busy_o),
+                .dpu_error_o(dpu_error_o)
+            );
+        end else begin : gen_no_data_accelerator
+            // Tie off DPU interface if not enabled
+            assign dpu_req_o = '0;
+            assign dpu_rsp_i = '0;
+            assign dpu_busy_o = 1'b0;
+            assign dpu_error_o = 1'b0;
+        end
+    endgenerate
 
 endmodule : core_subsystem
 

@@ -5,7 +5,7 @@
 **Files:** 1 SystemVerilog module  
 **Total Lines:** 390 lines of AXI4 implementation  
 **Standard:** ARM AMBA 4.0 AXI4  
-**Last Updated:** 2025-01-28
+**Last Updated:** 2025-07-05
 
 ---
 
@@ -57,7 +57,7 @@ This directory contains the AXI4 protocol adapter that provides a compliant inte
 │  │                 │    │                 │    │                 │
 │  │ • Address Gen   │───▶│ • ID Management │───▶│ • AW Channel    │
 │  │ • Data Buffer   │    │ • OoO Tracking  │    │ • W Channel     │
-│  │ • Response      │◄───│ • QoS Control   │◄───│ • B Channel     │
+│  │ • Response      │◄───│ • QoS Control   │◄───│ • • B Channel     │
 │  │   Handling      │    │ • Burst Control │    │ • AR Channel    │
 │  │                 │    │                 │    │ • R Channel     │
 │  └─────────────────┘    └─────────────────┘    └─────────────────┘
@@ -313,6 +313,6 @@ axi4_adapter #(
 ---
 
 **Document Version:** 1.0  
-**Last Updated:** 2025-01-28  
+**Last Updated:** 2025-07-05  
 **Maintainer:** RISC-V RTL Team  
-**Status:** Complete 
+**Status:** Complete

@@ -12,6 +12,10 @@ This directory contains unit-level testbenches for individual components and mod
 ## Directory Structure
 
 ### Core Components (`core/`)
+- `decode_stage_tb.sv` - Decode stage testbench ([Test Cases](decode_stage_tb_testcases.md))
+- `execute_stage_tb.sv` - Execute stage testbench ([Test Cases](execute_stage_tb_testcases.md))
+- `mem_stage_tb.sv` - Memory stage testbench ([Test Cases](mem_stage_tb_testcases.md))
+- `writeback_stage_tb.sv` - Writeback stage testbench ([Test Cases](writeback_stage_tb_testcases.md))
 - `system_integration_validator_tb.sv` - System integration validation testbench
 
 ### Execution Components (`execution/`)
@@ -25,6 +29,9 @@ This directory contains unit-level testbenches for individual components and mod
 - `exception_handler_tb.sv` - Exception handler testbench
 - `mult_unit_tb.sv` - Multiplication unit testbench
 - `reg_file_tb.sv` - Register file testbench
+- `fpu_tb.sv` - Floating Point Unit testbench ([Test Cases](fpu_tb_testcases.md))
+- `vpu_tb.sv` - Vector Processing Unit testbench ([Test Cases](vpu_tb_testcases.md))
+- `mliu_tb.sv` - Machine Learning Inference Unit testbench ([Test Cases](mliu_tb_testcases.md))
 
 ## Testing Categories
 
@@ -107,5 +114,5 @@ make test_all_units
 
 ---
 **Document Version:** 1.0  
-**Last Updated:** 2024-12-19  
+**Last Updated:** 2025-07-05  
 **Status:** Active 

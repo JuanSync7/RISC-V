@@ -4,7 +4,7 @@
 **Purpose:** Dynamic power optimization and management  
 **Files:** 1 SystemVerilog module  
 **Total Lines:** 544 lines of power management code  
-**Last Updated:** 2025-01-28
+**Last Updated:** 2025-07-05
 
 ---
 
@@ -276,6 +276,6 @@ power_management power_mgmt (
 ---
 
 **Document Version:** 1.0  
-**Last Updated:** 2025-01-28  
+**Last Updated:** 2025-07-05  
 **Maintainer:** RISC-V RTL Team  
-**Status:** Complete 
+**Status:** Complete

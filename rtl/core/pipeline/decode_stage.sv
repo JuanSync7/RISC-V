@@ -42,7 +42,12 @@ module decode_stage
     input  word_t       rs2_data_i,
 
     // --- Output to Execute Stage ---
-    output id_ex_reg_t  id_ex_reg_o
+    output id_ex_reg_t  id_ex_reg_o,
+
+    // --- Output to Branch Predictor Update ---
+    output logic        is_jal_o,
+    output addr_t       jal_target_o,
+    output logic        is_jalr_o
 );
 
     // AI_TAG: INTERNAL_WIRE - Instruction field decoding for clarity.
@@ -74,7 +79,15 @@ module decode_stage
         ctrl_d.mult_en        = 1'b0; // AI_TAG: UPDATE - Set default for new signal
         ctrl_d.div_en         = 1'b0; // AI_TAG: UPDATE - Set default for new signal
         ctrl_d.csr_cmd_en     = 1'b0; // AI_TAG: UPDATE - Set default for new signal
+        ctrl_d.dpu_ctrl.is_dpu_op = 1'b0; // Default to not a DPU operation
+        ctrl_d.dpu_ctrl.dpu_unit_id = '0; // Default DPU unit ID
+        ctrl_d.dpu_ctrl.dpu_opcode = '0; // Default DPU opcode
         ctrl_d.funct3         = funct3;
+
+        // Default for new RAS-related outputs
+        is_jal_o     = 1'b0;
+        jal_target_o = '0;
+        is_jalr_o    = 1'b0;
 
         // Only decode if the instruction from the fetch stage is valid
         if (if_id_reg_i.valid) begin
@@ -98,6 +111,8 @@ module decode_stage
                     ctrl_d.alu_src_b_sel = ALU_B_SEL_IMM;
                     ctrl_d.reg_write_en  = 1'b1;
                     ctrl_d.wb_mux_sel    = WB_SEL_PC_P4;
+                    is_jal_o             = 1'b1;
+                    jal_target_o         = if_id_reg_i.pc + immediate_d; // Calculate JAL target
                 end
                 OPCODE_JALR: begin
                     ctrl_d.alu_op        = ALU_OP_ADD;
@@ -105,6 +120,7 @@ module decode_stage
                     ctrl_d.alu_src_b_sel = ALU_B_SEL_IMM;
                     ctrl_d.reg_write_en  = 1'b1;
                     ctrl_d.wb_mux_sel    = WB_SEL_PC_P4;
+                    is_jalr_o            = 1'b1;
                 end
                 OPCODE_BRANCH: begin
                     ctrl_d.alu_op        = ALU_OP_SUB;
@@ -198,6 +214,31 @@ module decode_stage
                     ctrl_d.csr_cmd_en   = 1'b1;
                     ctrl_d.reg_write_en = 1'b1; // CSR reads write the old value back to rd
                     ctrl_d.wb_mux_sel   = WB_SEL_CSR;
+                end
+                OPCODE_CUSTOM0: begin
+                    ctrl_d.is_dpu_op = 1'b1;
+                    ctrl_d.reg_write_en = 1'b1; // DPU operations typically write back a result
+                    ctrl_d.wb_mux_sel = WB_SEL_DPU;
+                    case (funct3)
+                        FUNCT3_DPU_FPU: begin
+                            ctrl_d.dpu_unit_id = 3'd0; // FPU
+                            ctrl_d.dpu_opcode = funct7;
+                        end
+                        FUNCT3_DPU_VPU: begin
+                            ctrl_d.dpu_unit_id = 3'd1; // VPU
+                            ctrl_d.dpu_opcode = funct7;
+                        end
+                        FUNCT3_DPU_MLIU: begin
+                            ctrl_d.dpu_unit_id = 3'd2; // MLIU
+                            ctrl_d.dpu_opcode = funct7;
+                        end
+                        default: begin
+                            // Illegal DPU unit ID
+                            ctrl_d.is_dpu_op = 1'b0;
+                            ctrl_d.reg_write_en = 1'b0;
+                            ctrl_d.wb_mux_sel = WB_SEL_ALU; // Default to NOP
+                        end
+                    endcase
                 end
                 default:;
             endcase

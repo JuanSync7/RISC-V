@@ -4,11 +4,11 @@
 
 ---
 
-## 1. QoS Integration Status - 100% COMPLETE
+## 1. QoS Integration Status - 🔄 DEVELOPMENT IN PROGRESS
 
 This section summarizes the final integration status of the enterprise-grade QoS system.
 
-### 🏆 **Final Implementation Achievements**
+### 🏆 **Current Implementation Achievements**
 
 *   **16 QoS Priority Levels**: From BEST_EFFORT (0) to CRITICAL (15) for granular control.
 *   **10 Transaction Types**: Covering debug, exceptions, instruction/data access, and more.
@@ -18,7 +18,7 @@ This section summarizes the final integration status of the enterprise-grade QoS
 *   **Hardware Monitoring**: Real-time violation tracking and latency measurement.
 *   **Anti-Starvation**: Wait-time aging prevents low-priority request starvation.
 
-### ✅ **Performance Targets - ACHIEVED**
+### 📈 **Performance Targets - IN PROGRESS**
 
 *   **Exception Latency**: < 10 cycles (reduced from 50+ cycles).
 *   **Debug Response**: < 5 cycles (reduced from 25+ cycles).
@@ -26,11 +26,11 @@ This section summarizes the final integration status of the enterprise-grade QoS
 *   **Multi-Core Fairness**: Guaranteed bandwidth allocation per core.
 *   **QoS Violations**: < 1% under normal operating conditions.
 
-### 🚀 **Production Readiness**
+### 🚧 **Development Status**
 
-The RISC-V QoS system is **100% integrated** and ready for:
+The RISC-V QoS system is **currently under development** with:
 
-1.  **Silicon Validation**: All hardware features are implemented and verified.
+1.  **Silicon Validation**: Hardware features are implemented, verification in progress.
 2.  **Software Development**: CSR-based QoS control is ready for driver development.
 3.  **Performance Testing**: Real-time monitoring and violation tracking are operational.
 4.  **Multi-Core Deployment**: A 4-core system with enterprise-grade QoS management is supported.
