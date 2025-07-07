@@ -1,0 +1,92 @@
+# SystemVerilog Package Distinction Rule
+
+**Title:** Guideline for Distinguishing Configurable and Fixed Packages
+**Status:** Final
+**Version:** 1.0
+
+## 1. Overview
+
+To ensure clarity and prevent accidental modification of core design parameters, this rule establishes a strict distinction between two types of SystemVerilog package files:
+
+1.  **Configuration Packages (`*_config_pkg.sv`):** These files are designed specifically for system integrators. They contain `parameter`s that are intended to be modified to configure an IP for a specific use case (e.g., setting bus widths, FIFO depths, enabling/disabling features).
+
+2.  **Core Packages (`*_pkg.sv`):** These files contain the internal, fixed definitions for an IP. This includes non-configurable parameters (constants), type definitions (`typedef`), functions, enums, and other shared resources that are fundamental to the IP's operation and **must not** be modified by the user.
+
+## 2. Rule Details
+
+### 2.1. Directory Structure
+
+-   **Configuration Packages** MUST be placed in a dedicated `config/` directory at the top level of the RTL source (e.g., `rtl/config/`).
+-   **Core Packages** MUST be placed in a `pkg/` directory (or a similar `shared/packages/`) to separate them from user-configurable files (e.g., `rtl/pkg/`).
+
+**Example Structure:**
+```
+rtl/
+├── config/
+│   └── aes_gcm_config_pkg.sv   // User-configurable parameters
+└── pkg/
+    └── aes_gcm_pkg.sv          // Fixed, internal package
+```
+
+### 2.2. File Naming Convention
+
+-   **Configuration Packages** MUST use the suffix `_config_pkg.sv`.
+-   **Core Packages** MUST use the suffix `_pkg.sv`.
+
+### 2.3. Content Guidelines
+
+#### Configuration Packages (`*_config_pkg.sv`)
+
+-   **Primary Content:** Should primarily contain `parameter` declarations.
+-   **Parameter Naming:** All parameters within these files MUST be prefixed with `CONFIG_` as per the `systemverilog-formatting-style.mdc` guideline.
+-   **File Header:** The `DESCRIPTION` or `PRIMARY_PURPOSE` field in the file header must clearly state that the file is for user configuration.
+
+**Example: `aes_gcm_config_pkg.sv`**
+```systemverilog
+// ... header ...
+// DESCRIPTION: Contains user-configurable parameters for the AES-GCM module.
+// ...
+package aes_gcm_config_pkg;
+
+    // Configurable bus width for the AXI interface
+    parameter int CONFIG_AXI_DATA_WIDTH = 128;
+
+    // Configurable depth for the input data FIFO
+    parameter int CONFIG_INPUT_FIFO_DEPTH = 1024;
+
+endpackage
+```
+
+#### Core Packages (`*_pkg.sv`)
+
+-   **Primary Content:** Can contain `function`s, `typedef`s, `enum`s, and `localparam`s.
+-   **Parameter Naming:** If `parameter`s are used for fixed constants, they MUST be prefixed with `CONST_`. It is preferred to use `localparam` where possible for derived or internal constants.
+-   **File Header:** The header should indicate that these are internal, fixed definitions.
+
+**Example: `aes_gcm_pkg.sv`**
+```systemverilog
+// ... header ...
+// DESCRIPTION: Internal package for AES-GCM core with fixed types and functions.
+// ...
+package aes_gcm_pkg;
+
+    // Fixed internal constants
+    localparam int LP_KEY_SCHEDULE_STAGES = 11;
+    parameter int CONST_S_BOX_SIZE = 256;
+
+    // Internal type definitions
+    typedef enum { S_IDLE, S_HASH, S_ENCRYPT } state_e;
+    typedef logic [127:0] state_array_t;
+
+    // Utility function
+    function automatic state_array_t xor_state(input state_array_t a, input state_array_t b);
+        return a ^ b;
+    endfunction
+
+endpackage
+```
+
+## 3. Rationale
+
+This separation provides a clear "API" for integrators, isolating what they *can* and *should* change (`config/`) from the internal implementation details they *must not* change (`pkg/`). This improves usability, reduces integration errors, and makes the IP core more robust and maintainable.
+

@@ -38,7 +38,7 @@ ls -la
 
 ### 3. Check RTL Files
 ```bash
-ls rtl/core/     # Core pipeline stages
+ls rtl/pkg/     # Core pipeline stages
 ls rtl/units/    # Functional units
 ls rtl/control/  # Control logic
 ls rtl/prediction/ # Branch prediction
@@ -55,7 +55,7 @@ Create `sim/scripts/compile.tcl`:
 vlib work
 
 # Compile files in dependency order
-vlog rtl/core/riscv_core_pkg.sv
+vlog rtl/pkg/riscv_core_pkg.sv
 vlog rtl/units/*.sv
 vlog rtl/control/*.sv
 vlog rtl/prediction/*.sv

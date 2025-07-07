@@ -176,7 +176,7 @@ Pipeline integration tests verify stage interactions:
 ## Future Enhancements
 
 ### Phase 1: Performance Improvements
-1. **Dynamic Branch Prediction**: Implement branch predictor
+1. **Dynamic Branch Prediction**: Enhance existing branch predictor with dynamic capabilities (BTB, BHT)
 2. **Pipeline Optimization**: Reduce critical path
 3. **Cache Optimization**: Improve cache performance
 
@@ -187,8 +187,9 @@ Pipeline integration tests verify stage interactions:
 
 ### Phase 3: System Integration
 1. **Memory Management**: MMU and TLB support
-2. **Debug Interface**: Hardware debug support
-3. **Performance Monitoring**: Performance counters
+2. **Instruction Translation Unit (ITU)**: Support for RISC-V Compressed (RVC) instructions
+3. **Debug Interface**: Hardware debug support
+4. **Performance Monitoring**: Performance counters
 
 ## Dependencies
 

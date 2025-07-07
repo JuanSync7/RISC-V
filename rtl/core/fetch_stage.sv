@@ -24,14 +24,28 @@
 
 import riscv_core_pkg::*;
 
+import mmu_pkg::*;
+
 module fetch_stage
 #(
     // AI_TAG: PARAMETER - RESET_VECTOR - The address where the core begins execution after reset.
     parameter addr_t RESET_VECTOR = DEFAULT_RESET_VECTOR,
+    // AI_TAG: PARAMETER - BRANCH_PREDICTOR_TYPE - Type of branch predictor to use.
+    parameter string BRANCH_PREDICTOR_TYPE = DEFAULT_BRANCH_PREDICTOR_TYPE,
     // AI_TAG: PARAMETER - BTB_ENTRIES - Number of entries in the Branch Target Buffer.
     parameter integer BTB_ENTRIES = DEFAULT_BTB_ENTRIES,
     // AI_TAG: PARAMETER - BHT_ENTRIES - Number of entries in the Branch History Table.
-    parameter integer BHT_ENTRIES = DEFAULT_BHT_ENTRIES
+    parameter integer BHT_ENTRIES = DEFAULT_BHT_ENTRIES,
+    // AI_TAG: PARAMETER - PHT_ENTRIES - Number of entries in the Pattern History Table.
+    parameter integer PHT_ENTRIES = DEFAULT_PHT_ENTRIES,
+    // AI_TAG: PARAMETER - SELECTOR_ENTRIES - Number of entries in the Selector Table.
+    parameter integer SELECTOR_ENTRIES = DEFAULT_SELECTOR_ENTRIES,
+    // AI_TAG: PARAMETER - GLOBAL_HISTORY_WIDTH - Width of the Global History Register.
+    parameter integer GLOBAL_HISTORY_WIDTH = DEFAULT_GLOBAL_HISTORY_WIDTH,
+    // AI_TAG: PARAMETER - RAS_ENTRIES - Number of entries in the Return Address Stack.
+    parameter integer RAS_ENTRIES = DEFAULT_RAS_ENTRIES,
+    // AI_TAG: PARAMETER - ENABLE_MMU - Enable Memory Management Unit
+    parameter bit ENABLE_MMU = 1
 )
 (
     input  logic        clk_i,
@@ -71,6 +85,14 @@ module fetch_stage
     // AI_TAG: PORT_DESC - instr_rsp_error_i - Instruction response error.
     input  logic        instr_rsp_error_i,
 
+    // --- MMU Interface (from core_subsystem) ---
+    input  mmu_request_t           mmu_req_i,
+    input  logic                   mmu_req_valid_i,
+    output logic                   mmu_req_ready_o,
+    output mmu_response_t          mmu_resp_o,
+    output logic                   mmu_resp_valid_o,
+    input  logic                   mmu_resp_ready_i,
+
     // --- Output to Decode Stage ---
     // AI_TAG: PORT_DESC - if_id_reg_o - The IF/ID pipeline register data passed to the Decode stage.
     output if_id_reg_t  if_id_reg_o,
@@ -104,10 +126,7 @@ module fetch_stage
     // AI_TAG: INTERNAL_STORAGE - IF/ID pipeline register.
     if_id_reg_t if_id_reg_q;
 
-    // AI_TAG: INTERNAL_LOGIC - Branch prediction signals
-    logic        bp_predict_taken;
-    addr_t       bp_predict_target;
-    logic        bp_btb_hit;
+    
 
     // AI_TAG: INTERNAL_WIRE - Exception detection signals
     logic instr_addr_misaligned;
@@ -115,33 +134,66 @@ module fetch_stage
     exception_info_t exception_detected;
 
     // AI_TAG: INTERNAL_LOGIC - Branch Predictor instance
-    branch_predictor #(
-        .BTB_ENTRIES(BTB_ENTRIES),
-        .BHT_ENTRIES(BHT_ENTRIES)
-    ) branch_predictor_inst (
+    generate
+        if (BRANCH_PREDICTOR_TYPE == "TOURNAMENT") begin : gen_tournament_bp
+            tournament_predictor #(
+                .ADDR_WIDTH(ADDR_WIDTH),
+                .GLOBAL_HISTORY_WIDTH(GLOBAL_HISTORY_WIDTH),
+                .BTB_ENTRIES(BTB_ENTRIES),
+                .BHT_ENTRIES(BHT_ENTRIES),
+                .PHT_ENTRIES(PHT_ENTRIES),
+                .SELECTOR_ENTRIES(SELECTOR_ENTRIES)
+            ) i_tournament_predictor (
+                .clk_i(clk_i),
+                .rst_ni(rst_ni),
+                .pc_i(pc_q),
+                .prediction_o(bp_prediction_o),
+                .update_i(bp_update_i)
+            );
+        end else if (BRANCH_PREDICTOR_TYPE == "STATIC") begin : gen_static_bp
+            // Static predictor: always predict not taken
+            assign bp_prediction_o.predict_taken = 1'b0;
+            assign bp_prediction_o.predict_target = pc_q + 4;
+            assign bp_prediction_o.btb_hit = 1'b0;
+        end else begin : gen_default_bp
+            // Default to static predictor if type is unknown or not specified
+            assign bp_prediction_o.predict_taken = 1'b0;
+            assign bp_prediction_o.predict_target = pc_q + 4;
+            assign bp_prediction_o.btb_hit = 1'b0;
+        end
+    endgenerate
+
+    // AI_TAG: INTERNAL_LOGIC - Return Address Stack instance
+    return_stack_buffer #(
+        .ADDR_WIDTH(ADDR_WIDTH),
+        .STACK_DEPTH(RAS_ENTRIES)
+    ) i_ras (
         .clk_i(clk_i),
         .rst_ni(rst_ni),
-        .pc_i(pc_q),
-        .predict_taken_o(bp_predict_taken),
-        .predict_target_o(bp_predict_target),
-        .btb_hit_o(bp_btb_hit),
-        .update_i(bp_update_i.update_valid),
-        .update_pc_i(bp_update_i.update_pc),
-        .actual_taken_i(bp_update_i.actual_taken),
-        .actual_target_i(bp_update_i.actual_target),
-        .is_branch_i(bp_update_i.is_branch)
+        .push_en_i(bp_update_i.update_valid && bp_update_i.is_jal),
+        .push_addr_i(bp_update_i.jal_target),
+        .pop_en_i(bp_update_i.update_valid && bp_update_i.is_jalr),
+        .pop_addr_o(ras_pop_addr_c),
+        .pop_valid_o(ras_pop_valid_c)
     );
+
+    // AI_TAG: INTERNAL_LOGIC - RAS output signals
+    logic ras_pop_valid_c;
+    addr_t ras_pop_addr_c;
 
     // AI_TAG: INTERNAL_LOGIC - Next PC Selection Logic
     // Description: This logic determines the address of the next instruction.
     // Priority 1: A redirect from a branch, jump, or exception has highest priority.
     // Priority 2: Branch prediction (if no redirect and BPU predicts taken).
-    // Priority 3: Default sequential execution (PC + 4).
+    // Priority 3: Return Address Stack (for JALR instructions).
+    // Priority 4: Default sequential execution (PC + 4).
     always_comb begin
         if (pc_redirect_en_i) begin
             pc_d = pc_redirect_target_i;
-        end else if (bp_predict_taken && bp_btb_hit) begin
-            pc_d = bp_predict_target;
+        end else if (bp_prediction_o.predict_taken && bp_prediction_o.btb_hit) begin
+            pc_d = bp_prediction_o.predict_target;
+        end else if (ras_pop_valid_c && bp_update_i.is_jalr) begin // Use RAS for JALR prediction
+            pc_d = ras_pop_addr_c;
         end else begin
             pc_d = pc_q + 4;
         end
@@ -167,12 +219,34 @@ module fetch_stage
     logic        icache_flush;
     logic        icache_flush_done;
 
+    // Internal signals for MMU interaction
+    mmu_request_t  mmu_instr_req;
+    mmu_response_t mmu_instr_resp;
+    logic          mmu_instr_req_valid;
+    logic          mmu_instr_req_ready;
+    logic          mmu_instr_resp_valid;
+    logic          mmu_instr_resp_ready;
+
+    // MMU request for instruction fetch
+    assign mmu_instr_req.vaddr = pc_q;
+    assign mmu_instr_req.is_write = 1'b0;
+    assign mmu_instr_req.is_fetch = 1'b1;
+    assign mmu_instr_req_valid = !stall_f_i && !pc_redirect_en_i;
+
+    // Connect to MMU interface
+    assign mmu_req_o = mmu_instr_req;
+    assign mmu_req_valid_o = mmu_instr_req_valid;
+    assign mmu_instr_req_ready = mmu_req_ready_i;
+    assign mmu_instr_resp = mmu_resp_i;
+    assign mmu_instr_resp_valid = mmu_resp_valid_i;
+    assign mmu_resp_ready_o = mmu_instr_resp_ready;
+
     // Instantiate ICache with memory wrapper interface
     icache u_icache (
         .clk_i(clk_i),
         .rst_ni(rst_ni),
-        .pc_i(pc_q),
-        .valid_i(!stall_f_i && !pc_redirect_en_i),
+        .pc_i(ENABLE_MMU ? mmu_instr_resp.paddr : pc_q), // Use physical address from MMU if enabled
+        .valid_i(ENABLE_MMU ? (mmu_instr_resp_valid && !mmu_instr_resp.fault) : (!stall_f_i && !pc_redirect_en_i)),
         .ready_o(icache_ready),
         .instruction_o(icache_instruction),
         .hit_o(icache_hit),
@@ -219,7 +293,14 @@ module fetch_stage
         exception_detected = '0; // Default to no exception
         
         // Check for fetch exceptions in priority order
-        if (instr_addr_misaligned) begin
+        if (ENABLE_MMU && mmu_instr_resp_valid && mmu_instr_resp.fault) begin
+            exception_detected.valid = 1'b1;
+            exception_detected.exc_type = EXC_TYPE_EXCEPTION;
+            exception_detected.cause = mmu_instr_resp.fault_type; // Use fault type from MMU
+            exception_detected.pc = pc_q; // The virtual PC
+            exception_detected.tval = pc_q; // The virtual address
+            exception_detected.priority = PRIO_INSTR_FAULT; // Assuming highest priority for now
+        end else if (instr_addr_misaligned) begin
             exception_detected.valid = 1'b1;
             exception_detected.exc_type = EXC_TYPE_EXCEPTION;
             exception_detected.cause = EXC_CAUSE_INSTR_ADDR_MISALIGNED;

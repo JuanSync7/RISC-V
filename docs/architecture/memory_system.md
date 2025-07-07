@@ -11,8 +11,15 @@ The RISC-V core implements a memory system designed for high performance and fle
 ┌─────────────────────────────────────────────────────────────┐
 │                    RISC-V Core                              │
 ├─────────────────────────────────────────────────────────────┤
-│  Instruction Fetch  │  Data Access                          │
-│  (AXI4-Lite Read)   │  (AXI4-Lite Read/Write)               │
+│  Virtual Address    │  Virtual Address                      │
+│  (Instruction)      │  (Data)                               │
+├─────────────────────────────────────────────────────────────┤
+│                    Memory Management Unit (MMU)             │
+├─────────────────────────────────────────────────────────────┤
+│  Physical Address   │  Physical Address                     │
+│  (Instruction)      │  (Data)                               │
+├─────────────────────────────────────────────────────────────┤
+│  Instruction Cache  │  Data Cache                           │
 ├─────────────────────────────────────────────────────────────┤
 │                    AXI4-Lite Interface                      │
 ├─────────────────────────────────────────────────────────────┤

@@ -21,6 +21,8 @@
 `timescale 1ns/1ps
 `default_nettype none
 
+import ooo_pkg::*;
+
 // AI_TAG: FEATURE - Enables in-order retirement for out-of-order execution.
 // AI_TAG: FEATURE - Ensures precise exception handling.
 // AI_TAG: FEATURE - Manages register write-back destinations and values.
@@ -29,43 +31,27 @@
 // AI_TAG: INTERNAL_BLOCK - PointerLogic - Manages head/tail pointers and entry count.
 
 module reorder_buffer #(
-    parameter integer DATA_WIDTH     = 32, // AI_TAG: PARAM_DESC - Width of the data path and result values.
-    parameter integer ROB_SIZE       = 32, // AI_TAG: PARAM_DESC - Number of entries in the ROB.
-                                           // AI_TAG: PARAM_USAGE - Defines pipeline depth; must be power of 2.
-    parameter integer PC_WIDTH       = 32, // AI_TAG: PARAM_DESC - Width of the program counter.
-    parameter integer REG_ADDR_WIDTH = 5   // AI_TAG: PARAM_DESC - Width of the architectural register file address.
+    parameter integer DATA_WIDTH     = ooo_pkg::DATA_WIDTH,
+    parameter integer ROB_SIZE       = ooo_pkg::ROB_SIZE,
+    parameter integer PC_WIDTH       = ooo_pkg::PC_WIDTH,
+    parameter integer REG_ADDR_WIDTH = ooo_pkg::REG_ADDR_WIDTH
 ) (
-    input  logic clk_i,    // AI_TAG: PORT_DESC - System clock
-                           // AI_TAG: PORT_CLK_DOMAIN - clk_i
-    input  logic rst_ni,   // AI_TAG: PORT_DESC - Asynchronous active-low reset
-                           // AI_TAG: PORT_CLK_DOMAIN - clk_i (async assert)
+    input  logic clk_i,
+    input  logic rst_ni,
 
     // Flush signal to clear the ROB on exceptions/mispredictions
-    input  logic flush_i,  // AI_TAG: PORT_DESC - High to flush all entries in the ROB.
-                           // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    input  logic flush_i,
 
     // Dispatch interface (from Decode/Rename)
-    input  logic        dispatch_valid_i,     // AI_TAG: PORT_DESC - A new instruction is being dispatched.
-    output logic        dispatch_ready_o,     // AI_TAG: PORT_DESC - ROB is ready to accept a new instruction.
-    input  logic [PC_WIDTH-1:0]       dispatch_pc_i,      // AI_TAG: PORT_DESC - PC of the dispatched instruction.
-    input  logic [REG_ADDR_WIDTH-1:0] dispatch_rd_addr_i, // AI_TAG: PORT_DESC - Destination register address.
-    output logic [$clog2(ROB_SIZE)-1:0] dispatch_rob_tag_o, // AI_TAG: PORT_DESC - The tag assigned to this new instruction.
+    input  ooo_dispatch_t dispatch_i,
+    output logic          dispatch_ready_o,
 
     // Execution result interface (from functional units via CDB)
-    input  logic        execute_valid_i,      // AI_TAG: PORT_DESC - A valid result is on the CDB.
-    input  logic [$clog2(ROB_SIZE)-1:0] execute_rob_tag_i,  // AI_TAG: PORT_DESC - The ROB tag of the instruction that finished execution.
-    input  logic [DATA_WIDTH-1:0]       execute_result_i,   // AI_TAG: PORT_DESC - The result data from the functional unit.
-    input  logic        execute_exception_valid_i, // AI_TAG: PORT_DESC - The instruction resulted in an exception.
-    input  logic [31:0] execute_exception_cause_i, // AI_TAG: PORT_DESC - The cause of the exception.
+    input  ooo_result_t   execute_result_i,
 
     // Commit interface (to Writeback/Register File and CSRs)
-    output logic        commit_valid_o,       // AI_TAG: PORT_DESC - The instruction at the head of the ROB is ready to commit.
-    input  logic        commit_ready_i,       // AI_TAG: PORT_DESC - The architectural state is ready to be updated.
-    output logic [PC_WIDTH-1:0]       commit_pc_o,        // AI_TAG: PORT_DESC - PC of the committing instruction.
-    output logic [REG_ADDR_WIDTH-1:0] commit_rd_addr_o,   // AI_TAG: PORT_DESC - Destination register of the committing instruction.
-    output logic [DATA_WIDTH-1:0]       commit_result_o,    // AI_TAG: PORT_DESC - Result value to write to the register file.
-    output logic        commit_exception_valid_o, // AI_TAG: PORT_DESC - The committing instruction has an exception.
-    output logic [31:0] commit_exception_cause_o  // AI_TAG: PORT_DESC - The cause of the exception.
+    output ooo_commit_t   commit_o,
+    input  logic          commit_ready_i
 );
 
     localparam ROB_ADDR_WIDTH = $clog2(ROB_SIZE);
@@ -101,15 +87,14 @@ module reorder_buffer #(
     assign is_empty_c = (entry_count_r == 0);
 
     assign dispatch_ready_o   = !is_full_c;
-    assign dispatch_rob_tag_o = tail_ptr_r;
 
     // The instruction at the head of the ROB is ready to commit.
-    assign commit_valid_o     = !is_empty_c && rob_r[head_ptr_r].is_ready;
-    assign commit_pc_o        = rob_r[head_ptr_r].pc;
-    assign commit_rd_addr_o   = rob_r[head_ptr_r].rd_addr;
-    assign commit_result_o    = rob_r[head_ptr_r].result;
-    assign commit_exception_valid_o = rob_r[head_ptr_r].exception.valid;
-    assign commit_exception_cause_o = rob_r[head_ptr_r].exception.cause;
+    assign commit_o.valid           = !is_empty_c && rob_r[head_ptr_r].is_ready;
+    assign commit_o.pc              = rob_r[head_ptr_r].pc;
+    assign commit_o.rd_addr         = rob_r[head_ptr_r].rd_addr;
+    assign commit_o.result          = rob_r[head_ptr_r].result;
+    assign commit_o.exception.valid = rob_r[head_ptr_r].exception.valid;
+    assign commit_o.exception.cause = rob_r[head_ptr_r].exception.cause;
 
     //---------------------------------------------------------------------------
     // Next-State Logic
@@ -124,14 +109,14 @@ module reorder_buffer #(
         tail_ptr_ns    = tail_ptr_r;
         entry_count_ns = entry_count_r;
 
-        do_dispatch_c = dispatch_valid_i && dispatch_ready_o;
-        do_commit_c   = commit_valid_o && commit_ready_i;
+        do_dispatch_c = dispatch_i.valid && dispatch_ready_o;
+        do_commit_c   = commit_o.valid && commit_ready_i;
 
         // --- Dispatch Logic ---
         // A new instruction is allocated an entry at the tail.
         if (do_dispatch_c) begin
-            rob_ns[tail_ptr_r].pc        = dispatch_pc_i;
-            rob_ns[tail_ptr_r].rd_addr   = dispatch_rd_addr_i;
+            rob_ns[tail_ptr_r].pc        = dispatch_i.pc;
+            rob_ns[tail_ptr_r].rd_addr   = dispatch_i.rd_addr;
             rob_ns[tail_ptr_r].is_ready  = 1'b0;
             rob_ns[tail_ptr_r].exception = '{default: '0};
             tail_ptr_ns                  = tail_ptr_r + 1;
@@ -139,11 +124,11 @@ module reorder_buffer #(
 
         // --- Execution Result Update ---
         // A functional unit has completed and writes its result to the corresponding ROB entry.
-        if (execute_valid_i) begin
-            rob_ns[execute_rob_tag_i].result          = execute_result_i;
-            rob_ns[execute_rob_tag_i].exception.valid = execute_exception_valid_i;
-            rob_ns[execute_rob_tag_i].exception.cause = execute_exception_cause_i;
-            rob_ns[execute_rob_tag_i].is_ready        = 1'b1;
+        if (execute_result_i.valid) begin
+            rob_ns[execute_result_i.rob_tag].result          = execute_result_i.data;
+            rob_ns[execute_result_i.rob_tag].exception.valid = execute_result_i.exception_valid;
+            rob_ns[execute_result_i.rob_tag].exception.cause = execute_result_i.exception_cause;
+            rob_ns[execute_result_i.rob_tag].is_ready        = 1'b1;
         end
 
         // --- Commit Logic ---
@@ -157,7 +142,7 @@ module reorder_buffer #(
             entry_count_ns = entry_count_r + 1;
         end else if (!do_dispatch_c && do_commit_c) begin
             entry_count_ns = entry_count_r - 1;
-        end else begin
+        } else begin
             entry_count_ns = entry_count_r;
         end
     end
@@ -180,12 +165,12 @@ module reorder_buffer #(
             tail_ptr_r    <= tail_ptr_ns;
             entry_count_r <= entry_count_ns;
             // Only update ROB entries on dispatch or result writeback
-            if (dispatch_valid_i && dispatch_ready_o) begin
+            if (dispatch_i.valid && dispatch_ready_o) begin
                 rob_r[tail_ptr_r] <= rob_ns[tail_ptr_r];
-            end
-            if (execute_valid_i) begin
-                rob_r[execute_rob_tag_i] <= rob_ns[execute_rob_tag_i];
-            end
+            }
+            if (execute_result_i.valid) begin
+                rob_r[execute_result_i.rob_tag] <= rob_ns[execute_result_i.rob_tag];
+            }
         end
     end
 

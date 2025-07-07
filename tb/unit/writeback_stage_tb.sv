@@ -215,8 +215,8 @@ endmodule : writeback_stage_tb
 //=============================================================================
 // Dependencies:
 //   - rtl/core/writeback_stage.sv
-//   - rtl/core/riscv_config_pkg.sv
-//   - rtl/core/riscv_core_pkg.sv
+//   - rtl/pkg/riscv_config_pkg.sv
+//   - rtl/pkg/riscv_core_pkg.sv
 //
 // Instantiated In:
 //   - N/A (Unit Testbench)

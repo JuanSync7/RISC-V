@@ -110,6 +110,7 @@ package riscv_config_pkg;
     parameter logic [11:0] MTVAL_ADDR    = 12'h343;
     parameter logic [11:0] MIP_ADDR      = 12'h344;
     parameter logic [11:0] MHARTID_ADDR  = 12'hF14;
+    parameter logic [11:0] SATP_CSR_ADDR = 12'h180; // Supervisor Address Translation and Protection Register
     
     //---------------------------------------------------------------------------
     // 4. Multi-Core Configuration
@@ -378,6 +379,7 @@ package riscv_config_pkg;
     parameter logic   ENABLE_CLOCK_GATING = 1'b1;           // Enable clock gating
     parameter logic   ENABLE_POWER_GATING = 1'b0;           // Enable power gating
     parameter integer DEFAULT_IDLE_TIMEOUT = 1000;          // Idle timeout for power management
+    parameter integer DEFAULT_SLEEP_TIMEOUT = 5000;         // Sleep timeout for power management
     
     //---------------------------------------------------------------------------
     // 18. Enhanced Debug and Verification Configuration
@@ -409,6 +411,17 @@ package riscv_config_pkg;
     parameter logic ENABLE_VPU = 1'b0;              // Enable/Disable Vector Processing Unit
     parameter logic ENABLE_ML_INFERENCE = 1'b0;     // Enable/Disable Machine Learning Inference Unit
 
+    parameter logic ENABLE_MMU = 1'b1;              // Enable/Disable Memory Management Unit
+    parameter logic ENABLE_QOS = 1'b1;              // Enable/Disable Quality of Service Unit
+
+    parameter logic DEFAULT_ENABLE_BUS_WATCHDOG = 1'b1; // Enable/Disable Bus Watchdog
+    parameter logic DEFAULT_ENABLE_PMU = 1'b1;          // Enable/Disable Power Management Unit
+
+    // MMU Configuration
+    parameter integer DEFAULT_MMU_TLB_SIZE = 16; // Number of entries in TLB
+    parameter integer DEFAULT_MMU_TLB_ASSOC = 2; // TLB associativity (e.g., 2-way set associative)
+    parameter integer DEFAULT_MMU_PAGE_SIZE_BITS = 12; // Log2 of page size (e.g., 12 for 4KB pages)
+
     //---------------------------------------------------------------------------
     // 19. Enhanced Memory System Configuration  
     //---------------------------------------------------------------------------
@@ -417,6 +430,12 @@ package riscv_config_pkg;
     parameter integer DEFAULT_MEMORY_RANKS = 1;             // Memory ranks per channel
     parameter integer DEFAULT_MEMORY_BANKS = 8;             // Memory banks per rank
     parameter integer DEFAULT_MEMORY_PAGE_SIZE = 4096;      // Memory page size
+
+    // Inter-Core Communication Configuration
+    parameter integer DEFAULT_MAX_MSG_QUEUE_DEPTH = 16;   // Default max message queue depth
+    parameter integer DEFAULT_MAX_ATOMIC_OPS = 8;         // Default max outstanding atomic operations
+    parameter integer DEFAULT_SYNC_TIMEOUT = 1000;        // Default synchronization timeout
+    parameter integer DEFAULT_NETWORK_PACKET_SIZE = 128;  // Default network packet size
     
     // Memory timing parameters
     parameter integer DEFAULT_MEMORY_LATENCY = 100;         // Memory access latency
@@ -440,7 +459,7 @@ package riscv_config_pkg;
     // FPGA-specific parameters
     parameter integer FPGA_MAX_FREQUENCY_MHZ = 100;         // Maximum FPGA frequency
     parameter logic   FPGA_USE_BLOCK_RAM = 1'b1;            // Use FPGA block RAM
-    parameter logic   FPGA_USE_DSP_SLICES = 1'b1;           // Use FPGA DSP slices
+    parameter logic   CONFIG_FPGA_USE_DSP_SLICES = 1'b1;           // Use FPGA DSP slices
     parameter string  FPGA_FAMILY = "ULTRASCALE_PLUS";      // FPGA family
     
     // ASIC-specific parameters  
@@ -463,7 +482,7 @@ package riscv_config_pkg;
     // Cache cluster configuration
     parameter integer DEFAULT_CORES_PER_CLUSTER = 4;      // Cores per cache cluster
     parameter logic   DEFAULT_NUMA_ENABLED = 1'b0;        // NUMA support enabled
-    parameter logic   DEFAULT_ADAPTIVE_CLUSTERING = 1'b0; // Dynamic cluster assignment
+    parameter logic CONFIG_ADAPTIVE_CLUSTERING = 1'b0; // Dynamic cluster assignment
     
     // Cache interconnect configuration
     parameter string DEFAULT_CACHE_INTERCONNECT = "BUS";   // "BUS", "CROSSBAR", "RING", "MESH"

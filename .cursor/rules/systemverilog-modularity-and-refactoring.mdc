@@ -1,0 +1,106 @@
+# SystemVerilog Modularity and Refactoring Guideline
+
+**Title:** Guideline for Modularity and Refactoring Large Modules
+**Status:** Final
+**Version:** 1.0
+
+## 1. Principle
+
+To maintain a clean, readable, and verifiable codebase, this rule establishes a guideline for managing module complexity. Large, monolithic modules are a significant source of design bugs and are difficult to maintain. The primary goal is to promote modular design through decomposition and the use of high-level connection constructs like interfaces.
+
+## 2. The 500-Line Guideline (The "Trigger")
+
+- When a SystemVerilog module file (`.sv`) approaches or exceeds **500 lines of code** (excluding comments and standard file headers/footers), it **must** be flagged for a modularity review.
+- This is not a hard, uncrossable limit but a mandatory trigger to critically evaluate if the module's responsibilities are too broad and if it can be decomposed into smaller, more focused submodules.
+
+## 3. Decomposition and Refactoring Strategy
+
+### 3.1. Functional Decomposition
+
+When a module is flagged, the primary strategy is to identify distinct, self-contained logical operations within it. These are candidates for extraction into separate submodules.
+
+**Examples of extractable logic:**
+- A complex datapath
+- A primary control Finite State Machine (FSM)
+- A memory controller or interface front-end
+- A dedicated computational unit (e.g., CRC checker, ALU)
+- A block of configuration and status registers (CSRs)
+
+#### 3.1.1. Control and Datapath Separation (FSMs)
+
+A particularly effective decomposition strategy is the separation of the control path from the datapath. If a module contains both a complex FSM (e.g., numerous states, intricate transition logic) and significant datapath logic that the FSM controls, they should be split.
+
+-   **The Controller Module:** This new submodule will contain the FSM. Its role is to generate simple control signals (e.g., `enable_register_a`, `mux_select_b`, `start_calculation_c`) based on its state and inputs.
+-   **The Datapath Module:** This submodule contains the operational logic (ALUs, registers, muxes). It receives control signals from the FSM and provides status signals back (e.g., `calculation_done`, `fifo_full`, `error_occurred`).
+
+This separation makes the FSM's behavior much easier to verify in isolation and simplifies the datapath logic into a set of straightforward, command-driven operations.
+
+### 3.2. Port Management with Interfaces and Structs (The "Solution")
+
+A common challenge with decomposition is an increase in the number of ports at the parent level. Simply passing all individual signals up from a new submodule is an anti-pattern that moves complexity rather than solving it.
+
+**The following techniques are mandatory for managing port clutter:**
+
+-   **Use `interfaces`:** This is the **preferred method** for any group of signals representing a standard protocol (e.g., AXI4, APB, AHB) or a cohesive data/control channel (e.g., a streaming data input with `data`, `valid`, and `ready`).
+    -   **Benefit:** Interfaces encapsulate signals, timing, and protocol rules (via modports, tasks, functions), dramatically simplifying module instantiation and reducing connection errors.
+
+-   **Use `struct packed`:** This is the appropriate method for grouping related data or control signals that do not have complex protocol behavior.
+    -   **Benefit:** A block of configuration registers or a status vector can be defined as a `struct` in a package and passed through a single, typed port. This improves readability and reduces the chance of misconnections.
+
+## 4. Example
+
+**BEFORE (Anti-Pattern):** A large module with many ports.
+```systemverilog
+module top_module (
+    // AXI Write Address Channel
+    input  logic [31:0] axi_awaddr_i,
+    input  logic [7:0]  axi_awlen_i,
+    input  logic        axi_awvalid_i,
+    output logic        axi_awready_o,
+    // AXI Write Data Channel
+    input  logic [127:0] axi_wdata_i,
+    input  logic [15:0]  axi_wstrb_i,
+    input  logic         axi_wlast_i,
+    input  logic         axi_wvalid_i,
+    output logic         axi_wready_o,
+    // ... many more AXI ports ...
+);
+// ... 500+ lines of logic handling AXI and core functionality ...
+endmodule
+```
+
+**AFTER (Recommended Refactoring):** Decomposed with an interface.
+```systemverilog
+// In a file like `rtl/interfaces/axi4_if.sv`
+interface axi4_if #(parameter DATA_WIDTH=128) (input clk, input rst_n);
+    logic [31:0] awaddr;
+    logic [7:0]  awlen;
+    // ... all other AXI signals ...
+    modport Master (output awaddr, awlen, ..., input awready, ...);
+    modport Slave  (input  awaddr, awlen, ..., output awready, ...);
+endinterface
+
+// The smaller, refactored module
+module top_module (
+    input logic   clk_i,
+    input logic   rst_ni,
+    axi4_if.Slave axi_bus // A single port for the entire AXI bus!
+);
+    // Core logic is now cleaner...
+
+    // Instantiate the submodule responsible for AXI interaction
+    axi_handler u_axi_handler (
+        .clk_i    (clk_i),
+        .rst_ni   (rst_ni),
+        .axi_if   (axi_bus) // Connect the interface directly
+    );
+endmodule
+```
+
+## 5. Rationale
+
+This approach forces a "separation of concerns," leading to a hierarchy of smaller, specialized, and more verifiable modules. It directly combats complexity, improves code maintainability, and aligns with modern hardware design best practices.
+description:
+globs:
+alwaysApply: false
+---

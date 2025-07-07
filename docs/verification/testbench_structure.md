@@ -549,7 +549,9 @@ vcs -full64 -sverilog -f ../../filelists/alu_tb.f -o alu_tb
 ## Dependencies
 
 ### Required Files
-- `rtl/core/riscv_core_pkg.sv` - Core package definitions
+- `rtl/pkg/riscv_core_pkg.sv` - Core package definitions
+- `rtl/pkg/riscv_types_pkg.sv` - Core data type definitions
+- `rtl/pkg/riscv_config_pkg.sv` - Configuration parameters
 - `tb/common/test_utils.sv` - Test utilities package
 - `tb/common/assertions.sv` - Common assertions
 - `tb/common/coverage.sv` - Coverage definitions
@@ -615,3 +617,13 @@ Key strengths of the current implementation:
 - **Maintainability**: Well-documented and modular structure
 
 The roadmap for future enhancements will build upon this solid foundation to achieve complete verification coverage of the RISC-V core. 
+
+#### File Descriptions
+
+- `tb/common/VERIFICATION_FRAMEWORK.md` - Comprehensive documentation of the verification framework, utilities, and automation tools
+- `tb/common/verification_plan.sv` - Verification plan defining coverage goals and test priorities
+- `rtl/pkg/riscv_core_pkg.sv` - Core package definitions
+- `rtl/pkg/riscv_types_pkg.sv` - Core data type definitions
+- `rtl/pkg/riscv_config_pkg.sv` - Configuration parameters
+
+## Test Automation

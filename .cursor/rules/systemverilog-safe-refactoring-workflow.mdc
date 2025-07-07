@@ -1,0 +1,72 @@
+# SystemVerilog Safe Refactoring Workflow
+
+**Title:** Guideline for Safe Module Refactoring
+**Status:** Final
+**Version:** 1.0
+
+## 1. Guiding Principle
+
+Refactoring is essential for maintaining a healthy codebase, but it must be done without introducing functional bugs. This workflow provides two distinct, complementary methods for verifying that a refactored module is a correct "drop-in replacement" for the original.
+
+## 2. The Core Refactoring Process
+
+This file management process is the foundation for both verification paths. For a module named `LargeModule.sv`:
+
+1.  **Isolate Work:** All refactoring must occur in a new `git` branch.
+2.  **Preserve Original:** The original `LargeModule.sv` file is not to be modified initially. It is the "golden reference."
+3.  **Decompose:** Create new files for the extracted sub-logic (e.g., `ControlFSM.sv`, `Datapath.sv`), following all project rules for modularity and interfaces.
+4.  **Create Wrapper:** Create a new file `LargeModule_refactored.sv`. The module inside must have a port list identical to the original `LargeModule.sv`. This new file will only contain instantiations of the new submodules and the wiring between them.
+
+## 3. Verification Paths
+
+After completing the core process, choose one or both of the following paths to prove correctness.
+
+### Path A: The Semantic Check (Intelligent Code Review)
+
+This is a fast, static analysis to catch structural and wiring errors. It is a mandatory first step.
+
+-   **Objective:** To confirm that all logic, parameters, and connections from the original module are accounted for in the refactored version.
+-   **Execution:** As the AI assistant, I will perform a meticulous side-by-side code review, verifying the following checklist:
+    -   [ ] **Parameter Integrity:** Every `parameter` from the original module is correctly defined in or passed to the new submodules.
+    -   [ ] **Port Equivalence:** The port list of `LargeModule_refactored.sv` is identical to `LargeModule.sv`.
+    -   [ ] **Connection Completeness:** Every wire and signal from the original module's logic is traced to its new location, ensuring all internal connections are correctly re-established between submodules.
+    -   [ ] **Logic Transfer:** Critical logic blocks (especially FSMs, arithmetic operations, and complex conditional logic) have been moved into the new submodules without modification.
+    -   [ ] **No Dropped Logic:** There is no logic present in the original module that has not been moved to one of the new submodules.
+-   **Advantage:** Very fast feedback loop (minutes). Excellent for catching structural errors early.
+-   **Limitation:** Cannot guarantee 100% functional equivalence; it can miss subtle behavioral bugs (e.g., timing differences, accidental inversions).
+
+### Path B: The Functional Equivalence Check (Cycle-Accurate Proof)
+
+This is the gold-standard, dynamic verification to guarantee identical behavior.
+
+-   **Objective:** To prove that the refactored module's output is cycle-for-cycle identical to the original's for a given set of stimuli.
+-   **Execution:** The module's unit testbench (`tb_LargeModule.sv`) is temporarily modified to instantiate both versions of the module and compare them in parallel.
+    1.  **Instantiate Both:** `LargeModule DUT_orig (...)` and `LargeModule_refactored DUT_new (...)`.
+    2.  **Drive Identical Stimulus:** Connect the exact same testbench inputs to both DUTs.
+    3.  **Implement Equivalence Checker:** Add an `always` block or concurrent `assert`ions that compare every single output port from `DUT_orig` and `DUT_new` on every clock cycle. The simulation must fail immediately upon any mismatch.
+    ```systemverilog
+    // In tb_LargeModule.sv
+    always_ff @(posedge clk) begin : equivalence_checker
+        assert (DUT_orig.data_out === DUT_new.data_out)
+            else $error("Mismatch on data_out at time %t", $time);
+        // ... repeat for ALL output ports ...
+    end
+    ```
+    4.  **Run Regression:** Execute the complete test suite.
+-   **Advantage:** The highest possible confidence in the refactoring. Provides a rigorous, mathematical proof of equivalence (relative to test coverage).
+-   **Limitation:** Can be time-consuming depending on the length of the test suite.
+
+## 4. Finalizing the Refactor
+
+1.  **Verification:** The refactoring is considered successful after it passes **at least Path A**. For critical modules, passing **Path B** is mandatory.
+2.  **Replacement:** Once verified, perform the final replacement:
+    -   Delete the original `LargeModule.sv`.
+    -   Rename `LargeModule_refactored.sv` to `LargeModule.sv`.
+3.  **Cleanup:** Remove any verification logic (like the equivalence checker) from the testbench.
+4.  **Commit:** Commit the final, clean, refactored module and the new submodules to the branch.
+
+This two-tiered approach provides the flexibility to choose the appropriate level of verification rigor for any given task.
+description:
+globs:
+alwaysApply: false
+---

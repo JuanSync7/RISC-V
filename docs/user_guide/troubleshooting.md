@@ -16,7 +16,7 @@ Error: Cannot find package 'riscv_core_pkg'
 **Solution:**
 1. Ensure `riscv_core_pkg.sv` is compiled first:
    ```bash
-   vlog rtl/core/riscv_core_pkg.sv
+   vlog rtl/pkg/riscv_core_pkg.sv
    vlog rtl/units/*.sv
    vlog rtl/control/*.sv
    vlog rtl/prediction/*.sv
@@ -24,7 +24,7 @@ Error: Cannot find package 'riscv_core_pkg'
    ```
 
 2. Check file paths are correct in your compilation script
-3. Verify the package file exists in `rtl/core/riscv_core_pkg.sv`
+3. Verify the package file exists in `rtl/pkg/riscv_core_pkg.sv`
 
 #### Problem: Module Not Found
 ```
@@ -35,7 +35,7 @@ Error: Module 'branch_predictor' not found
 1. Ensure all RTL files are compiled:
    ```bash
    # Compile all files in dependency order
-   vlog rtl/core/riscv_core_pkg.sv
+   vlog rtl/pkg/riscv_core_pkg.sv
    vlog rtl/units/*.sv
    vlog rtl/control/*.sv
    vlog rtl/prediction/*.sv
@@ -78,7 +78,7 @@ Error: Failed to load design
 
 2. Verify compilation order:
    ```tcl
-   vlog rtl/core/riscv_core_pkg.sv
+   vlog rtl/pkg/riscv_core_pkg.sv
    vlog rtl/units/*.sv
    vlog rtl/control/*.sv
    vlog rtl/prediction/*.sv

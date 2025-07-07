@@ -66,6 +66,7 @@ package riscv_types_pkg;
         logic           dpu_en;         // Enable DPU operation
         logic [1:0]     dpu_unit_sel;   // 0: FPU, 1: VPU, 2: MLIU
         logic [6:0]     dpu_op_sel;     // Specific operation within the DPU unit (funct7)
+        logic           illegal_instr;  // Illegal instruction flag
     } ctrl_signals_t;
 
     //---------------------------------------------------------------------------
@@ -221,6 +222,8 @@ package riscv_types_pkg;
         logic [4:0]  rd;
         logic [11:0] immediate;
     } instruction_fields_t;
+
+    typedef instruction_fields_t riscv_instr_t;
 
     //---------------------------------------------------------------------------
     // 10. Performance Counter Types

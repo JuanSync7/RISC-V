@@ -1,0 +1,124 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# SystemVerilog to Diagram Generation Guide
+
+This guide outlines a methodology for generating visual diagrams (Mermaid, Draw.io) from SystemVerilog source code using an LLM.
+
+### General Workflow
+
+The process involves three main stages:
+
+1.  **Code Parsing and Information Extraction**:
+    *   **Primary Method**: The LLM's first step is to parse the file header for the structured comment tags (e.g., `// MODULE_NAME:`, `// ROLE_IN_SYSTEM:`). These tags are the main driver for understanding the module's identity and function and should be treated as the primary source of truth.
+    *   **Secondary Method**: If the header tags are insufficient or absent, the LLM should fall back to parsing the SystemVerilog syntax directly to extract:
+        *   The top-level module name (`module ... endmodule`).
+        *   Input and Output ports.
+        *   Instantiated sub-modules and their instance names (`u_...`).
+        *   Connections between ports and instances.
+
+2.  **Structuring the Extracted Data**:
+    *   The LLM organizes the extracted information into a structured, intermediate format. This creates a "model" of the architecture before generating the diagram.
+    *   This can be a simple connection list, a hierarchy, or a JSON object.
+    *   Example Connection List: `(Source Component, Destination Component, Connection Label)`
+
+3.  **Generating the Diagram**:
+    *   The LLM translates the structured data into the syntax of the desired diagramming tool.
+
+---
+
+### Handling Complex Hierarchies
+
+For large, multi-level designs, generating a single "flat" diagram is counter-productive. A hierarchical approach is recommended:
+
+*   **Level 1 (System Overview)**: Create a high-level diagram showing only the major sub-modules (e.g., CPU complex, memory controller, custom IP blocks) and their primary bus interconnections. The internals of each block are abstracted away.
+*   **Level 2 (Detailed Block View)**: For each major sub-module, generate a separate, detailed diagram by running this process on its respective source file.
+
+This mirrors how complex systems are designed and reviewed, keeping each diagram focused and readable.
+
+---
+
+### Advanced: Diagramming Complex SoCs and Systems
+
+When creating a high-level diagram of a complete System-on-Chip (SoC), the goal is to represent the **logical architecture** and **data flow hierarchy**. This is different from a physical floorplan. The following strategy is recommended:
+
+1.  **Identify Architectural Tiers**: First, identify the primary layers of the system. This typically includes:
+    *   **Masters**: CPU complexes, DMA engines, etc.
+    *   **Central Interconnect**: The main NoC, AXI Crossbar, or fabric.
+    *   **Slave Subsystems**: High-performance peripherals (GPU), memory subsystems, and low-speed peripherals.
+
+2.  **Choose a Hierarchical Layout**: Use `graph TD` (Top-Down) to naturally represent the flow from masters at the top, through the interconnect, to slaves at the bottom.
+
+3.  **Partition with Subgraphs**: This is the most critical step. Enclose each major functional block in its own `subgraph` to visually partition the design. Subgraphs can be nested to show finer-grained detail (e.g., a core cluster within a CPU subsystem).
+
+4.  **Connect Through the Backbone**: Draw connections primarily between subsystems and the central interconnect. Avoid drawing a "spiderweb" of arrows between individual low-level components. The diagram should illustrate the high-level data path.
+
+5.  **Style for Readability**: Use colors, shapes, and line styles to provide at-a-glance information about the different types of components and buses.
+
+---
+
+### Target Diagram Formats
+
+#### A. Mermaid (for quick, embedded diagrams)
+
+*   **Guidance**: Instruct the LLM to generate Mermaid `graph` syntax.
+*   **Best Practices for Block Diagrams**:
+    *   Use `graph LR` (Left-to-Right) for a more natural hardware dataflow representation.
+    *   Use `subgraph` to group related components.
+    *   **Arrow Text Placement**: Prefer `-- text -->` over `-->|text|` to place text beside the arrow, improving readability.
+    *   **Enhance the Visual Language**: Go beyond color to encode more information visually.
+        *   **Node Shapes**: Use different shapes for different component types.
+            ```mermaid
+            subgraph "Component Shape Examples"
+                logic_block[Logic Block]
+                memory_block[(Memory/FIFO)]
+                core_block{{Processing Core}}
+            end
+            ```
+        *   **Node Colors**: Use `classDef` to define styles for different node roles (e.g., `inputStyle`, `coreStyle`).
+        *   **Connection Styles**: Use `linkStyle` to differentiate interfaces with color and line style (e.g., solid vs. dashed).
+            ```mermaid
+            %% Dashed line for control, solid for data
+            linkStyle 0 stroke:blue,stroke-width:2px;      %% AXI (solid)
+            linkStyle 1 stroke:red,stroke-width:2px,stroke-dasharray: 5 5; %% Interrupt (dashed)
+            ```
+    *   **Manage `linkStyle` Robustly**: This directive is powerful but fragile as it depends on the exact definition order of connections. To use it safely:
+        1.  Define all main diagram connections in a single, contiguous block.
+        2.  Define all `linkStyle` rules in a separate block immediately after, using comments to map indices to connection types.
+        3.  Define Legend connections and their styling *last* to avoid altering the main diagram's indices.
+    *   **Add a Legend**: Manually construct a legend using a `subgraph` to make the diagram self-explanatory.
+    *   **Note on 90-Degree Arrows**: Mermaid does not support true 90-degree (orthogonal) connectors.
+
+*   **Example Invocation**: "Generate a Mermaid diagram for `[...](mdc:...)`. Use a left-to-right layout, color-code nodes and connections, use shapes to denote component types, and include a legend."
+
+#### B. Draw.io / diagrams.net (for editable, high-quality diagrams)
+
+*   **Guidance**: Instruct the LLM to generate an intermediate **CSV** file, not raw Draw.io XML. The Draw.io "Insert from CSV" feature is the most robust way to import.
+*   **CSV Format**: The LLM should produce a CSV with at least three columns: `source,target,label`.
+*   **Workflow**:
+    1.  The LLM provides the CSV data block.
+    2.  The LLM provides step-by-step instructions for the user to import this CSV into Draw.io (`Arrange > Insert > Advanced > CSV...`).
+    3.  After import, the user has full control to style the diagram:
+        *   **Achieve 90-Degree Arrows**: Select all connectors (`Edit > Select Edges`) and in the Style panel, change the `Line` style to `Orthogonal`.
+        *   **Enhance Visual Language**: Use Draw.io's rich styling options:
+            *   **Node Shapes & Colors**: Differentiate components (e.g., logic vs. memory) using different shapes and fill colors.
+            *   **Connection Styles**: Use different colors, line thickness, and patterns (solid, dashed) to distinguish between bus types, data paths, and control signals.
+        *   **Improve Label Readability**: Manually drag connector labels to prevent them from overlapping with other lines or nodes.
+        *   **Add a Legend**: Use standard shapes and text boxes to create a legend manually on the canvas.
+
+*   **Example Invocation**: "Generate the CSV data needed to create a Draw.io diagram for `[src/rtl/integration/aes_gcm_full_axi_top.sv](mdc:src/rtl/integration/aes_gcm_full_axi_top.sv)`. List the connections between the main components."
+
+
+
+
+
+
+
+
+
+
+
+
+

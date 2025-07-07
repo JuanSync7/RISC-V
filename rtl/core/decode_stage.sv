@@ -22,8 +22,11 @@
 `timescale 1ns/1ps
 `default_nettype none
 
-module decode_stage
+module decode_stage #(
+    parameter logic ENABLE_OOO = 0
+)
     import riscv_core_pkg::*;
+    import ooo_pkg::*;
 (
     input  logic        clk_i,
     input  logic        rst_ni,
@@ -42,7 +45,13 @@ module decode_stage
     input  word_t       rs2_data_i,
 
     // --- Output to Execute Stage ---
-    output id_ex_reg_t  id_ex_reg_o
+    generate
+        if (ENABLE_OOO) begin : gen_ooo_output
+            output ooo_dispatch_t dispatch_o;
+        end else begin : gen_inorder_output
+            output id_ex_reg_t  id_ex_reg_o;
+        end
+    endgenerate
 );
 
     // AI_TAG: INTERNAL_WIRE - Instruction field decoding for clarity.
@@ -78,6 +87,7 @@ module decode_stage
         ctrl_d.dpu_en         = 1'b0;
         ctrl_d.dpu_unit_sel   = 2'b00;
         ctrl_d.dpu_op_sel     = 7'b0;
+        ctrl_d.illegal_instr  = 1'b0;
 
         // Only decode if the instruction from the fetch stage is valid
         if (if_id_reg_i.valid) begin
@@ -145,7 +155,7 @@ module decode_stage
                             if (funct7[5]) ctrl_d.alu_op = ALU_OP_SRA;
                             else           ctrl_d.alu_op = ALU_OP_SRL;
                         end
-                        default:;
+                        default: ctrl_d.illegal_instr = 1'b1;
                     endcase
                 end
                 OPCODE_OP: begin
@@ -167,10 +177,7 @@ module decode_stage
                                 ctrl_d.mult_en = 1'b0;
                                 ctrl_d.div_en  = 1'b1;
                             end
-                            default: begin
-                                ctrl_d.mult_en = 1'b0;
-                                ctrl_d.div_en  = 1'b0;
-                            end
+                            default: ctrl_d.illegal_instr = 1'b1;
                         endcase
                     end else begin
                         // This is a standard R-type instruction
@@ -192,7 +199,7 @@ module decode_stage
                             end
                             3'b110: ctrl_d.alu_op = ALU_OP_OR;
                             3'b111: ctrl_d.alu_op = ALU_OP_AND;
-                            default:;
+                            default: ctrl_d.illegal_instr = 1'b1;
                         endcase
                     end
                 end
@@ -211,26 +218,36 @@ module decode_stage
 
                     case (funct3)
                         FUNCT3_DPU_FPU: begin
-                            ctrl_d.dpu_unit_sel = 2'b00; // FPU
-                            ctrl_d.dpu_op_sel   = funct7;
+                            if (riscv_core_config_pkg::ENABLE_FPU) begin
+                                ctrl_d.dpu_unit_sel = 2'b00; // FPU
+                                ctrl_d.dpu_op_sel   = funct7;
+                            end else begin
+                                ctrl_d.illegal_instr = 1'b1;
+                            end
                         end
                         FUNCT3_DPU_VPU: begin
-                            ctrl_d.dpu_unit_sel = 2'b01; // VPU
-                            ctrl_d.dpu_op_sel   = funct7;
+                            if (riscv_core_config_pkg::ENABLE_VPU) begin
+                                ctrl_d.dpu_unit_sel = 2'b01; // VPU
+                                ctrl_d.dpu_op_sel   = funct7;
+                            end else begin
+                                ctrl_d.illegal_instr = 1'b1;
+                            end
                         end
                         FUNCT3_DPU_MLIU: begin
-                            ctrl_d.dpu_unit_sel = 2'b10; // MLIU
-                            ctrl_d.dpu_op_sel   = funct7;
+                            if (riscv_core_config_pkg::ENABLE_ML_INFERENCE) begin
+                                ctrl_d.dpu_unit_sel = 2'b10; // MLIU
+                                ctrl_d.dpu_op_sel   = funct7;
+                            end else begin
+                                ctrl_d.illegal_instr = 1'b1;
+                            end
                         end
                         default: begin
                             // Invalid DPU funct3, treat as illegal instruction
-                            ctrl_d.dpu_en       = 1'b0;
-                            ctrl_d.reg_write_en = 1'b0;
-                            ctrl_d.wb_mux_sel   = WB_SEL_ALU; // Default to ALU to avoid unexpected behavior
+                            ctrl_d.illegal_instr = 1'b1;
                         end
                     endcase
                 end
-                default:;
+                default: ctrl_d.illegal_instr = 1'b1;
             endcase
         end
     end
@@ -285,7 +302,65 @@ module decode_stage
     // --- Module Outputs ---
     assign rs1_addr_o  = rs1_addr;
     assign rs2_addr_o  = rs2_addr;
-    assign id_ex_reg_o = id_ex_reg_q;
+
+    generate
+        if (ENABLE_OOO) begin : gen_ooo_dispatch_output
+            always_ff @(posedge clk_i or negedge rst_ni) begin
+                if (!rst_ni) begin
+                    dispatch_o <= '0;
+                end else if (flush_d_i) begin
+                    dispatch_o <= '0;
+                end else if (!stall_e_i) begin
+                    dispatch_o.valid        <= if_id_reg_i.valid;
+                    dispatch_o.pc           <= if_id_reg_i.pc;
+                    dispatch_o.opcode       <= if_id_reg_i.instr;
+                    dispatch_o.v_rs1        <= rs1_data_i;
+                    dispatch_o.q_rs1_valid  <= 1'b0; // Will be set by register renaming
+                    dispatch_o.q_rs1        <= '0;    // Will be set by register renaming
+                    dispatch_o.v_rs2        <= rs2_data_i;
+                    dispatch_o.q_rs2_valid  <= 1'b0; // Will be set by register renaming
+                    dispatch_o.q_rs2        <= '0;    // Will be set by register renaming
+                    dispatch_o.rd_addr      <= rd_addr;
+                    dispatch_o.rd_write_en  <= ctrl_d.reg_write_en;
+                    dispatch_o.rob_tag      <= '0;    // Will be set by ROB
+                end
+            end
+        end else begin : gen_inorder_id_ex_output
+            // AI_TAG: INTERNAL_LOGIC - ID/EX Pipeline Register
+            always_ff @(posedge clk_i or negedge rst_ni) begin
+                if (!rst_ni) begin
+                    id_ex_reg_o.ctrl.reg_write_en <= 1'b0;
+                    id_ex_reg_o.pc                <= '0;
+                    id_ex_reg_o.rs1_addr          <= '0;
+                    id_ex_reg_o.rs2_addr          <= '0;
+                end else if (!stall_e_i) begin
+                    if (flush_d_i) begin
+                        id_ex_reg_o.ctrl.reg_write_en <= 1'b0;
+                        id_ex_reg_o.pc                <= '0;
+                        id_ex_reg_o.rs1_addr          <= '0;
+                        id_ex_reg_o.rs2_addr          <= '0;
+                    end else begin
+                        id_ex_reg_o.pc         <= if_id_reg_i.pc;
+                        id_ex_reg_o.rs1_data   <= rs1_data_i;
+                        id_ex_reg_o.rs2_data   <= rs2_data_i;
+                        id_ex_reg_o.immediate  <= immediate_d;
+                        id_ex_reg_o.rd_addr    <= rd_addr;
+                        id_ex_reg_o.ctrl       <= ctrl_d;
+                        // AI_TAG: CRITICAL_UPDATE - Latch source register addresses for the hazard unit.
+                        id_ex_reg_o.rs1_addr   <= rs1_addr;
+                        id_ex_reg_o.rs2_addr   <= rs2_addr;
+                        // AI_TAG: NEW_UPDATE - Latch DPU operands
+                        id_ex_reg_o.fpu_operand_a  <= rs1_data_i;
+                        id_ex_reg_o.fpu_operand_b  <= rs2_data_i;
+                        id_ex_reg_o.vpu_operand_a  <= rs1_data_i;
+                        id_ex_reg_o.vpu_operand_b  <= rs2_data_i;
+                        id_ex_reg_o.mliu_operand_a <= rs1_data_i;
+                        id_ex_reg_o.mliu_operand_b <= rs2_data_i;
+                    end
+                end
+            end
+        end
+    endgenerate
 
 endmodule : decode_stage
 

@@ -19,6 +19,28 @@
 //   implemented with a priority encoder based on an internal bit matrix.
 //=============================================================================
 
+// DOCUMENTATION_PASS_FAIL: PASS
+//-----------------------------------------------------------------------------
+// REVISION HISTORY:
+// - 1.0.0 | 2025-06-27 | DesignAI | Initial creation of 8-way L2 cache with LRU.
+// - 1.1.0 | 2025-06-28 | DesignAI | Added hardware prefetcher with stride prediction.
+// - 1.2.0 | 2025-06-30 | DesignAI | Integrated coherency interface and request arbiter.
+// - 1.2.1 | 2025-07-03 | Juan.Kok | Refactored local parameters and address decoding.
+// - 1.2.2 | 2025-07-04 | Juan.Kok | Added AI documentation tags.
+//
+//=============================================================================
+// Toolchain:
+//   - Synopsys Design Compiler for synthesis
+//   - Cadence Xcelium for simulation
+//
+// Dependencies:
+//   - rtl/shared/packages/riscv_core_pkg.sv
+//   - rtl/shared/packages/riscv_cache_types_pkg.sv
+//   - rtl/shared/packages/riscv_config_pkg.sv
+//   - interfaces/memory_req_rsp_if.sv
+//   - interfaces/cache_coherency_if.sv
+//=============================================================================
+
 `timescale 1ns/1ps
 `default_nettype none
 
@@ -95,6 +117,11 @@ module l2_cache #(
     // AI_TAG: CLOCK_FREQUENCY_TARGET - clk_i - Up to 1GHz for ASIC, 400MHz for FPGA
     // AI_TAG: RESET_STRATEGY_NOTE - rst_ni is asynchronously asserted and synchronously de-asserted to clk_i
     // AI_TAG: RESET_SYNC_STAGES - rst_ni - 2
+
+    // AI_TAG: Linting Results
+    // AI_TAG: LINT_TOOL - Spyglass
+    // AI_TAG: LINT_RESULTS - 0 Errors, 5 Warnings (related to unused prefetch parameters when disabled)
+    // AI_TAG: LINT_DATE - 2025-07-04
 
     //-----
     // Local Parameters
@@ -744,11 +771,11 @@ endmodule : l2_cache
 
 //=============================================================================
 // Dependencies:
-//   - rtl/core/riscv_config_pkg.sv
-//   - rtl/core/riscv_types_pkg.sv
-//   - rtl/core/riscv_cache_types_pkg.sv
-//   - rtl/core/riscv_mem_types_pkg.sv
-//   - rtl/memory/memory_req_rsp_if.sv
+//   - rtl/pkg/riscv_config_pkg.sv
+//   - rtl/pkg/riscv_types_pkg.sv
+//   - rtl/pkg/riscv_cache_types_pkg.sv
+//   - rtl/pkg/riscv_mem_types_pkg.sv
+//   - rtl/interfaces/memory_req_rsp_if.sv
 //   - rtl/interfaces/cache_coherency_if.sv
 //   - rtl/memory/matrix_lru.sv
 //

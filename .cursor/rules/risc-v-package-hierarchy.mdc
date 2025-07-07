@@ -1,8 +1,3 @@
----
-description: 
-globs: 
-alwaysApply: false
----
 # RISC-V Package Hierarchy and Import Order
 
 ## Package Dependency Structure
@@ -48,7 +43,7 @@ import riscv_ooo_types_pkg::*;   // Only for out-of-order modules
 
 ## Critical Configuration Parameters
 
-Always use centralized parameters from [riscv_config_pkg](mdc:rtl/core/riscv_config_pkg.sv):
+Always use centralized parameters from [riscv_config_pkg](mdc:rtl/pkg/riscv_config_pkg.sv):
 
 | Parameter | Description | Usage |
 |-----------|-------------|-------|
@@ -86,10 +81,10 @@ Reference the comprehensive [RTL Module Creation Guide](mdc:docs/implementation/
 
 ## Package Locations
 
-Core packages are located in `rtl/core/`:
-- [riscv_config_pkg.sv](mdc:rtl/core/riscv_config_pkg.sv) - Base configuration
-- [riscv_types_pkg.sv](mdc:rtl/core/riscv_types_pkg.sv) - Core types
-- [riscv_core_pkg.sv](mdc:rtl/core/riscv_core_pkg.sv) - Top-level package
+Core packages are located in `rtl/pkg/`:
+- [riscv_config_pkg.sv](mdc:rtl/pkg/riscv_config_pkg.sv) - Base configuration
+- [riscv_types_pkg.sv](mdc:rtl/pkg/riscv_types_pkg.sv) - Core types
+- [riscv_core_pkg.sv](mdc:rtl/pkg/riscv_core_pkg.sv) - Top-level package
 
 ## Compilation Order
 
@@ -102,9 +97,9 @@ Packages MUST be compiled in dependency order:
 
 Example compilation sequence:
 ```bash
-vlog rtl/core/riscv_config_pkg.sv     # 1. Config first
-vlog rtl/core/riscv_types_pkg.sv      # 2. Core types  
-vlog rtl/core/riscv_*_pkg.sv          # 3. Specialized packages
+vlog rtl/pkg/riscv_config_pkg.sv     # 1. Config first
+vlog rtl/pkg/riscv_types_pkg.sv      # 2. Core types  
+vlog rtl/pkg/riscv_*_pkg.sv          # 3. Specialized packages
 vlog rtl/interfaces/*.sv              # 4. Interfaces
 vlog rtl/units/*.sv rtl/memory/*.sv   # 5. RTL modules
 ```

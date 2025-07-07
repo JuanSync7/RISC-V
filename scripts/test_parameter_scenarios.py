@@ -207,7 +207,7 @@ class ParameterScenarioTester:
     
     def validate_configuration_parameters(self, scenario: Dict) -> bool:
         """Validate that configuration parameters exist for the scenario"""
-        config_file = self.project_root / "rtl/core/riscv_config_pkg.sv"
+        config_file = self.project_root / "rtl/pkg/riscv_config_pkg.sv"
         
         if not config_file.exists():
             self.log("ERROR", f"Configuration package file not found")

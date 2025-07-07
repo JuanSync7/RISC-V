@@ -235,6 +235,7 @@ l2_cache #(
 ## Future Enhancements
 
 ### **Advanced Features**
+- [ ] Memory Management Unit (MMU) and Translation Lookaside Buffer (TLB) support
 - [ ] Machine Learning-based prefetching
 - [ ] Adaptive cache partitioning
 - [ ] Advanced coherency protocols (MOESI)

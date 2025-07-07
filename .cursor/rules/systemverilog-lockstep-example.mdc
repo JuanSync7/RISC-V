@@ -1,0 +1,373 @@
+# SystemVerilog Safety Feature Example: Lock-Step Checker
+
+This file provides a few-shot example for implementing a lock-step redundancy mechanism for fault detection, adhering to the project's coding and documentation standards.
+
+---
+## RTL Source 1: simple_alu.sv (Core Module)
+---
+
+//=============================================================================
+// Company: Sondrel Ltd
+// Project Name: AES_GCM
+//
+// File: simple_alu.sv
+//
+// ----- Fields for Automated Documentation -----
+// MODULE_NAME: simple_alu
+// AUTHOR: DesignAI Example Generator (example@company.com)
+// VERSION: 1.1.0
+// DATE: 2025-05-25
+// DESCRIPTION: A simple, purely combinational Arithmetic Logic Unit (ALU).
+// PRIMARY_PURPOSE: To serve as a core computational block for a lock-step checker example.
+// ROLE_IN_SYSTEM: Provides basic arithmetic and logical operations as a modular, reusable component.
+// PROBLEM_SOLVED: Offloads fundamental computations into a well-defined, standalone unit.
+// MODULE_TYPE: RTL
+// TARGET_TECHNOLOGY_PREF: ASIC/FPGA
+// RELATED_SPECIFICATION: N/A
+//
+// ----- Status and Tracking -----
+// VERIFICATION_STATUS: Not Verified
+// QUALITY_STATUS: Draft
+//
+//=============================================================================
+
+`timescale 1ns/1ps
+`default_nettype none
+
+module simple_alu #(
+    parameter integer CONFIG_DATA_WIDTH = 32
+) (
+    // Inputs
+    input  logic [CONFIG_DATA_WIDTH-1:0] operand_a_i,
+    input  logic [CONFIG_DATA_WIDTH-1:0] operand_b_i,
+    input  logic [1:0]                   op_sel_i, // 00: ADD, 01: SUB, 10: XOR, 11: OR
+
+    // Output
+    output logic [CONFIG_DATA_WIDTH-1:0] result_o
+);
+
+    // ----- Local Parameters -----
+    localparam LP_OP_ADD = 2'b00;
+    localparam LP_OP_SUB = 2'b01;
+    localparam LP_OP_XOR = 2'b10;
+    localparam LP_OP_OR  = 2'b11;
+
+    // ----- Combinational Logic -----
+    always_comb begin : proc_alu_logic
+        // Default assignment
+        result_o = 'x; // Drive 'x' for undefined operations to catch errors in simulation
+
+        case (op_sel_i)
+            LP_OP_ADD: result_o = operand_a_i + operand_b_i;
+            LP_OP_SUB: result_o = operand_a_i - operand_b_i;
+            LP_OP_XOR: result_o = operand_a_i ^ operand_b_i;
+            LP_OP_OR:  result_o = operand_a_i | operand_b_i;
+            default: result_o = 'x;
+        endcase
+    end
+
+endmodule : simple_alu
+
+//=============================================================================
+// Dependencies: None
+//
+// Performance:
+//   - Critical Path: Path from op_sel_i, operand_a_i, or operand_b_i to result_o.
+//   - Max Frequency: >500 MHz (combinational, depends on technology)
+//   - Area: Minimal, technology dependent.
+//
+// Verification Coverage:
+//   - Code Coverage: N/A
+//   - Functional Coverage: N/A
+//   - Branch Coverage: N/A
+//
+// Synthesis:
+//   - Target Technology: ASIC/FPGA
+//   - Synthesis Tool: N/A
+//   - Clock Domains: 0
+//   - Constraints File: N/A
+//
+// Testing:
+//   - Testbench: lockstep_alu_checker_tb.sv (hypothetical)
+//   - Test Vectors: N/A
+//
+//----
+// Revision History:
+// Version | Date       | Author             | Description
+//=============================================================================
+// 1.1.0   | 2025-05-25 | DesignAI           | Complied with style guide: added footer, updated param names.
+// 1.0.0   | 2025-05-25 | DesignAI           | Initial release
+//=============================================================================
+
+---
+## RTL Source 2: lockstep_alu_checker.sv (Wrapper/Checker Module)
+---
+
+//=============================================================================
+// Company: Sondrel Ltd
+// Project Name: AES_GCM
+//
+// File: lockstep_alu_checker.sv
+//
+// ----- Fields for Automated Documentation -----
+// MODULE_NAME: lockstep_alu_checker
+// AUTHOR: DesignAI Example Generator (example@company.com)
+// VERSION: 1.1.0
+// DATE: 2025-05-25
+// DESCRIPTION: A wrapper module that uses lock-step redundancy to detect faults in a simple ALU.
+// PRIMARY_PURPOSE: To detect hardware faults (e.g., SEUs, permanent faults) in a computational core.
+// ROLE_IN_SYSTEM: Acts as a safety-critical wrapper around a core module.
+// PROBLEM_SOLVED: Provides a high level of fault detection by duplicating logic and comparing results.
+// MODULE_TYPE: RTL
+// TARGET_TECHNOLOGY_PREF: ASIC
+// RELATED_SPECIFICATION: N/A
+//
+// ----- Status and Tracking -----
+// VERIFICATION_STATUS: Not Verified
+// QUALITY_STATUS: Draft
+//
+//=============================================================================
+
+`timescale 1ns/1ps
+`default_nettype none
+
+module lockstep_alu_checker #(
+    parameter integer CONFIG_DATA_WIDTH = 32
+) (
+    // Clock and Reset
+    input  logic clk_i,  // AI_TAG: PORT_DESC - System clock. // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    input  logic rst_ni, // AI_TAG: PORT_DESC - Asynchronous active-low reset. // AI_TAG: PORT_CLK_DOMAIN - clk_i (async assert)
+
+    // ALU Inputs (passed to both cores)
+    input  logic [CONFIG_DATA_WIDTH-1:0] operand_a_i,    // AI_TAG: PORT_DESC - Operand A for the ALU operation. // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    input  logic [CONFIG_DATA_WIDTH-1:0] operand_b_i,    // AI_TAG: PORT_DESC - Operand B for the ALU operation. // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    input  logic [1:0]                   op_sel_i,       // AI_TAG: PORT_DESC - Operation select for the ALU. // AI_TAG: PORT_CLK_DOMAIN - clk_i
+
+    // Outputs
+    output logic [CONFIG_DATA_WIDTH-1:0] result_o,         // AI_TAG: PORT_DESC - Result from the main ALU core. // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    output logic                         lockstep_error_o  // AI_TAG: PORT_DESC - Asserted if the main and shadow core outputs mismatch. // AI_TAG: PORT_CLK_DOMAIN - clk_i // AI_TAG: PORT_DEFAULT_STATE - 1'b0
+);
+
+    // ----- Internal Signal Declarations -----
+    logic [CONFIG_DATA_WIDTH-1:0] main_result_w;
+    logic [CONFIG_DATA_WIDTH-1:0] shadow_result_w;
+
+    // ----- Sub-module Instantiations -----
+
+    // Instantiate the Main Core
+    simple_alu #(
+        .CONFIG_DATA_WIDTH(CONFIG_DATA_WIDTH)
+    ) u_main_alu (
+        .operand_a_i(operand_a_i),
+        .operand_b_i(operand_b_i),
+        .op_sel_i   (op_sel_i),
+        .result_o   (main_result_w)
+    );
+
+    // Instantiate the Shadow Core
+    simple_alu #(
+        .CONFIG_DATA_WIDTH(CONFIG_DATA_WIDTH)
+    ) u_shadow_alu (
+        .operand_a_i(operand_a_i),
+        .operand_b_i(operand_b_i),
+        .op_sel_i   (op_sel_i),
+        .result_o   (shadow_result_w)
+    );
+
+
+    // ----- Combinational Logic -----
+
+    // The primary output is taken from the main core.
+    assign result_o = main_result_w;
+
+    // Compare the outputs of the two cores. A mismatch indicates a fault.
+    // In a real system, this comparison might be delayed/registered depending on timing.
+    assign lockstep_error_o = (main_result_w !== shadow_result_w);
+
+
+    // ----- AI Tags for Documentation -----
+    // AI_TAG: SAFETY_HAZARD_MITIGATION - Hardware Fault in ALU - Dual-core lock-step execution with output comparison provides detection of transient or permanent faults in one of the cores.
+    // AI_TAG: SAFETY_STANDARD_COMPLIANCE - ISO 26262 / DO-254 - Lock-step redundancy is a primary method for achieving high diagnostic coverage (DC) for hardware faults, required for high ASIL/DAL levels.
+    //
+    // AI_TAG: ASSERTION - If a lock-step error occurs, it should remain asserted until reset. (This would require a registered error output).
+    // AI_TAG: VERIF_SCENARIO_KEY - Fault Injection: Test that a fault injected into either the main or shadow core (but not both) correctly triggers the lockstep_error_o signal.
+    // AI_TAG: VERIF_STRATEGY - Use force/release or a fault injection library to corrupt the output of one ALU instance and verify the checker logic.
+
+endmodule : lockstep_alu_checker
+
+//=============================================================================
+// Dependencies: simple_alu.sv
+//
+// Performance:
+//   - Critical Path: From any input through u_main_alu/u_shadow_alu and comparator to lockstep_error_o.
+//   - Max Frequency: Dependent on simple_alu timing.
+//   - Area: Roughly 2x the area of simple_alu plus a comparator.
+//
+// Verification Coverage:
+//   - Code Coverage: N/A
+//   - Functional Coverage: N/A
+//   - Branch Coverage: N/A
+//
+// Synthesis:
+//   - Target Technology: ASIC
+//   - Synthesis Tool: N/A
+//   - Clock Domains: 1
+//   - Constraints File: N/A
+//
+// Testing:
+//   - Testbench: lockstep_alu_checker_tb.sv (hypothetical)
+//   - Test Vectors: N/A
+//
+//----
+// Revision History:
+// Version | Date       | Author             | Description
+//=============================================================================
+// 1.1.0   | 2025-05-25 | DesignAI           | Complied with style guide: added footer, updated port tags.
+// 1.0.0   | 2025-05-25 | DesignAI           | Initial release
+//=============================================================================
+
+---
+## Documentation: lockstep_alu_checker.md
+---
+
+# Module Design Document: lockstep_alu_checker
+
+**Version:** 1.1.0
+**Source File(s):** `lockstep_alu_checker.sv`, `simple_alu.sv`
+**Author:** DesignAI Example Generator (example@company.com)
+**Generated On:** 2025-05-25
+**Module Type:** RTL
+**Target Technology Preference:** ASIC
+**Related Specification(s):** N/A
+**Verification Status:** Not Verified
+**Quality Status:** Draft
+
+## 1. Overview
+
+This module provides a hardware fault detection mechanism for a simple Arithmetic Logic Unit (ALU) by implementing a **dual-core lock-step** architecture. It instantiates two identical copies of a core module (`simple_alu`), runs them in parallel with the same inputs, and continuously compares their outputs.
+
+The primary purpose of this module is to detect hardware faults, such as those caused by single-event upsets (SEUs) or permanent physical defects, that could compromise the integrity of a computation. If the outputs of the two cores ever differ, a `lockstep_error_o` flag is asserted, signaling a critical failure to the system.
+
+## 2. Key Features
+
+*   Implements a dual-core lock-step redundancy scheme.
+*   Provides high coverage for single-point hardware faults within the core logic.
+*   The primary output is passed through from the "main" core.
+*   Asserts an error flag upon detection of a mismatch.
+*   The underlying `simple_alu` core is purely combinational.
+
+## 3. Block Diagram
+
+**Textual Representation:**
+`
+                            +--------------------------+
+                            |  lockstep_alu_checker    |
+                            |                          |
+     op_a_i, op_b_i, op_sel_i |  +-------------------+   |
+    -------------------------> |   u_main_alu      | --(main_result_w)--> result_o
+                            |  | (simple_alu)      |   |
+                            |  +-------------------+   |
+                            |                          |
+                            |  +-------------------+   |
+    -------------------------> |   u_shadow_alu    | --(shadow_result_w)
+                            |  | (simple_alu)      |   |      |
+                            |  +-------------------+   |      |
+                            |                          |      ▼
+                            |        +-----------+     |  +-------+
+                            |        | Comparator| <-- +--|  !=   |
+                            |        +-----------+     |  +-------+
+                            |              |           |      |
+                            |              +--------------> lockstep_error_o
+                            |                          |
+                            +--------------------------+
+`
+
+## 4. Parameters
+
+| Parameter Name      | Type      | Default Value | Description              |
+| ------------------- | --------- | ------------- | ------------------------ |
+| `CONFIG_DATA_WIDTH` | `integer` | `32`          | Defines the data width for the ALU operands and result. |
+
+## 5. Ports
+
+| Port Name          | Dir.   | Type / Width       | Clock Domain | Default State | Description                                               |
+| ------------------ | ------ | ------------------ | ------------ | ------------- | --------------------------------------------------------- |
+| `clk_i`            | input  | `logic`            | `clk_i`      | N/A           | System clock.                                             |
+| `rst_ni`           | input  | `logic`            | `clk_i` (async)| N/A           | Asynchronous active-low reset.                            |
+| `operand_a_i`      | input  | `logic[WIDTH-1:0]` | `clk_i`      | N/A           | Operand A, fed to both ALU cores.                         |
+| `operand_b_i`      | input  | `logic[WIDTH-1:0]` | `clk_i`      | N/A           | Operand B, fed to both ALU cores.                         |
+| `op_sel_i`         | input  | `logic[1:0]`       | `clk_i`      | N/A           | Operation select, fed to both ALU cores.                  |
+| `result_o`         | output | `logic[WIDTH-1:0]` | `clk_i`      | N/A           | Result of the operation, taken from the main core.        |
+| `lockstep_error_o` | output | `logic`            | `clk_i`      | `1'b0`        | Asserted high if main and shadow core results mismatch.   |
+
+## 6. Internal Architecture / Design Details
+
+### 6.1. Redundant Instantiation
+
+The module instantiates the `simple_alu` component twice:
+*   `u_main_alu`: The primary core whose output (`main_result_w`) is used as the functional output of the module (`result_o`).
+*   `u_shadow_alu`: The redundant or "shadow" core whose output (`shadow_result_w`) is used only for comparison.
+
+Both instances are driven by the exact same input ports (`operand_a_i`, `operand_b_i`, `op_sel_i`).
+
+### 6.2. Comparison Logic
+
+A purely combinational comparator (`!==`) continuously checks if `main_result_w` and `shadow_result_w` are identical. The use of `!==` (case inequality) ensures that if one core produces an `'x'` or `'z'` while the other produces a valid logic level, it is correctly flagged as an error.
+
+The output of this comparison directly drives the `lockstep_error_o` port.
+
+## 7. Safety and Security
+
+*   **Safety Hazard Mitigation**: This module is designed to mitigate the hazard of **random hardware faults** within the ALU. By duplicating the core and comparing the outputs, it provides a high level of **Diagnostic Coverage (DC)**. This is a foundational technique for functional safety standards like **ISO 26262** and **DO-254**, and is critical for achieving high safety integrity levels (ASIL B, C, D) or design assurance levels (DAL A, B).
+*   **Fault Model**: This architecture can detect:
+    *   Permanent "stuck-at" faults in one of the cores.
+    *   Transient faults (SEUs) that affect one core but not the other in the same clock cycle.
+*   **Limitations**: This architecture cannot detect a fault that affects both cores in the exact same way simultaneously (a common-cause failure). Physically separating the two cores during chip layout is a common practice to reduce the likelihood of such events.
+
+## 8. Verification Notes
+
+*   **Fault Injection**: The primary verification strategy for this module is **fault injection**. The testbench must be able to force an error on an internal signal of either the main or shadow core (but not both) and verify that the `lockstep_error_o` signal is asserted as expected.
+
+## 9. Assumptions, Limitations, and Dependencies
+
+* **Assumptions:**
+  * To mitigate common-cause failures, it is assumed that the `u_main_alu` and `u_shadow_alu` instances will be placed in physically distinct regions during layout.
+* **Limitations:**
+  * This module cannot detect faults that affect both ALU cores identically in the same clock cycle.
+  * The `lockstep_error_o` is combinational. A downstream module must register this signal to ensure it is not missed.
+* **Dependencies:**
+  * This module is dependent on the `simple_alu.sv` module.
+
+## 10. Synthesis Considerations
+
+* **Target Technology:** ASIC
+* **Critical Paths:** The longest path is from any input (`operand_a_i`, `operand_b_i`, `op_sel_i`), through one of the `simple_alu` instances, and through the final comparator to the `lockstep_error_o` output.
+* **Resource Usage:** Area is approximately double that of a single `simple_alu` instance, plus a `CONFIG_DATA_WIDTH`-bit comparator.
+* **Special Constraints (SDC):** No special constraints are required. However, if the `lockstep_error_o` signal is part of a critical safety path, it may require specific timing constraints.
+
+## 11. Implementation Quality Metrics
+
+* **Dependencies:** `simple_alu.sv`
+* **Performance Metrics:**
+  * **Critical Path:** From any input through `simple_alu` core and comparator.
+  * **Max Frequency:** Dependent on the timing of the `simple_alu` core.
+  * **Area:** Approx. 2x area of `simple_alu` + 1 comparator.
+* **Verification Coverage Achieved:**
+  * **Code Coverage:** N/A
+  * **Functional Coverage:** N/A
+  * **Branch Coverage:** N/A
+* **Synthesis Results:**
+  * **Target Technology:** ASIC
+  * **Synthesis Tool:** N/A
+  * **Clock Domains:** 1
+  * **Constraints File:** N/A
+* **Testing Information:**
+  * **Testbench:** `lockstep_alu_checker_tb.sv` (hypothetical)
+  * **Test Vectors:** N/A
+
+## 12. Revision History
+
+| Version | Date       | Author         | Changes                                       |
+|---|---|----|-----|
+| 1.1.0   | 2025-05-25 | DesignAI       | Updated to comply with formatting and documentation guidelines. Added footers and missing doc sections. |
+| 1.0.0   | 2025-05-25 | DesignAI       | Initial release of the lock-step example. |

@@ -1,524 +1,343 @@
----
-description: Systemverilog few shot example for proper systemverilog coding practices
-globs: 
-alwaysApply: false
----
 Systemverilog few shot example for proper systemverilog coding practices
 
 //=============================================================================
 // Company: Sondrel Ltd
 // Project Name: AES_GCM
 //
-// File: simple_fifo_ctrl.sv // The name of the current file.
+// File: debounce.sv
 //
 // ----- Fields for Automated Documentation -----
-// MODULE_NAME: simple_fifo_ctrl // Name of the module defined in this file.
-// AUTHOR: DesignAI Example Generator (example@company.com) // Author of the module.
-// VERSION: 1.0.0 // Version of the module.
-// DATE: 2025-05-24 // Date of creation or last significant update.
-// DESCRIPTION: A simple FIFO controller with AXI4-Lite control interface and data passthrough.
-// PRIMARY_PURPOSE: To manage a small internal FIFO for data buffering.
-// ROLE_IN_SYSTEM: Acts as a buffer between a data producer and consumer.
-// PROBLEM_SOLVED: Decouples data production and consumption rates.
+// MODULE_NAME: debounce
+// AUTHOR: DesignAI Example Generator (example@company.com)
+// VERSION: 1.0.0
+// DATE: 2025-05-25
+// DESCRIPTION: A simple push-button debouncer that generates a single-cycle pulse.
+// PRIMARY_PURPOSE: To filter out mechanical noise from a push-button or switch input.
+// ROLE_IN_SYSTEM: A utility module to provide clean, reliable digital inputs from noisy sources.
+// PROBLEM_SOLVED: Prevents multiple state transitions from a single physical button press.
 // MODULE_TYPE: RTL
-// TARGET_TECHNOLOGY_PREF: ASIC // Preferred target technology.
-// RELATED_SPECIFICATION: Internal_FIFO_Spec_v1.2 // Link to relevant specs.
+// TARGET_TECHNOLOGY_PREF: ASIC/FPGA
+// RELATED_SPECIFICATION: N/A
 //
 // ----- Status and Tracking -----
 // VERIFICATION_STATUS: Not Verified
 // QUALITY_STATUS: Draft
 //
 //=============================================================================
-//
+
 `timescale 1ns/1ps
-`default_nettype none // IMPORTANT: All signals must be explicitly typed
-//
+`default_nettype none
 
-// AI_TAG: FEATURE - Implements an AXI4-Lite slave interface for register access.
-// AI_TAG: FEATURE - Configurable FIFO depth via parameter P_FIFO_DEPTH.
-// AI_TAG: FEATURE - Provides basic FIFO status flags (empty, full, almost_full).
-// AI_TAG: FEATURE - Includes basic clock gating for power optimization.
-
-// AI_TAG: INTERNAL_BLOCK - AxiLiteSlave - Handles AXI4-Lite register accesses.
-// AI_TAG: INTERNAL_BLOCK - FifoCoreLogic - Manages FIFO pointers and data storage.
-// AI_TAG: INTERNAL_BLOCK - DataInputStage - Registers and synchronizes input data.
-// AI_TAG: INTERNAL_BLOCK - DataOutputStage - Registers output data.
-// AI_TAG: BLOCK_DIAGRAM_DESC - AXI4-Lite interface connects to AxiLiteSlave for CSR access. Input data (din_i, din_valid_i) goes to DataInputStage, then FifoCoreLogic. Output data (dout_o, dout_valid_o) comes from FifoCoreLogic via DataOutputStage. Control signals from AxiLiteSlave configure FifoCoreLogic.
-
-// AI_TAG: CLOCK_SOURCE - clk_i - Main system clock.
-// AI_TAG: CLOCK_FREQUENCY_TARGET - clk_i - 200 MHz.
-// AI_TAG: RESET_STRATEGY_NOTE - rst_ni is asynchronously asserted and synchronously de-asserted to clk_i.
-// AI_TAG: RESET_SYNC_STAGES - rst_ni - 2
-
-// AI_TAG: DATAPATH_DESC - Data flows from din_i, through an internal FIFO, to dout_o. Pointers manage FIFO state.
-// AI_TAG: DATAPATH_ELEMENT - InternalRam - Block RAM - Stores FIFO data.
-
-// AI_TAG: FSM_NAME - fifo_ctrl_fsm_cs
-// AI_TAG: FSM_PURPOSE - fifo_ctrl_fsm_cs - Manages FIFO read/write operations based on input/output readiness and AXI commands.
-// AI_TAG: FSM_ENCODING - fifo_ctrl_fsm_cs - one-hot
-// AI_TAG: FSM_RESET_STATE - fifo_ctrl_fsm_cs - S_IDLE
-// AI_TAG: FSM_INPUT_CONDITIONS - fifo_ctrl_fsm_cs - din_valid_i, dout_ready_i, axi_wr_en, axi_rd_en
-// AI_TAG: FSM_STATE - S_IDLE - Waiting for data or AXI command.
-// AI_TAG: FSM_OUTPUT_ACTIONS - fifo_ctrl_fsm_cs - S_IDLE - din_ready_o is asserted if not full; dout_valid_o is low.
-// AI_TAG: FSM_STATE - S_WRITE - Writing data to FIFO.
-// AI_TAG: FSM_OUTPUT_ACTIONS - fifo_ctrl_fsm_cs - S_WRITE - din_ready_o is low; write pointer increments.
-// AI_TAG: FSM_TRANSITION - fifo_ctrl_fsm_cs: S_IDLE -> S_WRITE when (din_valid_i && !fifo_full_s).
-
-// AI_TAG: REG_BLOCK_START - FifoControlRegisters
-// AI_TAG: REG_BASE_ADDRESS - 0x0000
-
-// AI_TAG: REG_DEF_START
-// AI_TAG: REG_NAME - FIFO_CTRL_REG
-// AI_TAG: REG_OFFSET - 0x00
-// AI_TAG: REG_WIDTH - 32
-// AI_TAG: REG_ACCESS - RW
-// AI_TAG: REG_RESET_VAL - 32'h0000_0001
-// AI_TAG: REG_DESC - FIFO Control Register.
-// AI_TAG: REG_VOLATILITY - Volatile
-
-// AI_TAG: FIELD_DEF_START
-// AI_TAG: FIELD_NAME - FIFO_ENABLE
-// AI_TAG: FIELD_BITS - 0
-// AI_TAG: FIELD_ACCESS - RW
-// AI_TAG: FIELD_RESET_VAL - 1'b1
-// AI_TAG: FIELD_DESC - Enables FIFO operation. 1=Enable, 0=Disable.
-// AI_TAG: FIELD_ENUM_DEF_START - FIFO_ENABLE
-// AI_TAG: FIELD_ENUM_VALUE - 1'b0 - Disabled
-// AI_TAG: FIELD_ENUM_VALUE - 1'b1 - Enabled
-// AI_TAG: FIELD_ENUM_DEF_END
-// AI_TAG: FIELD_DEF_END
-
-// AI_TAG: FIELD_DEF_START
-// AI_TAG: FIELD_NAME - FIFO_SWRST
-// AI_TAG: FIELD_BITS - 1
-// AI_TAG: FIELD_ACCESS - W1C // Write-1-to-Clear (actually self-clearing action)
-// AI_TAG: FIELD_RESET_VAL - 1'b0
-// AI_TAG: FIELD_DESC - Software reset for FIFO pointers. Clears FIFO content. Self-clearing.
-// AI_TAG: FIELD_DEF_END
-// AI_TAG: REG_DEF_END
-
-// AI_TAG: REG_DEF_START
-// AI_TAG: REG_NAME - FIFO_STATUS_REG
-// AI_TAG: REG_OFFSET - 0x04
-// AI_TAG: REG_WIDTH - 32
-// AI_TAG: REG_ACCESS - RO
-// AI_TAG: REG_RESET_VAL - 32'h0000_0002 // Assuming empty at reset
-// AI_TAG: REG_DESC - FIFO Status Register.
-// AI_TAG: REG_VOLATILITY - Volatile
-// AI_TAG: REG_SENSITIVITY - Updates on FIFO push/pop operations.
-
-// AI_TAG: FIELD_DEF_START
-// AI_TAG: FIELD_NAME - FIFO_FULL
-// AI_TAG: FIELD_BITS - 0
-// AI_TAG: FIELD_ACCESS - RO
-// AI_TAG: FIELD_RESET_VAL - 1'b0
-// AI_TAG: FIELD_DESC - FIFO is full.
-// AI_TAG: FIELD_DEF_END
-
-// AI_TAG: FIELD_DEF_START
-// AI_TAG: FIELD_NAME - FIFO_EMPTY
-// AI_TAG: FIELD_BITS - 1
-// AI_TAG: FIELD_ACCESS - RO
-// AI_TAG: FIELD_RESET_VAL - 1'b1
-// AI_TAG: FIELD_DESC - FIFO is empty.
-// AI_TAG: FIELD_DEF_END
-
-// AI_TAG: FIELD_DEF_START
-// AI_TAG: FIELD_NAME - DATA_COUNT
-// AI_TAG: FIELD_BITS - [15:8]
-// AI_TAG: FIELD_ACCESS - RO
-// AI_TAG: FIELD_RESET_VAL - 8'h00
-// AI_TAG: FIELD_DESC - Number of words currently in FIFO.
-// AI_TAG: FIELD_DEF_END
-// AI_TAG: REG_DEF_END
-// AI_TAG: REG_BLOCK_END
-
-// AI_TAG: POWER_INTENT - Basic clock gating on FIFO core logic when idle.
-// AI_TAG: CLOCK_GATING_LOGIC - !fifo_ctrl_fsm_cs_is_S_IDLE && !axi_access_active_s - Gates clock to FifoCoreLogic registers.
-
-// AI_TAG: ASSUMPTION - AXI clock (axi_clk_i) is synchronous to clk_i or properly handled by the AXI interface logic itself if separate.
-// AI_TAG: LIMITATION - Max P_FIFO_DEPTH is 256 due to internal addressing limitations.
-// AI_TAG: PERFORMANCE_METRIC - Throughput - 1 word per clock cycle - When FIFO is not empty (read) or not full (write).
-
-// AI_TAG: SYNTHESIS_NOTE - Ensure P_FIFO_DEPTH is a power of 2 for optimal RAM inference.
-// AI_TAG: SDC_CONSTRAINT_GUIDE - False path may be needed for AXI reset if it's asynchronous to clk_i and synchronized within the AXI slave IP.
-
-// AI_TAG: VERIF_SCENARIO_KEY - Simultaneous AXI read/write access during continuous data flow.
-// AI_TAG: VERIF_SCENARIO_KEY - FIFO full and FIFO empty boundary conditions with backpressure.
-// AI_TAG: VERIF_STRATEGY - Constrained random stimulus for data interface and AXI transactions. Directed tests for register access and reset values.
-// AI_TAG: UVM_COMPONENT_LINK - Agent: simple_fifo_ctrl_axil_agent, Agent: simple_fifo_ctrl_data_agent
-// AI_TAG: COVERAGE_GOAL_NOTE - Cover all FIFO_CTRL_REG field values and transitions between FIFO_FULL/FIFO_EMPTY states.
-
-// AI_TAG: REVISION_ENTRY - 1.0.0 - 2025-05-24 - DesignAI Example Generator - Initial auto-generation from RTL and AI_TAGS.
-
-
-`include "simple_fifo_ctrl_if.sv" // Assuming an AXI4-Lite interface definition
-
-module simple_fifo_ctrl #(
-    // Configurable Parameters (design-time configurable)
-    parameter integer CONFIG_DATA_WIDTH = 32, // AI_TAG: PARAM_DESC - Width of the data bus.
-                                              // AI_TAG: PARAM_USAGE - Sets datapath width for din_i, dout_o, and internal FIFO RAM.
-                                              // AI_TAG: PARAM_CONSTRAINTS - Must be > 0.
-    parameter integer CONFIG_FIFO_DEPTH = 64  // AI_TAG: PARAM_DESC - Depth of the internal FIFO.
-                                              // AI_TAG: PARAM_USAGE - Determines storage capacity and RAM size.
-                                              // AI_TAG: PARAM_CONSTRAINTS - Must be power of 2, Max 256.
+module debounce #(
+    // Configurable Parameters
+    parameter integer CONFIG_CLOCK_FREQ_HZ   = 50_000_000, // AI_TAG: PARAM_DESC - Frequency of the input clock in Hz.
+                                                         // AI_TAG: PARAM_USAGE - Used to calculate the debounce counter limit.
+                                                         // AI_TAG: PARAM_CONSTRAINTS - Must be greater than 0.
+    parameter integer CONFIG_DEBOUNCE_TIME_MS = 20         // AI_TAG: PARAM_DESC - Desired debounce settling time in milliseconds.
+                                                         // AI_TAG: PARAM_USAGE - Determines how long the input must be stable.
+                                                         // AI_TAG: PARAM_CONSTRAINTS - Recommended range is 5-50ms.
 ) (
-    // System Signals
-    input logic clk_i, // AI_TAG: PORT_DESC - Main system clock.
-                       // AI_TAG: PORT_CLK_DOMAIN - clk_i
-    input logic rst_ni, // AI_TAG: PORT_DESC - Asynchronous active-low reset. Synchronously de-asserted internally.
-                        // AI_TAG: PORT_CLK_DOMAIN - clk_i (async assert)
-                        // AI_TAG: PORT_TIMING - Asynchronous
+    // Clock and Reset
+    input  logic clk_i,   // AI_TAG: PORT_DESC - System clock.
+                         // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    input  logic rst_ni,  // AI_TAG: PORT_DESC - Asynchronous active-low reset.
+                         // AI_TAG: PORT_CLK_DOMAIN - clk_i (async assert)
 
-    // Data Input Interface
-    input  logic [CONFIG_DATA_WIDTH-1:0] din_i, // AI_TAG: PORT_DESC - Data input.
-                                                // AI_TAG: PORT_CLK_DOMAIN - clk_i
-                                                // AI_TAG: PORT_TIMING - Registered on din_valid_i.
-    input  logic                         din_valid_i, // AI_TAG: PORT_DESC - Qualifies din_i.
-                                                      // AI_TAG: PORT_CLK_DOMAIN - clk_i
-    output logic                         din_ready_o, // AI_TAG: PORT_DESC - Indicates FIFO can accept data.
-                                                      // AI_TAG: PORT_CLK_DOMAIN - clk_i
-                                                      // AI_TAG: PORT_DEFAULT_STATE - 1'b1 (if not full at reset)
-                                                      // AI_TAG: PORT_TIMING - Combinatorial
-
-    // Data Output Interface
-    output logic [CONFIG_DATA_WIDTH-1:0] dout_o, // AI_TAG: PORT_DESC - Data output.
-                                                 // AI_TAG: PORT_CLK_DOMAIN - clk_i
-    output logic                         dout_valid_o,// AI_TAG: PORT_DESC - Indicates valid data on dout_o.
-                                                      // AI_TAG: PORT_CLK_DOMAIN - clk_i
-                                                      // AI_TAG: PORT_DEFAULT_STATE - 1'b0
-                                                      // AI_TAG: PORT_TIMING - Registered
-    input  logic                         dout_ready_i, // AI_TAG: PORT_DESC - External module is ready for data.
-                                                       // AI_TAG: PORT_CLK_DOMAIN - clk_i
-
-    // AXI4-Lite Slave Interface
-    axil_slave_if.slave_mp axil_s_if // AI_TAG: IF_TYPE - AXI4-Lite Slave
-                                    // AI_TAG: IF_MODPORT - slave_mp
-                                    // AI_TAG: IF_PROTOCOL_VERSION - AXI4-Lite (Rev E)
-                                    // AI_TAG: IF_DESC - Control and status register access.
-                                    // AI_TAG: IF_DATA_WIDTHS - "Data: 32-bit, Addr: Determined by interface package (e.g., 12-bit for 4KB space)"
-                                    // AI_TAG: IF_USER_SIGNALS - "None"
-                                    // AI_TAG: IF_CLOCKING - axil_s_if.ACLK (implicitly, or specify if different from clk_i)
-                                    // AI_TAG: IF_RESET - axil_s_if.ARESETn (implicitly, or specify if different from rst_ni)
+    // IO
+    input  logic button_in_i,   // AI_TAG: PORT_DESC - Noisy input from a physical button (active-high).
+                               // AI_TAG: PORT_CLK_DOMAIN - clk_i (asynchronous to clock edges)
+    output logic pulse_out_o    // AI_TAG: PORT_DESC - Clean, single-cycle pulse output for each button press.
+                               // AI_TAG: PORT_CLK_DOMAIN - clk_i
+                               // AI_TAG: PORT_DEFAULT_STATE - 1'b0
 );
 
-    // Local Parameters (derived from configurable parameters)
-    localparam integer LP_ADDR_BITS = $clog2(CONFIG_FIFO_DEPTH); // Address bits needed for FIFO indexing
+    // ----- Local Parameters -----
+    // Calculate the number of clock cycles required to meet the debounce time.
+    localparam LP_COUNTER_LIMIT = (CONFIG_CLOCK_FREQ_HZ / 1000) * CONFIG_DEBOUNCE_TIME_MS;
+    localparam LP_COUNTER_WIDTH = $clog2(LP_COUNTER_LIMIT);
 
-    // Internal logic (simplified)
-    logic fifo_full_s, fifo_empty_s;
-    logic [CONFIG_DATA_WIDTH-1:0] fifo_ram [CONFIG_FIFO_DEPTH-1:0];
-    // AI_TAG: INTERNAL_STORAGE - fifo_ram - RAM for storing FIFO data.
-    // AI_TAG: INTERNAL_STORAGE_TYPE - fifo_ram - Block RAM
-    // AI_TAG: INTERNAL_STORAGE_ACCESS - fifo_ram - Read/Write controlled by FifoCoreLogic.
+    // ----- FSM State Definition -----
+    typedef enum logic [1:0] {
+        S_IDLE,         // Waiting for button press
+        S_WAIT_STABLE,  // Button pressed, waiting for debounce time
+        S_PULSE,        // Output a single-cycle pulse
+        S_WAIT_RELEASE  // Wait for button to be released before re-arming
+    } state_e;
 
-    // ... FSM, pointers, AXI logic, etc. ...
+    // ----- Internal Signal Declarations -----
+    state_e state_r, state_ns;
+    logic [LP_COUNTER_WIDTH-1:0] counter_r, counter_ns;
+    logic counter_en_c;
+    logic counter_max_c;
+    logic clear_counter_c;
 
-    // Example of an assertion
-    // AI_TAG: ASSERTION - a_din_ready_when_not_full: Ensures din_ready_o is high if FIFO is not full.
+
+    // ----- Sequential Logic (Registers) -----
+    always_ff @(posedge clk_i or negedge rst_ni) begin : proc_state_reg
+        if (!rst_ni) begin
+            state_r <= S_IDLE;
+            counter_r <= '0;
+        end else begin
+            state_r <= state_ns;
+            counter_r <= counter_ns;
+        end
+    end
+
+    // ----- Combinational Logic -----
+
+    // Counter Logic
+    assign counter_max_c = (counter_r == LP_COUNTER_LIMIT - 1);
+
+    always_comb begin : proc_counter_logic
+        counter_ns = counter_r; // Default assignment
+        if (clear_counter_c) begin
+            counter_ns = '0;
+        end else if (counter_en_c) begin
+            counter_ns = counter_r + 1;
+        end
+    end
+
+    // FSM Next-State and Output Logic
+    always_comb begin : proc_fsm_next_state
+        // Default assignments to prevent latches
+        state_ns        = state_r;
+        pulse_out_o     = 1'b0;
+        counter_en_c    = 1'b0;
+        clear_counter_c = 1'b0;
+
+        case (state_r)
+            S_IDLE: begin
+                // If button is pressed, start the debounce counter
+                if (button_in_i) begin
+                    state_ns     = S_WAIT_STABLE;
+                    counter_en_c = 1'b1;
+                end
+            end
+
+            S_WAIT_STABLE: begin
+                // If button is released during wait, it was noise, so go back to idle
+                if (!button_in_i) begin
+                    state_ns        = S_IDLE;
+                    clear_counter_c = 1'b1;
+                // If button remains pressed for the full debounce period
+                end else if (counter_max_c) begin
+                    state_ns = S_PULSE;
+                // Otherwise, keep counting
+                end else begin
+                    counter_en_c = 1'b1;
+                end
+            end
+
+            S_PULSE: begin
+                // Output a single-cycle pulse
+                pulse_out_o = 1'b1;
+                // Immediately move to the next state to ensure a single-cycle pulse
+                state_ns = S_WAIT_RELEASE;
+            end
+
+            S_WAIT_RELEASE: begin
+                // Wait for the button to be released before we can re-arm
+                if (!button_in_i) begin
+                    state_ns = S_IDLE;
+                end
+            end
+
+            default: begin
+                // Safe state recovery
+                state_ns = S_IDLE;
+            end
+        endcase
+    end
+
+    // ----- Assertions -----
+    // AI_TAG: ASSERTION - Ensures the output pulse is never more than one cycle long.
     // AI_TAG: ASSERTION_TYPE - Both
     // AI_TAG: ASSERTION_SEVERITY - Error
-    // AI_TAG: ASSERTION_COVERAGE_LINK - fifo_coverage.din_ready_cp
-    DinReadyAssertion: assert property (@(posedge clk_i) disable iff (!rst_ni) (!fifo_full_s |=> din_ready_o));
+    OneCyclePulseAssert: assert property (
+        @(posedge clk_i) disable iff (!rst_ni) (pulse_out_o |=> !pulse_out_o)
+    );
 
+    //----- AI Tags For Documentation -----
+    // AI_TAG: FEATURE - Filters noisy button inputs to produce a clean, single-cycle pulse.
+    // AI_TAG: FEATURE - Debounce time is configurable via parameters.
+    //
+    // AI_TAG: INTERNAL_BLOCK - Debounce FSM - Controls the debouncing logic flow.
+    // AI_TAG: INTERNAL_BLOCK - Debounce Counter - Measures the stable time of the input signal.
+    //
+    // AI_TAG: CLOCK_SOURCE - clk_i - Main system clock provided externally.
+    // AI_TAG: CLOCK_FREQUENCY_TARGET - clk_i - 50 MHz (default, configurable).
+    // AI_TAG: RESET_STRATEGY_NOTE - rst_ni is a standard asynchronous active-low reset.
+    //
+    // AI_TAG: FSM_NAME - state_r
+    // AI_TAG: FSM_PURPOSE - state_r - Manages the debouncing sequence from detection to pulse generation.
+    // AI_TAG: FSM_ENCODING - state_r - binary
+    // AI_TAG: FSM_RESET_STATE - state_r - S_IDLE
+    // AI_TAG: FSM_STATE - S_IDLE - Waiting for a button press.
+    // AI_TAG: FSM_STATE - S_WAIT_STABLE - Waiting for the input signal to be stable for the configured debounce time.
+    // AI_TAG: FSM_STATE - S_PULSE - Generating the single-cycle output pulse.
+    // AI_TAG: FSM_STATE - S_WAIT_RELEASE - Waiting for the button to be released before re-arming.
+    //
+    // AI_TAG: SYNTHESIS_NOTE - This is a small, self-contained module with no complex timing paths.
+    // AI_TAG: VERIF_SCENARIO_KEY - Test with button presses shorter, equal to, and longer than the debounce time.
+    // AI_TAG: VERIF_SCENARIO_KEY - Test with noisy button input that toggles multiple times during the debounce window.
+    // AI_TAG: VERIF_SCENARIO_KEY - Test reset assertion during each FSM state.
 
-    // Simplified assignments for illustration
-    assign din_ready_o = !fifo_full_s;
-    // ... more logic ...
-
-endmodule : simple_fifo_ctrl
+endmodule : debounce
 
 //=============================================================================
-// Dependencies: simple_fifo_ctrl_if.sv, axil_slave_if interface package
-//
-// Instantiated In:
-//   - top_level/top_soc.sv
-//   - subsystems/data_processing_subsystem.sv
+// Dependencies: None
 //
 // Performance:
-//   - Critical Path: Through fifo_ram read access and output mux
-//   - Max Frequency: 200 MHz target
-//   - Area: Approximately 2K gates + RAM macro for FIFO storage
+//   - Critical Path: FSM combinational logic
+//   - Max Frequency: > 400 MHz (logic is simple)
+//   - Area: < 100 gates
 //
 // Verification Coverage:
 //   - Code Coverage: TBD
-//   - Functional Coverage: TBD  
+//   - Functional Coverage: TBD
 //   - Branch Coverage: TBD
 //
 // Synthesis:
-//   - Target Technology: ASIC
-//   - Synthesis Tool: Design Compiler
-//   - Clock Domains: 1 (clk_i)
-//   - Constraints File: simple_fifo_ctrl.sdc
+//   - Target Technology: ASIC/FPGA
+//   - Synthesis Tool: Any
+//   - Clock Domains: 1
+//   - Constraints File: debounce.sdc
 //
 // Testing:
-//   - Testbench: simple_fifo_ctrl_tb.sv
+//   - Testbench: debounce_tb.sv
 //   - Test Vectors: TBD
 //
 //----
 // Revision History:
-// Version | Date       | Author             | Description
+// Version | Date       | Author                       | Description
 //=============================================================================
-// 1.0.0   | 2025-05-24 | DesignAI Example Generator | Initial auto-generation from RTL and AI_TAGS.
+// 1.0.0   | 2025-05-25 | DesignAI Example Generator   | Initial release.
 //=============================================================================
 
+---
+# Module Design Document: debounce
 
-# Module Design Document: simple_fifo_ctrl
-
-**Version:** 1.0.0 [cite: 5]
-**Source File(s):** `simple_fifo_ctrl.sv`, `simple_fifo_ctrl_if.sv`
-**Author:** DesignAI Example Generator [cite: 5]
-**Generated On:** 2025-05-24
-**Module Type:** RTL [cite: 5]
-**Target Technology Preference:** ASIC [cite: 5]
-**Related Specification(s):** Internal_FIFO_Spec_v1.2 [cite: 5]
+**Version:** 1.0.0
+**Source File(s):** `debounce.sv`
+**Author:** DesignAI Example Generator (example@company.com)
+**Generated On:** 2025-05-25
+**Module Type:** RTL
+**Target Technology Preference:** ASIC/FPGA
+**Related Specification(s):** N/A
+**Verification Status:** Not Verified
+**Quality Status:** Draft
 
 ## 1. Overview
 
-A simple FIFO controller with AXI4-Lite control interface and data passthrough. [cite: 5]
-This module's primary purpose is to manage a small internal FIFO for data buffering. [cite: 5] It acts as a buffer between a data producer and consumer, [cite: 5] solving the problem of decoupling data production and consumption rates. [cite: 5]
+This module is a simple push-button debouncer that generates a single-cycle pulse. Its primary purpose is to filter out mechanical noise from a push-button or switch input, providing a clean, reliable digital signal for downstream logic. It solves the common problem of a single physical button press causing multiple unintended transitions in a digital system.
 
-## 2. Key Features
+## 2. See Also: Other Design Pattern Examples
 
-* Implements an AXI4-Lite slave interface for register access.
-* Configurable FIFO depth via parameter P_FIFO_DEPTH.
-* Provides basic FIFO status flags (empty, full, almost_full).
-* Includes basic clock gating for power optimization.
+For more advanced or specialized design patterns, refer to the other examples available in the `.cursor/rules` directory. These examples provide complete SystemVerilog code and documentation for common hardware modules.
 
-## 3. Block Diagram
+*   **CRC (Cyclic Redundancy Check):**
+    *   **File:** `systemverilog-crc-example.mdc`
+    *   **Description:** Implements a CRC generator/checker, essential for data integrity in communication systems.
 
-[TODO: User to insert a graphical block diagram. The Assistant will provide a textual representation based on `AI_TAG: INTERNAL_BLOCK` and `AI_TAG: BLOCK_DIAGRAM_DESC` if available.] [cite: 14]
+*   **Lockstep Core:**
+    *   **File:** `systemverilog-lockstep-example.mdc`
+    *   **Description:** Demonstrates a dual-core lockstep mechanism to detect and report faults by comparing outputs, critical for safety-related applications.
 
-**Textual Representation (Inferred/Tagged):**
+*   **Safety Mechanisms:**
+    *   **File:** `systemverilog-safety-example.mdc`
+    *   **Description:** Provides examples of various safety features commonly found in safety-critical SoCs.
 
-  +-----+
-  | simple_fifo_ctrl                                    |
-  |                                                     |
-  | Inputs:                                             |
-  |   - clk_i, rst_ni                                   |
-  |   - din_i, din_valid_i                              |
-  |   - dout_ready_i                                    |
-  |   - axil_s_if (slave)                               |
-  |                                                     |
-  | Outputs:                                            |
-  |   - din_ready_o                                     |
-  |   - dout_o, dout_valid_o                            |
-  |   - axil_s_if (slave responses)                     |
-  |                                                     |
-  | Internal Blocks (Inferred/User-Specified from `AI_TAG: INTERNAL_BLOCK`):          |
-  |   - AxiLiteSlave - Handles AXI4-Lite register accesses. |
-  |   - FifoCoreLogic - Manages FIFO pointers and data storage. |
-  |   - DataInputStage - Registers and synchronizes input data. |
-  |   - DataOutputStage - Registers output data.        |
-  +-----+
+*   **Triple Modular Redundancy (TMR):**
+    *   **File:** `systemverilog-tmr-example.mdc`
+    *   **Description:** Shows how to implement TMR, a fault-tolerance technique that masks single-point failures by triplicating logic and using a voter.
 
-**Detailed Interconnections (from `AI_TAG: BLOCK_DIAGRAM_DESC`):**
-AXI4-Lite interface connects to AxiLiteSlave for CSR access. Input data (din_i, din_valid_i) goes to DataInputStage, then FifoCoreLogic. Output data (dout_o, dout_valid_o) comes from FifoCoreLogic via DataOutputStage. Control signals from AxiLiteSlave configure FifoCoreLogic.
+*   **Watchdog Timer:**
+    *   **File:** `systemverilog-watchdog-example.mdc`
+    *   **Description:** An implementation of a watchdog timer to recover a system from software hangs or hardware faults.
 
-## 4. Parameters
+## 3. Key Features
 
-| Parameter Name | Type    | Default Value | Description (from `AI_TAG: PARAM_DESC`)        | Usage (from `AI_TAG: PARAM_USAGE`) | Constraints (from `AI_TAG: PARAM_CONSTRAINTS`) |
-|----|---|---|---|---|---|
-| `P_DATA_WIDTH` | `integer` | `32`          | Width of the data bus.                         | Sets datapath width for din_i, dout_o, and internal FIFO RAM. | Must be > 0.                                |
-| `P_FIFO_DEPTH` | `integer` | `64`          | Depth of the internal FIFO.                    | Determines storage capacity and RAM size. | Must be power of 2, Max 256.                |
+* Filters noisy button inputs to produce a clean, single-pulse output.
+* Configurable debounce time via parameters.
+* Implemented as a simple, robust Finite State Machine (FSM).
+* Low resource utilization.
 
-## 5. Ports
+## 4. Block Diagram
 
-| Port Name      | Dir.   | Type / Width              | Clock Domain (from `AI_TAG: PORT_CLK_DOMAIN`) | Default State (from `AI_TAG: PORT_DEFAULT_STATE`) | Timing (from `AI_TAG: PORT_TIMING`) | Description (from `AI_TAG: PORT_DESC`)                                           |
-|----|-----|---|----|-----|----|----|
-| `clk_i`        | input  | `logic`                   | `clk_i`                                   | N/A                                           | N/A                                 | Main system clock.                                                               |
-| `rst_ni`       | input  | `logic`                   | `clk_i` (async assert)                    | N/A                                           | Asynchronous                        | Asynchronous active-low reset. Synchronously de-asserted internally.             |
-| `din_i`        | input  | `logic [P_DATA_WIDTH-1:0]`| `clk_i`                                   | N/A                                           | Registered on din_valid_i.          | Data input.                                                                      |
-| `din_valid_i`  | input  | `logic`                   | `clk_i`                                   | N/A                                           | N/A                                 | Qualifies din_i.                                                                 |
-| `din_ready_o`  | output | `logic`                   | `clk_i`                                   | `1'b1` (if not full at reset)                 | Combinatorial                       | Indicates FIFO can accept data.                                                  |
-| `dout_o`       | output | `logic [P_DATA_WIDTH-1:0]`| `clk_i`                                   | N/A                                           | Registered                          | Data output.                                                                     |
-| `dout_valid_o` | output | `logic`                   | `clk_i`                                   | `1'b0`                                        | Registered                          | Indicates valid data on dout_o.                                                  |
-| `dout_ready_i` | input  | `logic`                   | `clk_i`                                   | N/A                                           | N/A                                 | External module is ready for data.                                               |
+**Textual Representation:**
+`
+  +-------------------------------------------------+
+  | debounce                                        |
+  |                                                 |
+  |   Inputs:                                       |
+  |     - clk_i                                     |
+  |     - rst_ni                                    |
+  |     - button_in_i (Noisy)                       |
+  |                                                 |
+  |   Outputs:                                      |
+  |     - pulse_out_o (Clean, 1-cycle pulse)        |
+  |                                                 |
+  |   Internal Logic:                               |
+  |     - Debounce FSM                              |
+  |     - Stability Counter                         |
+  |                                                 |
+  +-------------------------------------------------+
+`
 
-## 6. Interfaces
+## 5. Parameters
 
-### 6.1. `axil_s_if` (`axil_slave_if.slave_mp`)
-* **Type:** AXI4-Lite Slave
-* **Modport:** slave_mp
-* **Protocol Version:** AXI4-Lite (Rev E)
-* **Description:** Control and status register access.
-* **Key Signals (from modport perspective):** [INFO: Assistant may list signals based on interface type and modport if known, e.g., ACLK, ARESETn, AWADDR, AWVALID, AWREADY, WDATA, WSTRB, WVALID, WREADY, BRESP, BVALID, BREADY, ARADDR, ARVALID, ARREADY, RDATA, RRESP, RVALID, RREADY]
-* **Data Widths:** "Data: 32-bit, Addr: Determined by interface package (e.g., 12-bit for 4KB space)"
-* **User Signals:** "None"
-* **Associated Clock:** axil_s_if.ACLK (implicitly, or specify if different from clk_i)
-* **Associated Reset:** axil_s_if.ARESETn (implicitly, or specify if different from rst_ni)
+| Parameter Name            | Type    | Default Value | Description                                  | Usage                                              | Constraints                          |
+| ------------------------- | ------- | ------------- | -------------------------------------------- | -------------------------------------------------- | ------------------------------------ |
+| `CONFIG_CLOCK_FREQ_HZ`    | `integer` | `50_000_000`  | Frequency of the input clock in Hz.          | Used to calculate the debounce counter limit.      | Must be greater than 0.              |
+| `CONFIG_DEBOUNCE_TIME_MS` | `integer` | `20`          | Desired debounce settling time in milliseconds. | Determines how long the input must be stable.      | Recommended range is 5-50ms.         |
+
+## 6. Ports
+
+| Port Name     | Dir.   | Type / Width | Clock Domain         | Default State | Description                                                      |
+| ------------- | ------ | ------------ | -------------------- | ------------- | ---------------------------------------------------------------- |
+| `clk_i`       | input  | `logic`      | `clk_i`              | N/A           | System clock.                                                    |
+| `rst_ni`      | input  | `logic`      | `clk_i` (async assert) | N/A           | Asynchronous active-low reset.                                   |
+| `button_in_i` | input  | `logic`      | `clk_i` (asynchronous) | N/A           | Noisy input from a physical button (active-high).                |
+| `pulse_out_o` | output | `logic`      | `clk_i`              | `1'b0`        | Clean, single-cycle pulse output for each button press.          |
 
 ## 7. Internal Architecture / Design Details
 
 ### 7.1. Clocking and Reset
-* **Clock Domains:**
-  * `clk_i`: Main system clock. Source: Main system clock. Target Frequency: 200 MHz.
-* **Clock Domain Crossing (CDC) Strategy:**
-  * [INFO: No CDC_STRATEGY tags found. User to provide details if applicable.]
-* **Reset Strategy:**
-  * Primary Reset (`rst_ni`): Asynchronous active-low reset.
-  * De-assertion: Synchronously de-asserted. [cite: 62]
-  * Sync Stages (if applicable): 2 for rst_ni to clk_i. [cite: 62]
-  * Additional Notes: rst_ni is asynchronously asserted and synchronously de-asserted to clk_i. [cite: 62]
 
-### 7.2. Datapath
-Data flows from din_i, through an internal FIFO, to dout_o. Pointers manage FIFO state.
-  * **Key Datapath Elements (from `AI_TAG: DATAPATH_ELEMENT`):**
-      * Element Name: InternalRam, Type: Block RAM, Description: Stores FIFO data.
-  * **Pipeline Stages (if applicable, from `AI_TAG: PIPELINE_STAGE` or inferred):**
-      * [INFO: No PIPELINE_STAGE tags found. User to provide details if applicable.]
+*   **Clock Domain:** The entire module operates in a single clock domain, `clk_i`.
+*   **Reset Strategy:** The module uses an active-low asynchronous reset, `rst_ni`. Logic is reset when `rst_ni` is low.
 
-### 7.3. Control Logic / Finite State Machines (FSMs)
-* **FSM Name:** `fifo_ctrl_fsm_cs`
-    * **Purpose:** Manages FIFO read/write operations based on input/output readiness and AXI commands.
-    * **Encoding:** one-hot
-    * **Reset State:** S_IDLE
-    * **Key Input Conditions:** din_valid_i, dout_ready_i, axi_wr_en, axi_rd_en
-    * **States (from `AI_TAG: FSM_STATE`):**
-        * `S_IDLE`: Waiting for data or AXI command. Output Actions: din_ready_o is asserted if not full; dout_valid_o is low.
-        * `S_WRITE`: Writing data to FIFO. Output Actions: din_ready_o is low; write pointer increments.
-        * ...
-    * **State Transitions (from `AI_TAG: FSM_TRANSITION`):**
-        * `S_IDLE` -> `S_WRITE` when (din_valid_i && !fifo_full_s).
-        * ... [TODO: User to verify or provide full diagram/details if complex] [cite: 68]
+### 7.2. Finite State Machine (FSM)
 
-### 7.4. Key Internal Registers/Storage
-* `fifo_ram`:
-    * Purpose: RAM for storing FIFO data.
-    * Type: Block RAM
-    * Access: Read/Write controlled by FifoCoreLogic.
+The core of the module is a 4-state FSM that controls the debouncing logic.
 
-## 8. Theory of Operation
+*   **FSM States:**
+    *   `S_IDLE`: The default state, waiting for the `button_in_i` signal to go high.
+    *   `S_WAIT_STABLE`: Entered when a button press is detected. The FSM waits here for the duration of the debounce period, controlled by an internal counter. If the button is released during this time, it's considered noise, and the FSM returns to `S_IDLE`.
+    *   `S_PULSE`: Entered after the debounce time has elapsed and the button has remained asserted. In this state, `pulse_out_o` is asserted for a single clock cycle.
+    *   `S_WAIT_RELEASE`: After generating a pulse, the FSM waits in this state until the button is released to prevent generating multiple pulses for a single long press.
 
-[TODO: User to provide detailed operational flows unless covered by `AI_TAG: SCENARIO_START` or `AI_TAG: USE_CASE_START`.] [cite: 72]
+*   **State Transition Diagram:**
 
-**Error Conditions (from `AI_TAG: ERROR_CONDITION`):**
-* [INFO: No ERROR_CONDITION tags found. User to provide details if applicable.]
+    `mermaid
+    graph TD
+        S_IDLE -- button_in_i --> S_WAIT_STABLE;
+        S_WAIT_STABLE -- !button_in_i (noise) --> S_IDLE;
+        S_WAIT_STABLE -- button_in_i & counter_max --> S_PULSE;
+        S_PULSE -- (immediate) --> S_WAIT_RELEASE;
+        S_WAIT_RELEASE -- !button_in_i --> S_IDLE;
+    `
 
-## 9. Register Map (If Applicable)
+## 8. Assertions
 
-**Register Block: `FifoControlRegisters`**
-**Base Address:** `0x0000`
+*   `OneCyclePulseAssert`: Ensures the `pulse_out_o` signal is asserted for no more than one consecutive clock cycle, guaranteeing a clean single-pulse output.
 
-| Offset | Name             | Width | Access | Reset Val. | Volatility | Description                                                              | Sensitivity                      |
-|-----|---|----|-----|---|---|-----|----|
-| `0x00` | `FIFO_CTRL_REG`  | 32    | RW     | `32'h1`    | Volatile   | FIFO Control Register.                                                   | N/A                              |
-|        | **Field Name** | **Bits**| **Access**| **Reset Val.**| **Enum** | **Description** | **Interrupt** |
-|        | `FIFO_ENABLE`    | `0`   | RW     | `1'b1`     | 0:Disabled, 1:Enabled | Enables FIFO operation. 1=Enable, 0=Disable.                           | None                             |
-|        | `FIFO_SWRST`     | `1`   | W1C    | `1'b0`     |                   | Software reset for FIFO pointers. Clears FIFO content. Self-clearing.    | None                             |
-| `0x04` | `FIFO_STATUS_REG`| 32    | RO     | `32'h2`    | Volatile   | FIFO Status Register.                                                    | Updates on FIFO push/pop operations. |
-|        | **Field Name** | **Bits**| **Access**| **Reset Val.**| **Enum** | **Description** | **Interrupt** |
-|        | `FIFO_FULL`      | `0`   | RO     | `1'b0`     |                   | FIFO is full.                                                            | None                             |
-|        | `FIFO_EMPTY`     | `1`   | RO     | `1'b1`     |                   | FIFO is empty.                                                           | None                             |
-|        | `DATA_COUNT`     | `[15:8]`| RO     | `8'h00`    |                   | Number of words currently in FIFO.                                       | None                             |
+## 9. Synthesis and Implementation
 
-## 10. Low-Power Design
-
-* **Clock Gating Strategies:**
-  * Clock to FifoCoreLogic registers is gated when !fifo_ctrl_fsm_cs_is_S_IDLE && !axi_access_active_s.
-* **Power Gating Domains:**
-  * [INFO: No POWER_GATING_DOMAIN tags found. User to provide details if applicable.]
-* **Power States:**
-  * [INFO: No POWER_STATE tags found. User to provide details if applicable.]
-* **General Power Intent:** Basic clock gating on FIFO core logic when idle.
-
-## 11. Security Mechanisms
-
-* **Protected Assets:**
-  * [INFO: No SECURITY_ASSET tags found. User to provide details if applicable.]
-* **Security Mechanisms Implemented:**
-  * [INFO: No SECURITY_MECHANISM tags found. User to provide details if applicable.]
-* **Potential Vulnerability Concerns (for review):**
-  * [INFO: No SECURITY_VULNERABILITY_CONCERN tags found. User to provide details if applicable.]
-
-## 12. Safety Mechanisms
-
-* **Hazards Mitigated:**
-  * [INFO: No SAFETY_HAZARD_MITIGATION tags found. User to provide details if applicable.]
-* **Compliance to Safety Standards:**
-  * [INFO: No SAFETY_STANDARD_COMPLIANCE tags found. User to provide details if applicable.]
-
-## 13. Assertions
-
-* `a_din_ready_when_not_full`: Ensures din_ready_o is high if FIFO is not full. (Type: Both, Severity: Error, Coverage Link: fifo_coverage.din_ready_cp)
-
-## 14. Assumptions, Limitations, and Dependencies
-
-* **Assumptions (from `AI_TAG: ASSUMPTION`):**
-  * AXI clock (axi_clk_i) is synchronous to clk_i or properly handled by the AXI interface logic itself if separate.
-* **Limitations (from `AI_TAG: LIMITATION`):**
-  * Max P_FIFO_DEPTH is 256 due to internal addressing limitations.
-* **Dependencies (from `AI_TAG: DEPENDENCY`):**
-  * [INFO: No DEPENDENCY tags found. User to provide details if applicable.]
-* **Performance Metrics (from `AI_TAG: PERFORMANCE_METRIC`):**
-  * Throughput: Target `1 word per clock cycle` when When FIFO is not empty (read) or not full (write).
-
-## 15. Synthesis Considerations
-
-* **Target Technology:** ASIC [TODO: User to specify, may be hinted by `// TARGET_TECHNOLOGY_PREF` header]
-* **Critical Paths:** [TODO: User to specify after initial synthesis. Hints from `AI_TAG: SYNTHESIS_NOTE`.] [cite: 100]
-* **Resource Usage:** [TODO: User to update after synthesis. Hints from `AI_TAG: AREA_ESTIMATE_NOTES`.] [cite: 101]
-* **Special Constraints (SDC):** False path may be needed for AXI reset if it's asynchronous to clk_i and synchronized within the AXI slave IP. [Hints from `AI_TAG: SDC_CONSTRAINT_GUIDE`.]
-* **Tool Specific Notes:** [Generated from `AI_TAG: SYNTH_TOOL_NOTE`.]
-
-## 16. Verification Notes
-
-* **Key Scenarios to Test (from `AI_TAG: VERIF_SCENARIO_KEY` and general knowledge):**
-    * Reset functionality.
-    * Back-to-back transactions on all interfaces. [cite: 103]
-    * Empty/full conditions for internal FIFOs/buffers. [cite: 104]
-    * All modes of operation defined by parameters/control registers. [cite: 105]
-    * Simultaneous AXI read/write access during continuous data flow.
-    * FIFO full and FIFO empty boundary conditions with backpressure.
-* **Verification Strategies (from `AI_TAG: VERIF_STRATEGY`):**
-    * Constrained random stimulus for data interface and AXI transactions. Directed tests for register access and reset values.
-* **Formal Verification Targets (from `AI_TAG: FORMAL_TARGET`):**
-    * [INFO: No FORMAL_TARGET tags found. User to provide details if applicable.]
-* **Emulation Targets (from `AI_TAG: EMULATION_TARGET`):**
-    * [INFO: No EMULATION_TARGET tags found. User to provide details if applicable.]
-* **Coverage Goals:**
-    * 100% statement/branch/condition/toggle coverage.
-    * All FSM states and defined transitions. [cite: 109]
-    * Key functional scenarios covered by `covergroup`s. [TODO: User to point to specific covergroups.] [cite: 110]
-    * Notes on coverage focus: Cover all FIFO_CTRL_REG field values and transitions between FIFO_FULL/FIFO_EMPTY states.
-* **Relevant UVM Components (if applicable, from `AI_TAG: UVM_COMPONENT_LINK`):**
-    * Agent: simple_fifo_ctrl_axil_agent
-    * Agent: simple_fifo_ctrl_data_agent
-* **Security Verification Notes (from `AI_TAG: SECURITY_VERIF_NOTE`):**
-    * [INFO: No SECURITY_VERIF_NOTE tags found. User to provide details if applicable.]
-* **Safety Verification Notes (from `AI_TAG: SAFETY_VERIF_NOTE`):**
-    * [INFO: No SAFETY_VERIF_NOTE tags found. User to provide details if applicable.]
-
-## 17. Implementation Quality Metrics
-
-* **Dependencies:** simple_fifo_ctrl_if.sv, axil_slave_if interface package
-* **Instantiated In:** 
-  - top_level/top_soc.sv
-  - subsystems/data_processing_subsystem.sv
-* **Performance Metrics:**
-  * **Critical Path:** Through fifo_ram read access and output mux
-  * **Max Frequency:** 200 MHz target
-  * **Area:** Approximately 2K gates + RAM macro for FIFO storage
-* **Verification Coverage Achieved:**
-  * **Code Coverage:** TBD
-  * **Functional Coverage:** TBD
-  * **Branch Coverage:** TBD
-* **Synthesis Results:**
-  * **Target Technology:** ASIC
-  * **Synthesis Tool:** Design Compiler
-  * **Clock Domains:** 1 (clk_i)
-  * **Constraints File:** simple_fifo_ctrl.sdc
-* **Testing Information:**
-  * **Testbench:** simple_fifo_ctrl_tb.sv
-  * **Test Vectors:** TBD
-
-## 18. Revision History
+*   **Resource Usage:** The module is very lightweight. On most FPGAs or in an ASIC, it will synthesize to a small number of logic cells (LUTs and flip-flops).
+*   **Critical Path:** The critical path is the combinational logic for the FSM's next-state calculation. Given its simplicity, it is not expected to be a timing concern in any typical design.
 
 | Version | Date       | Author                       | Changes                                       |
 |---|---|---|-----|
 | 1.0.0   | 2025-05-24 | DesignAI Example Generator   | Initial auto-generation from RTL and AI_TAGS. |
-
-
-
-
 | ...     |            |                              |                                               |

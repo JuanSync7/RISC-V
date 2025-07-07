@@ -1,0 +1,217 @@
+# SystemVerilog Safety Feature Example: Triple Modular Redundancy (TMR)
+
+This file provides a few-shot example for implementing a fault-tolerant logic block using Triple Modular Redundancy (TMR), adhering to the project's coding and documentation standards.
+
+---
+## RTL Source 1: tmr_alu_wrapper.sv (Wrapper/Corrector Module)
+---
+
+//=============================================================================
+// Company: Sondrel Ltd
+// Project Name: AES_GCM
+//
+// File: tmr_alu_wrapper.sv
+//
+// ----- Fields for Automated Documentation -----
+// MODULE_NAME: tmr_alu_wrapper
+// AUTHOR: DesignAI Example Generator (example@company.com)
+// VERSION: 1.0.0
+// DATE: 2025-05-25
+// DESCRIPTION: A wrapper module that uses Triple Modular Redundancy (TMR) to provide fault tolerance for a simple ALU.
+// PRIMARY_PURPOSE: To transparently correct any single-point hardware fault in one of the redundant logic cores.
+// ROLE_IN_SYSTEM: Acts as a high-reliability, fault-masking wrapper around a core computational module.
+// PROBLEM_SOLVED: Provides continuous correct operation even in the presence of a single fault, increasing system uptime and reliability.
+// MODULE_TYPE: RTL
+// TARGET_TECHNOLOGY_PREF: ASIC
+// RELATED_SPECIFICATION: N/A
+//
+// ----- Status and Tracking -----
+// VERIFICATION_STATUS: Not Verified
+// QUALITY_STATUS: Draft
+//
+//=============================================================================
+
+`timescale 1ns/1ps
+`default_nettype none
+
+// Assumes the 'simple_alu.sv' from the lock-step example is available.
+
+module tmr_alu_wrapper #(
+    parameter integer CONFIG_DATA_WIDTH = 32
+) (
+    // Clock and Reset
+    input  logic clk_i,       // AI_TAG: PORT_DESC - System clock. // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    input  logic rst_ni,      // AI_TAG: PORT_DESC - Asynchronous active-low reset. // AI_TAG: PORT_CLK_DOMAIN - clk_i (async assert)
+
+    // ALU Inputs (passed to all three cores)
+    input  logic [CONFIG_DATA_WIDTH-1:0] operand_a_i,    // AI_TAG: PORT_DESC - Operand A for the ALU operation. // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    input  logic [CONFIG_DATA_WIDTH-1:0] operand_b_i,    // AI_TAG: PORT_DESC - Operand B for the ALU operation. // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    input  logic [1:0]                   op_sel_i,       // AI_TAG: PORT_DESC - Operation select for the ALU. // AI_TAG: PORT_CLK_DOMAIN - clk_i
+
+    // Outputs
+    output logic [CONFIG_DATA_WIDTH-1:0] result_o,         // AI_TAG: PORT_DESC - Voted, corrected result from the TMR ALUs. // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    output logic                         mismatch_error_o  // AI_TAG: PORT_DESC - Asserted if any core's output differs from the voted result. // AI_TAG: PORT_CLK_DOMAIN - clk_i
+);
+
+    // ----- Internal Signal Declarations -----
+    logic [CONFIG_DATA_WIDTH-1:0] result_a_w;
+    logic [CONFIG_DATA_WIDTH-1:0] result_b_w;
+    logic [CONFIG_DATA_WIDTH-1:0] result_c_w;
+
+    // ----- Sub-module Instantiations -----
+
+    // Instantiate three identical ALU cores
+    simple_alu #(.CONFIG_DATA_WIDTH(CONFIG_DATA_WIDTH)) u_alu_a (.operand_a_i(operand_a_i), .operand_b_i(operand_b_i), .op_sel_i(op_sel_i), .result_o(result_a_w));
+    simple_alu #(.CONFIG_DATA_WIDTH(CONFIG_DATA_WIDTH)) u_alu_b (.operand_a_i(operand_a_i), .operand_b_i(operand_b_i), .op_sel_i(op_sel_i), .result_o(result_b_w));
+    simple_alu #(.CONFIG_DATA_WIDTH(CONFIG_DATA_WIDTH)) u_alu_c (.operand_a_i(operand_a_i), .operand_b_i(operand_b_i), .op_sel_i(op_sel_i), .result_o(result_c_w));
+
+
+    // ----- Combinational Logic -----
+
+    // Majority Voter Logic
+    // For each bit, the output is '1' if at least two of the three inputs are '1'.
+    // This performs a bitwise 2-out-of-3 majority vote.
+    // Result = (A & B) | (A & C) | (B & C)
+    assign result_o = (result_a_w & result_b_w) |
+                      (result_a_w & result_c_w) |
+                      (result_b_w & result_c_w);
+
+    // Mismatch detection for logging or maintenance purposes.
+    // This flag is asserted if any of the cores disagrees with the final voted output.
+    assign mismatch_error_o = (result_a_w !== result_o) |
+                              (result_b_w !== result_o) |
+                              (result_c_w !== result_o);
+
+
+    // ----- AI Tags for Documentation -----
+    // AI_TAG: SAFETY_HAZARD_MITIGATION - Hardware Fault in ALU - Triple Modular Redundancy (TMR) with a majority voter masks any single-point fault in one core, ensuring continuous correct output.
+    // AI_TAG: SAFETY_STANDARD_COMPLIANCE - ISO 26262 / DO-254 - TMR is a fundamental technique for building fault-tolerant systems required for the highest ASIL/DAL levels, as it moves beyond detection to active correction.
+    //
+    // AI_TAG: VERIF_SCENARIO_KEY - Fault Injection: Inject a fault into each of the three cores individually and verify that the output `result_o` remains correct and `mismatch_error_o` is asserted.
+    // AI_TAG: VERIF_STRATEGY - Use force/release to corrupt the output of one ALU instance at a time and verify the voter logic.
+
+endmodule : tmr_alu_wrapper
+
+//=============================================================================
+// Dependencies: simple_alu.sv
+//
+// Performance:
+//   - Critical Path: From any input through an ALU core and the voter logic.
+//   - Max Frequency: Dependent on ALU timing plus one level of voter logic.
+//   - Area: Roughly 3x the area of simple_alu plus the voter logic.
+//
+// Verification Coverage:
+//   - Code Coverage: TBD
+//   - Functional Coverage: TBD
+//   - Branch Coverage: TBD
+//
+// Synthesis:
+//   - Target Technology: ASIC
+//   - Synthesis Tool: N/A
+//   - Clock Domains: 1
+//   - Constraints File: tmr_alu_wrapper.sdc
+//
+// Testing:
+//   - Testbench: tmr_alu_wrapper_tb.sv
+//   - Test Vectors: N/A, requires fault injection capability.
+//
+//----
+// Revision History:
+// Version | Date       | Author                       | Description
+//=============================================================================
+// 1.0.0   | 2025-05-25 | DesignAI Example Generator   | Initial release.
+//=============================================================================
+
+---
+## Documentation: tmr_alu_wrapper.md
+---
+
+# Module Design Document: tmr_alu_wrapper
+
+**Version:** 1.0.0
+**Source File(s):** `tmr_alu_wrapper.sv`, `simple_alu.sv`
+**Author:** DesignAI Example Generator (example@company.com)
+**Generated On:** 2025-05-25
+**Module Type:** RTL
+**Target Technology Preference:** ASIC
+**Related Specification(s):** N/A
+**Verification Status:** Not Verified
+**Quality Status:** Draft
+
+## 1. Overview
+
+This module provides a highly reliable, fault-tolerant Arithmetic Logic Unit (ALU) by implementing a **Triple Modular Redundancy (TMR)** architecture. It instantiates three identical copies of a core computational module (`simple_alu`), runs them in parallel with the same inputs, and uses a **majority voter** to produce the final, corrected output.
+
+The primary purpose of this module is to transparently mask a critical hardware fault (e.g., an SEU or permanent fault) in any single one of the three ALU cores. Unlike a simple detection scheme (like lock-step), TMR allows the system to continue operating correctly without interruption, making it suitable for mission-critical applications where downtime is unacceptable.
+
+## 2. Key Features
+
+*   Implements a three-core Triple Modular Redundancy scheme.
+*   Provides active fault correction (fault masking) for any single-point failure.
+*   Uses a bitwise 2-out-of-3 majority voter to determine the correct output.
+*   Asserts a `mismatch_error_o` flag for maintenance/logging if any core disagrees with the voted result.
+
+## 3. Block Diagram
+
+**Textual Representation:**
+`
+                            +--------------------------+
+                            |     tmr_alu_wrapper      |
+    op_a_i, op_b_i, op_sel_i|                          |
+    ------------------------> +-------------------+    |
+           |                | |   u_alu_a         | --(A)--------+
+           |                | |  (simple_alu)     |    |         |
+           |                | +-------------------+    |         |
+           |                |                          |         |
+           +----------------> +-------------------+    |         ▼
+           |                | |   u_alu_b         | --(B)--> +-------+
+           |                | |  (simple_alu)     |    |      | Voter | --> result_o
+           |                | +-------------------+    |      +-------+
+           |                |                          |         ▲
+           +----------------> +-------------------+    |         |
+                            | |   u_alu_c         | --(C)--------+
+                            | |  (simple_alu)     |    |
+                            | +-------------------+    |
+                            |                          |
+                            +--------------------------+
+`
+
+## 4. Parameters
+
+| Parameter Name      | Type      | Default Value | Description              |
+| ------------------- | --------- | ------------- | ------------------------ |
+| `CONFIG_DATA_WIDTH` | `integer` | `32`          | Defines the data width for the ALU operands and result. |
+
+## 5. Ports
+
+| Port Name          | Dir.   | Type / Width       | Clock Domain | Description                                                    |
+| ------------------ | ------ | ------------------ | ------------ | -------------------------------------------------------------- |
+| `clk_i`            | input  | `logic`            | `clk_i`      | System clock.                                                  |
+| `rst_ni`           | input  | `logic`            | `clk_i` (async)| Asynchronous active-low reset.                               |
+| `operand_a_i`      | input  | `logic[WIDTH-1:0]` | `clk_i`      | Operand A, fed to all three ALU cores.                         |
+| `operand_b_i`      | input  | `logic[WIDTH-1:0]` | `clk_i`      | Operand B, fed to all three ALU cores.                         |
+| `op_sel_i`         | input  | `logic[1:0]`       | `clk_i`      | Operation select, fed to all three ALU cores.                  |
+| `result_o`         | output | `logic[WIDTH-1:0]` | `clk_i`      | Voted, corrected result from the TMR ALUs.                     |
+| `mismatch_error_o` | output | `logic`            | `clk_i`      | Asserted if any core's output differs from the voted result.   |
+
+## 6. Internal Architecture / Design Details
+
+### 6.1. Redundant Instantiation
+
+The module instantiates the `simple_alu` component three times: `u_alu_a`, `u_alu_b`, and `u_alu_c`. All three instances are driven by the exact same input ports. In a physical implementation, these three blocks should be placed in separate regions of the chip to minimize the chance of a single event affecting more than one core (a common-cause failure).
+
+### 6.2. Majority Voter
+
+The core of the TMR scheme is the bitwise majority voter. For each of the 32 bits in the output, the logic implements the Boolean function `(A & B) | (A & C) | (B & C)`. This ensures that the output bit will take the value held by at least two of the three ALU cores, effectively masking the incorrect output from a single faulty core.
+
+### 6.3. Mismatch Detection
+
+While the fault is corrected transparently, the `mismatch_error_o` signal provides visibility that a fault has occurred. It compares the output of each ALU to the final voted result. This signal is crucial for system health monitoring, allowing the system to log the event or flag the need for maintenance.
+
+## 7. Safety and Verification
+
+*   **Safety Hazard Mitigation**: This module mitigates the hazard of a **Hardware Fault in the ALU** by providing active correction. For the highest safety standards like **ISO 26262 ASIL D** or **DO-254 DAL A**, TMR is a foundational strategy for building fault-tolerant systems that can withstand single-point failures without interruption of service.
+*   **Fault Model**: This architecture can correct any single fault in one of the three cores. It can detect, but not correct, faults in two cores. A fault in the voter itself is a single point of failure and would typically require its own protection scheme in a real high-ASIL design.
+*   **Verification**: The key verification task is **fault injection**. The testbench must individually corrupt the output of each of the three ALUs and verify that:
+    1.  The final `result_o` remains correct in all cases.
+    2.  The `mismatch_error_o` signal is asserted.

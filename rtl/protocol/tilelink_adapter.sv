@@ -269,7 +269,8 @@ module tilelink_adapter #(
                 if (mem_if.req_valid && can_accept_request) begin
                     txn_alloc_valid = 1'b1;
                     next_state_c = SEND_REQUEST;
-                end else if (completed_txn_valid) begin
+                }
+                else if (completed_txn_valid) begin
                     next_state_c = SEND_GENERIC_RSP;
                 end
             end
@@ -308,7 +309,8 @@ module tilelink_adapter #(
                     transaction_type = QOS_TYPE_INSTR_FETCH; // Likely instruction fetch
                 end else if (mem_if.req.write || mem_if.req.strb != 4'hF) begin
                     transaction_type = QOS_TYPE_DATA_ACCESS; // Data access
-                end else if (mem_if.req.addr >= 32'hF000_0000) begin
+                }
+                else if (mem_if.req.addr >= 32'hF000_0000) begin
                     transaction_type = QOS_TYPE_PERIPHERAL;  // Peripheral space
                 end else begin
                     transaction_type = QOS_TYPE_CACHE_FILL;  // Default to cache fill
@@ -328,7 +330,7 @@ module tilelink_adapter #(
                 // Wait for response, handled by transaction table updates
                 if (completed_txn_valid) begin
                     next_state_c = SEND_GENERIC_RSP;
-                end else begin
+                } else begin
                     next_state_c = IDLE;
                 end
             end
@@ -344,12 +346,12 @@ module tilelink_adapter #(
                         tl_if.d_source == transaction_table[completed_source_id].tl_source_id) begin
                         mem_if.rsp.data = tl_if.d_data;
                         mem_if.rsp.error = tl_if.d_denied || tl_if.d_corrupt;
-                    end else begin
+                    } else begin
                         mem_if.rsp.data = '0;
                         mem_if.rsp.error = 1'b0;
                     end
-                end else begin
-                    // Write response - no data needed
+                } else begin
+                    // Write response
                     mem_if.rsp.data = '0;
                     mem_if.rsp.error = tl_if.d_denied || tl_if.d_corrupt;
                 end

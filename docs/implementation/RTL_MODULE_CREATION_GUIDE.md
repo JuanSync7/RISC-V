@@ -1053,9 +1053,9 @@ Ensure proper compilation order for packages, interfaces, and modules:
 **Example Compilation Script:**
 ```bash
 # Phase 1: Compile packages first
-vlog rtl/core/riscv_config_pkg.sv
-vlog rtl/core/riscv_types_pkg.sv
-vlog rtl/core/riscv_*_pkg.sv
+vlog rtl/pkg/riscv_config_pkg.sv
+vlog rtl/pkg/riscv_types_pkg.sv
+vlog rtl/pkg/riscv_*_pkg.sv
 
 # Phase 2: Compile interfaces (CRITICAL for interface-based design)
 vlog rtl/interfaces/memory_req_rsp_if.sv
@@ -1069,8 +1069,12 @@ vlog rtl/interfaces/sync_primitives_if.sv
 # Phase 3: Compile modules (order matters for dependencies)
 vlog rtl/units/*.sv              # Basic functional units
 vlog rtl/memory/*.sv             # Memory subsystem
-vlog rtl/protocols/*.sv          # Protocol adapters (use interfaces)
-vlog rtl/core/*.sv               # Core modules
+vlog rtl/core/fetch_stage.sv      # Pipeline stages
+vlog rtl/core/decode_stage.sv
+vlog rtl/core/execute_stage.sv
+vlog rtl/core/mem_stage.sv
+vlog rtl/core/writeback_stage.sv
+vlog rtl/core/riscv_core.sv       # Top-level core
 ```
 
 ## Examples
@@ -1360,17 +1364,17 @@ Add assertions to verify interface protocol compliance:
 ```systemverilog
 // Protocol compliance assertions
 assert property (@(posedge clk_i) disable iff (!rst_ni)
-    mem_if.req_valid && !mem_if.req_ready |=> mem_if.req_valid)
+    req_valid && !req_ready |=> req_valid)
 else $error("Memory request must remain valid until accepted");
 
 assert property (@(posedge clk_i) disable iff (!rst_ni)
-    mem_if.req_valid |-> mem_if.req_addr != 'x)
+    req_valid |-> req_addr != 'x)
 else $error("Memory request address must be defined when valid");
 
 // Interface usage assertions
 assert property (@(posedge clk_i) disable iff (!rst_ni)
-    mem_if.req_valid |-> ##[1:MAX_RESPONSE_LATENCY] mem_if.rsp_valid)
-else $error("Memory response must arrive within maximum latency");
+    req_valid |-> ##[1:MAX_RESPONSE_LATENCY] req_ready)
+else $error("Memory request must be accepted within maximum latency");
 ```
 
 ---

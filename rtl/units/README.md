@@ -13,7 +13,7 @@ This directory contains the functional units that perform the core computational
 | `mult_unit.sv` | Multiplier Unit | ✅ Complete |
 | `div_unit.sv` | Divider Unit | ✅ Complete |
 | `csr_regfile.sv` | Control and Status Registers | ✅ Complete |
-| `exception_handler.sv` | Exception Handler | ✅ Complete |
+
 
 ## Unit Details
 

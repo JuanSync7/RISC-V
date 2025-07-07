@@ -59,9 +59,9 @@ class Phase1Validator:
         
         # Core components to test
         core_files = [
-            "rtl/core/riscv_types_pkg.sv",
-            "rtl/core/riscv_config_pkg.sv", 
-            "rtl/core/riscv_core_pkg.sv",
+            "rtl/pkg/riscv_types_pkg.sv",
+            "rtl/pkg/riscv_config_pkg.sv", 
+            "rtl/pkg/riscv_core_pkg.sv",
             "rtl/units/alu.sv",
             "rtl/units/reg_file.sv",
             "rtl/units/mult_unit.sv",

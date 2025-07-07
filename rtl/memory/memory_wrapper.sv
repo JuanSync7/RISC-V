@@ -157,6 +157,28 @@ module memory_wrapper #(
     logic pending_instr_valid;
     logic pending_data_valid;
 
+    // AI_TAG: INTERNAL_LOGIC - Bus watchdog timers
+    logic instr_timeout;
+    logic data_timeout;
+
+    bus_watchdog #(
+        .TIMEOUT_CYCLES(riscv_verification_config_pkg::BUS_TIMEOUT_CYCLES)
+    ) instr_watchdog (
+        .clk_i(clk_i),
+        .rst_ni(rst_ni),
+        .enable_i(pending_instr_valid),
+        .timeout_o(instr_timeout)
+    );
+
+    bus_watchdog #(
+        .TIMEOUT_CYCLES(riscv_verification_config_pkg::BUS_TIMEOUT_CYCLES)
+    ) data_watchdog (
+        .clk_i(clk_i),
+        .rst_ni(rst_ni),
+        .enable_i(pending_data_valid),
+        .timeout_o(data_timeout)
+    );
+
     // AI_TAG: INTERNAL_LOGIC - Performance monitoring
     logic [31:0] cycle_counter;
     logic [31:0] transaction_counter;
@@ -188,7 +210,7 @@ module memory_wrapper #(
         // Response side
         instr_rsp_valid_o = instr_mem_if.rsp_valid;
         instr_rsp_data_o = instr_mem_if.rsp.data;
-        instr_rsp_error_o = instr_mem_if.rsp.error;
+        instr_rsp_error_o = instr_mem_if.rsp.error || instr_timeout;
         instr_mem_if.rsp_ready = instr_rsp_ready_i;
     end
     
@@ -210,7 +232,7 @@ module memory_wrapper #(
         // Response side
         data_rsp_valid_o = dcache_cpu_if.rsp_valid;
         data_rsp_data_o = dcache_cpu_if.rsp.data;
-        data_rsp_error_o = dcache_cpu_if.rsp.error;
+        data_rsp_error_o = dcache_cpu_if.rsp.error || data_timeout;
         dcache_cpu_if.rsp_ready = data_rsp_ready_i;
     end
 

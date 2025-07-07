@@ -97,7 +97,11 @@ Comprehensive unit-level verification for all RTL modules.
   - **Documentation:** `docs/verification/testbenches/system_integration_validator_tb.md`
 
 ### **Execution Unit Tests (`unit/execution/`)**
-- **`reorder_buffer_tb.sv`** - ROB functionality verification
+- **Out-of-Order (OoO) Engine testbench** (new) - Verification of RS, ROB, RR, and MEU functionality, precise exceptions, and pipeline integration, with `ooo_pkg.sv` now utilizing parameters from `riscv_config_pkg.sv` for enhanced consistency, and `core_subsystem.sv` now correctly enabling the OoO engine, MMU, QoS, FPU, VPU, and MLIU based on parameters from `riscv_config_pkg.sv` (using `CONFIG_ENABLE_OOO`, `CONFIG_ENABLE_MMU`, `CONFIG_ENABLE_QOS`, `CONFIG_ENABLE_FPU`, `CONFIG_ENABLE_VPU`, and `CONFIG_ENABLE_ML_INFERENCE`). Additionally, `riscv_core.sv` now correctly enables the Bus Watchdog and Power Management Unit based on parameters from `riscv_config_pkg.sv` (using `CONFIG_ENABLE_BUS_WATCHDOG` and `CONFIG_ENABLE_PMU`).
+- **MMU Package Consistency:** `mmu_pkg.sv` now uses parameters from `riscv_config_pkg.sv` for MMU configuration (using `CONFIG_MMU_TLB_SIZE`, `CONFIG_MMU_TLB_ASSOC`, `CONFIG_MMU_PAGE_SIZE_BITS`).
+- **Power Package Consistency:** `power_pkg.sv` now uses parameters from `riscv_config_pkg.sv` for power management configuration (using `CONFIG_IDLE_TIMEOUT`, `CONFIG_SLEEP_TIMEOUT`).
+- **Inter-Core Types Package Consistency:** `riscv_inter_core_types_pkg.sv` now uses parameters from `riscv_config_pkg.sv` for inter-core communication configuration.
+- **reorder_buffer_tb.sv** - ROB functionality verification
   - In-order retirement validation
   - Exception handling testing
   - Performance counter verification
@@ -151,6 +155,8 @@ System-level integration verification ensuring proper module interaction.
 - **Protocol Switching:** AXI4/CHI/TileLink dynamic switching
 - **QoS Integration:** End-to-end quality of service testing
 - **Performance Validation:** IPC target achievement (>0.9)
+- **QoS Stress:** Priority enforcement under load
+- **Thermal Stress:** High-frequency operation testing
 
 ---
 
@@ -394,7 +400,7 @@ CORE_ACTIVITY_CHECK: assert property (
 ### **Stress Tests:**
 - **Multi-Core Stress:** Maximum core utilization
 - **Memory Bandwidth:** Peak bandwidth testing
-- **QoS Stress:** Priority enforcement under load
+- **QoS Stress:** Comprehensive testing of the QoS Management Unit, including bandwidth allocation verification, priority enforcement testing under various load conditions, and latency guarantee validation for critical transactions.
 - **Thermal Stress:** High-frequency operation testing
 
 ### **Corner Case Tests:**

@@ -117,7 +117,7 @@ module protocol_factory #(
 
     // AI_TAG: INTERNAL_BLOCK - ProtocolSelector - Selects active protocol based on configuration
     // AI_TAG: INTERNAL_BLOCK - InterfaceMultiplexer - Routes traffic to selected protocol adapter
-    // AI_TAG: INTERNAL_BLOCK - PerformanceCounters - Tracks protocol-specific performance metrics
+    // AI_TAG: INTERNAL_BLOCK - PerformanceCounters - Tracks protocol-specific metrics
 
     //-----
     // Local Parameters and Types
@@ -172,7 +172,7 @@ module protocol_factory #(
             protocol_enable_r <= 1'b0;
             req_valid_pipe_r <= 1'b0;
             req_pipe_r <= '0;
-        end else begin
+        } else begin
             // Pipeline stage 1: Register protocol selection
             protocol_select_r <= current_protocol_s;
             protocol_enable_r <= protocol_enable_s;

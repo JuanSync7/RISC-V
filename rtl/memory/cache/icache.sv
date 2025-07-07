@@ -27,7 +27,8 @@ module icache #(
     parameter integer CACHE_SIZE = DEFAULT_L1_ICACHE_SIZE,    // AI_TAG: PARAM_DESC - Total cache size in bytes.
     parameter integer LINE_SIZE = DEFAULT_CACHE_LINE_SIZE,   // AI_TAG: PARAM_DESC - Cache line size in bytes.
     parameter integer WAYS = DEFAULT_L1_ICACHE_WAYS,          // AI_TAG: PARAM_DESC - Number of ways (associativity).
-    parameter integer ADDR_WIDTH = ADDR_WIDTH                        // AI_TAG: PARAM_DESC - Address width.
+    parameter integer ADDR_WIDTH = ADDR_WIDTH,                        // AI_TAG: PARAM_DESC - Address width.
+    parameter integer PADDR_WIDTH = ADDR_WIDTH // AI_TAG: PARAM_DESC - Physical Address width (from MMU)
 ) (
     // Clock and Reset
     input  logic        clk_i,
@@ -35,7 +36,7 @@ module icache #(
 
     // CPU Interface
     input  logic        cpu_req_valid_i,  // AI_TAG: PORT_DESC - cpu_req_valid_i - CPU request valid.
-    input  addr_t       cpu_req_addr_i,   // AI_TAG: PORT_DESC - cpu_req_addr_i - CPU request address.
+    input  logic [PADDR_WIDTH-1:0] cpu_req_addr_i,   // AI_TAG: PORT_DESC - cpu_req_addr_i - CPU request physical address.
     output logic        cpu_req_ready_o,  // AI_TAG: PORT_DESC - cpu_req_ready_o - Cache ready to accept request.
     output logic        cpu_rsp_valid_o,  // AI_TAG: PORT_DESC - cpu_rsp_valid_o - Cache response valid.
     output word_t       cpu_rsp_data_o,   // AI_TAG: PORT_DESC - cpu_rsp_data_o - Cache response data.

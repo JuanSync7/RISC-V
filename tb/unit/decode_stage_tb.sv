@@ -22,6 +22,29 @@
 // QUALITY_STATUS: Draft
 //
 //=============================================================================
+// DOCUMENTATION_PASS_FAIL: PASS
+//-----------------------------------------------------------------------------
+// REVISION HISTORY:
+// - 1.0.0 | 2025-07-05 | Juan.Kok | Initial creation and basic test cases for R,I,S,B,U,J types.
+// - 1.1.0 | 2025-07-05 | Juan.Kok | Added DPU/FPU custom instruction test case.
+//
+//=============================================================================
+// Toolchain:
+//   - QuestaSim 2023.2
+//
+// Dependencies:
+//   - rtl/core/decode_stage.sv
+//   - rtl/pkg/riscv_config_pkg.sv
+//   - rtl/pkg/riscv_core_pkg.sv
+//   - rtl/pkg/riscv_dpu_types_pkg.sv
+//
+// Instantiated In:
+//   - Not applicable (this is a testbench).
+//
+// Known Issues:
+//   - None.
+//
+//=============================================================================
 `timescale 1ns/1ps
 `default_nettype none
 
@@ -307,9 +330,9 @@ endmodule : decode_stage_tb
 //=============================================================================
 // Dependencies:
 //   - rtl/core/decode_stage.sv
-//   - rtl/core/riscv_config_pkg.sv
-//   - rtl/core/riscv_core_pkg.sv
-//   - rtl/core/riscv_dpu_types_pkg.sv
+//   - rtl/pkg/riscv_config_pkg.sv
+//   - rtl/pkg/riscv_core_pkg.sv
+//   - rtl/pkg/riscv_dpu_types_pkg.sv
 //
 // Instantiated In:
 //   - N/A (Unit Testbench)

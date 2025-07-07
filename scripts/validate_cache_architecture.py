@@ -52,11 +52,11 @@ class CacheArchitectureValidator:
         self.log("INFO", "Validating cache architecture file structure...")
         
         required_files = [
-            "rtl/core/riscv_cache_topology_pkg.sv",
+            "rtl/pkg/riscv_cache_topology_pkg.sv",
             "rtl/memory/cache_cluster_manager.sv", 
             "rtl/core/multi_core_system.sv",
-            "rtl/core/riscv_config_pkg.sv",
-            "rtl/core/riscv_core_pkg.sv"
+            "rtl/pkg/riscv_config_pkg.sv",
+            "rtl/pkg/riscv_core_pkg.sv"
         ]
         
         missing_files = []
@@ -79,7 +79,7 @@ class CacheArchitectureValidator:
         """Validate cache topology package completeness"""
         self.log("INFO", "Validating cache topology package...")
         
-        topology_file = self.project_root / "rtl/core/riscv_cache_topology_pkg.sv"
+        topology_file = self.project_root / "rtl/pkg/riscv_cache_topology_pkg.sv"
         
         try:
             with open(topology_file, 'r', encoding='utf-8') as f:
@@ -179,7 +179,7 @@ class CacheArchitectureValidator:
         """Validate configuration parameters"""
         self.log("INFO", "Validating configuration parameters...")
         
-        config_file = self.project_root / "rtl/core/riscv_config_pkg.sv"
+        config_file = self.project_root / "rtl/pkg/riscv_config_pkg.sv"
         
         try:
             with open(config_file, 'r', encoding='utf-8') as f:
@@ -209,7 +209,7 @@ class CacheArchitectureValidator:
         """Validate package import structure"""
         self.log("INFO", "Validating package imports...")
         
-        core_pkg_file = self.project_root / "rtl/core/riscv_core_pkg.sv"
+        core_pkg_file = self.project_root / "rtl/pkg/riscv_core_pkg.sv"
         
         try:
             with open(core_pkg_file, 'r', encoding='utf-8') as f:

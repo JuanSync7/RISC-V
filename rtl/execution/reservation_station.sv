@@ -21,6 +21,8 @@
 `timescale 1ns/1ps
 `default_nettype none
 
+import ooo_pkg::*;
+
 // AI_TAG: FEATURE - Unified reservation station for all instruction types.
 // AI_TAG: FEATURE - Full result forwarding logic to resolve operand dependencies.
 // AI_TAG: FEATURE - Configurable number of entries.
@@ -30,46 +32,26 @@
 // AI_TAG: INTERNAL_BLOCK - ResultWatcher - Monitors the result bus and updates waiting instructions.
 
 module reservation_station #(
-    parameter integer DATA_WIDTH     = 32, // AI_TAG: PARAM_DESC - Width of the data path and instruction operands.
-    parameter integer RS_SIZE        = 16, // AI_TAG: PARAM_DESC - Number of entries in the reservation station.
-                                           // AI_TAG: PARAM_USAGE - Determines the depth of the instruction buffer.
-                                           // AI_TAG: PARAM_CONSTRAINTS - Should be a power of 2 for efficiency.
-    parameter integer ROB_ADDR_WIDTH = 5   // AI_TAG: PARAM_DESC - Width of the Re-Order Buffer (ROB) tag.
-                                           // AI_TAG: PARAM_USAGE - Must match the ROB's address width.
+    parameter integer DATA_WIDTH     = ooo_pkg::DATA_WIDTH,
+    parameter integer RS_SIZE        = ooo_pkg::RS_SIZE,
+    parameter integer ROB_ADDR_WIDTH = ooo_pkg::ROB_ADDR_WIDTH
 ) (
-    input  logic clk_i,    // AI_TAG: PORT_DESC - System clock
-                           // AI_TAG: PORT_CLK_DOMAIN - clk_i
-    input  logic rst_ni,   // AI_TAG: PORT_DESC - Asynchronous active-low reset
-                           // AI_TAG: PORT_CLK_DOMAIN - clk_i (async assert)
+    input  logic clk_i,
+    input  logic rst_ni,
 
     // Flush signal to clear the RS on exceptions or mispredictions
-    input  logic flush_i,  // AI_TAG: PORT_DESC - High to flush all entries in the RS.
-                           // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    input  logic flush_i,
 
     // Dispatch interface (from Decode/Rename)
-    input  logic        dispatch_valid_i,     // AI_TAG: PORT_DESC - The instruction dispatched from rename is valid.
-    output logic        dispatch_ready_o,     // AI_TAG: PORT_DESC - RS is ready to accept a new instruction.
-    input  logic [31:0] dispatch_opcode_i,    // AI_TAG: PORT_DESC - The full instruction opcode/data.
-    input  logic [DATA_WIDTH-1:0] dispatch_v_rs1_i, // AI_TAG: PORT_DESC - Value of operand 1 if available.
-    input  logic        dispatch_q_rs1_valid_i, // AI_TAG: PORT_DESC - Flag indicating if operand 1 is waiting for a result from the ROB.
-    input  logic [ROB_ADDR_WIDTH-1:0] dispatch_q_rs1_i, // AI_TAG: PORT_DESC - ROB tag for operand 1.
-    input  logic [DATA_WIDTH-1:0] dispatch_v_rs2_i, // AI_TAG: PORT_DESC - Value of operand 2 if available.
-    input  logic        dispatch_q_rs2_valid_i, // AI_TAG: PORT_DESC - Flag indicating if operand 2 is waiting for a result from the ROB.
-    input  logic [ROB_ADDR_WIDTH-1:0] dispatch_q_rs2_i, // AI_TAG: PORT_DESC - ROB tag for operand 2.
-    input  logic [ROB_ADDR_WIDTH-1:0] dispatch_rob_tag_i, // AI_TAG: PORT_DESC - ROB tag for this new instruction's result.
+    input  ooo_dispatch_t dispatch_i,
+    output logic          dispatch_ready_o,
 
     // Result forwarding bus (Common Data Bus - CDB)
-    input  logic        result_valid_i,       // AI_TAG: PORT_DESC - A valid result is being broadcast on the CDB.
-    input  logic [ROB_ADDR_WIDTH-1:0] result_rob_tag_i, // AI_TAG: PORT_DESC - The ROB tag of the broadcasted result.
-    input  logic [DATA_WIDTH-1:0] result_data_i,    // AI_TAG: PORT_DESC - The data value of the broadcasted result.
+    input  ooo_result_t   result_i,
 
     // Issue interface (to functional units)
-    output logic        issue_valid_o,        // AI_TAG: PORT_DESC - A valid instruction is ready to be issued.
-    input  logic        issue_ready_i,        // AI_TAG: PORT_DESC - The functional unit is ready to accept an instruction.
-    output logic [31:0] issue_opcode_o,     // AI_TAG: PORT_DESC - Opcode of the issued instruction.
-    output logic [DATA_WIDTH-1:0] issue_v_rs1_o,    // AI_TAG: PORT_DESC - Value of operand 1 for the issued instruction.
-    output logic [DATA_WIDTH-1:0] issue_v_rs2_o,    // AI_TAG: PORT_DESC - Value of operand 2 for the issued instruction.
-    output logic [ROB_ADDR_WIDTH-1:0] issue_rob_tag_o // AI_TAG: PORT_DESC - ROB tag of the issued instruction.
+    output ooo_issue_t    issue_o,
+    input  logic          issue_ready_i
 );
 
     localparam RS_ADDR_WIDTH = (RS_SIZE > 1) ? $clog2(RS_SIZE) : 1;
@@ -99,11 +81,11 @@ module reservation_station #(
     assign dispatch_ready_o = (entry_count_r < RS_SIZE);
 
     // Issue the selected instruction
-    assign issue_valid_o   = rs_r[issue_idx_c].busy && !rs_r[issue_idx_c].q_rs1_valid && !rs_r[issue_idx_c].q_rs2_valid;
-    assign issue_opcode_o  = rs_r[issue_idx_c].opcode;
-    assign issue_v_rs1_o   = rs_r[issue_idx_c].v_rs1;
-    assign issue_v_rs2_o   = rs_r[issue_idx_c].v_rs2;
-    assign issue_rob_tag_o = rs_r[issue_idx_c].rob_tag;
+    assign issue_o.valid   = rs_r[issue_idx_c].busy && !rs_r[issue_idx_c].q_rs1_valid && !rs_r[issue_idx_c].q_rs2_valid;
+    assign issue_o.opcode  = rs_r[issue_idx_c].opcode;
+    assign issue_o.v_rs1   = rs_r[issue_idx_c].v_rs1;
+    assign issue_o.v_rs2   = rs_r[issue_idx_c].v_rs2;
+    assign issue_o.rob_tag = rs_r[issue_idx_c].rob_tag;
 
 
     // --- Issue Selection Logic (simple priority encoder) ---
@@ -132,8 +114,8 @@ module reservation_station #(
         alloc_ptr_ns = alloc_ptr_r;
         entry_count_ns = entry_count_r;
 
-        do_dispatch_c = dispatch_valid_i && dispatch_ready_o;
-        do_issue_c    = issue_valid_o && issue_ready_i;
+        do_dispatch_c = dispatch_i.valid && dispatch_ready_o;
+        do_issue_c    = issue_o.valid && issue_ready_i;
 
         // Handle simultaneous dispatch and issue to the same entry
         // If an entry is issued, it becomes free for dispatch in the same cycle.
@@ -145,15 +127,15 @@ module reservation_station #(
         end
 
         // --- Result Forwarding ---
-        if (result_valid_i) begin
+        if (result_i.valid) begin
             for (int i = 0; i < RS_SIZE; i++) begin
                 if (rs_ns[i].busy) begin
-                    if (rs_ns[i].q_rs1_valid && (rs_ns[i].q_rs1 == result_rob_tag_i)) begin
-                        rs_ns[i].v_rs1 = result_data_i;
+                    if (rs_ns[i].q_rs1_valid && (rs_ns[i].q_rs1 == result_i.rob_tag)) begin
+                        rs_ns[i].v_rs1 = result_i.data;
                         rs_ns[i].q_rs1_valid = 1'b0;
                     end
-                    if (rs_ns[i].q_rs2_valid && (rs_ns[i].q_rs2 == result_rob_tag_i)) begin
-                        rs_ns[i].v_rs2 = result_data_i;
+                    if (rs_ns[i].q_rs2_valid && (rs_ns[i].q_rs2 == result_i.rob_tag)) begin
+                        rs_ns[i].v_rs2 = result_i.data;
                         rs_ns[i].q_rs2_valid = 1'b0;
                     end
                 end
@@ -163,14 +145,14 @@ module reservation_station #(
         // --- Instruction Dispatch ---
         if (do_dispatch_c) begin
             rs_ns[alloc_ptr_r].busy        = 1'b1;
-            rs_ns[alloc_ptr_r].opcode      = dispatch_opcode_i;
-            rs_ns[alloc_ptr_r].v_rs1       = dispatch_v_rs1_i;
-            rs_ns[alloc_ptr_r].q_rs1_valid = dispatch_q_rs1_valid_i;
-            rs_ns[alloc_ptr_r].q_rs1       = dispatch_q_rs1_i;
-            rs_ns[alloc_ptr_r].v_rs2       = dispatch_v_rs2_i;
-            rs_ns[alloc_ptr_r].q_rs2_valid = dispatch_q_rs2_valid_i;
-            rs_ns[alloc_ptr_r].q_rs2       = dispatch_q_rs2_i;
-            rs_ns[alloc_ptr_r].rob_tag     = dispatch_rob_tag_i;
+            rs_ns[alloc_ptr_r].opcode      = dispatch_i.opcode;
+            rs_ns[alloc_ptr_r].v_rs1       = dispatch_i.v_rs1;
+            rs_ns[alloc_ptr_r].q_rs1_valid = dispatch_i.q_rs1_valid;
+            rs_ns[alloc_ptr_r].q_rs1       = dispatch_i.q_rs1;
+            rs_ns[alloc_ptr_r].v_rs2       = dispatch_i.v_rs2;
+            rs_ns[alloc_ptr_r].q_rs2_valid = dispatch_i.q_rs2_valid;
+            rs_ns[alloc_ptr_r].q_rs2       = dispatch_i.q_rs2;
+            rs_ns[alloc_ptr_r].rob_tag     = dispatch_i.rob_tag;
 
             alloc_ptr_ns = alloc_ptr_r + 1;
             if (!do_issue_c || (alloc_ptr_r != issue_idx_c)) begin

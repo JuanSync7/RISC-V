@@ -1,0 +1,239 @@
+# SystemVerilog Safety Feature Example: CRC Engine
+
+This file provides a few-shot example for implementing a data integrity check using a Cyclic Redundancy Check (CRC), adhering to the project's coding and documentation standards.
+
+---
+## RTL Source: crc_engine.sv
+---
+
+//=============================================================================
+// Company: Sondrel Ltd
+// Project Name: AES_GCM
+//
+// File: crc_engine.sv
+//
+// ----- Fields for Automated Documentation -----
+// MODULE_NAME: crc_engine
+// AUTHOR: DesignAI Example Generator (example@company.com)
+// VERSION: 1.0.0
+// DATE: 2025-05-25
+// DESCRIPTION: A generic, serial engine for calculating a CRC checksum.
+// PRIMARY_PURPOSE: To provide data integrity checking for data packets or streams.
+// ROLE_IN_SYSTEM: Can be used in a transmitter to generate and append a CRC, or in a receiver to verify it.
+// PROBLEM_SOLVED: Detects data corruption, particularly burst errors, during transmission.
+// MODULE_TYPE: RTL
+// TARGET_TECHNOLOGY_PREF: ASIC/FPGA
+// RELATED_SPECIFICATION: N/A
+//
+// ----- Status and Tracking -----
+// VERIFICATION_STATUS: Not Verified
+// QUALITY_STATUS: Draft
+//
+//=============================================================================
+
+`timescale 1ns/1ps
+`default_nettype none
+
+module crc_engine #(
+    // Configurable Parameters
+    parameter integer             CONFIG_DATA_WIDTH = 8,      // AI_TAG: PARAM_DESC - Width of the input data bus, processed per cycle.
+    parameter integer             CONFIG_CRC_WIDTH  = 16,     // AI_TAG: PARAM_DESC - Width of the CRC checksum.
+    parameter [CONFIG_CRC_WIDTH-1:0] CONFIG_CRC_POLY   = 16'h1021, // AI_TAG: PARAM_DESC - The generator polynomial for the CRC calculation. Default is CRC-16-CCITT.
+    parameter [CONFIG_CRC_WIDTH-1:0] CONFIG_CRC_INIT   = 16'FFFF, // AI_TAG: PARAM_DESC - The initial value for the CRC register.
+    parameter [CONFIG_CRC_WIDTH-1:0] CONFIG_CRC_XOR_OUT= 16'h0000  // AI_TAG: PARAM_DESC - A value to XOR with the final CRC result.
+) (
+    // Clock and Reset
+    input  logic clk_i,       // AI_TAG: PORT_DESC - System clock. // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    input  logic rst_ni,      // AI_TAG: PORT_DESC - Asynchronous active-low reset. // AI_TAG: PORT_CLK_DOMAIN - clk_i (async assert)
+
+    // Data Input
+    input  logic [CONFIG_DATA_WIDTH-1:0] data_i, // AI_TAG: PORT_DESC - Data word for this cycle's calculation. // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    input  logic                         valid_i,   // AI_TAG: PORT_DESC - Qualifies that data_i is valid. // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    input  logic                         sop_i,     // AI_TAG: PORT_DESC - Start of Packet. Resets the CRC accumulator. // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    input  logic                         eop_i,     // AI_TAG: PORT_DESC - End of Packet. Signals the final CRC is ready. // AI_TAG: PORT_CLK_DOMAIN - clk_i
+
+    // CRC Output
+    output logic [CONFIG_CRC_WIDTH-1:0] crc_o,       // AI_TAG: PORT_DESC - The final calculated CRC value. // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    output logic                        crc_valid_o  // AI_TAG: PORT_DESC - Pulsed for one cycle when the final CRC is available on crc_o. // AI_TAG: PORT_CLK_DOMAIN - clk_i
+);
+
+    // ----- Internal Signal Declarations -----
+    logic [CONFIG_CRC_WIDTH-1:0] crc_r, crc_ns;
+    logic                        crc_valid_r, crc_valid_ns;
+
+    // ----- Combinational Logic -----
+    // This block implements a bytewise parallel update of a serial LFSR.
+    always_comb begin : proc_crc_logic
+        logic [CONFIG_CRC_WIDTH-1:0] crc_temp;
+        crc_temp = crc_r; // Start with the current CRC value
+
+        if (valid_i) begin
+            // XOR the input data (MSB-aligned) with the top bits of the current CRC
+            crc_temp[CONFIG_CRC_WIDTH-1 -: CONFIG_DATA_WIDTH] ^= data_i;
+
+            // Apply the LFSR logic for each bit of the input data
+            for (int i = 0; i < CONFIG_DATA_WIDTH; i = i + 1) begin
+                if (crc_temp[CONFIG_CRC_WIDTH-1]) begin
+                    crc_temp = (crc_temp << 1) ^ CONFIG_CRC_POLY;
+                end else begin
+                    crc_temp = crc_temp << 1;
+                end
+            end
+        end
+
+        // Determine the next state for the CRC register
+        crc_ns = crc_r; // Default assignment
+        if (sop_i) begin
+            crc_ns = CONFIG_CRC_INIT; // Reset for start of packet
+        end else if (valid_i) begin
+            crc_ns = crc_temp; // Update with the newly calculated value
+        end
+    end
+
+    // ----- Sequential Logic (Registers) -----
+    always_ff @(posedge clk_i or negedge rst_ni) begin : proc_regs
+        if (!rst_ni) begin
+            crc_r       <= CONFIG_CRC_INIT;
+            crc_valid_r <= 1'b0;
+        end else begin
+            crc_r       <= crc_ns;
+            crc_valid_r <= eop_i && valid_i; // The CRC is valid on the cycle after EOP
+        end
+    end
+
+    // The final output is the registered CRC value, potentially XORed with a final mask
+    assign crc_o = crc_r ^ CONFIG_CRC_XOR_OUT;
+    assign crc_valid_o = crc_valid_r;
+
+
+    // ----- AI Tags for Documentation -----
+    // AI_TAG: SAFETY_HAZARD_MITIGATION - Undetected Data Corruption in Transmission - CRC provides a high-probability of detecting errors, including burst errors, in data streams.
+    // AI_TAG: VERIF_SCENARIO_KEY - Test with known data patterns and compare against a software model of the same CRC polynomial.
+    // AI_TAG: VERIF_SCENARIO_KEY - Test back-to-back packets (eop of one packet in the same cycle as sop of the next).
+    // AI_TAG: VERIF_STRATEGY - Use a reference software model (e.g., Python `crcmod`) to generate test vectors for various data lengths and patterns.
+
+endmodule : crc_engine
+
+//=============================================================================
+// Dependencies: None
+//
+// Performance:
+//   - Critical Path: The for-loop in proc_crc_logic creates a long chain of logic. For high-speed designs, this may need pipelining.
+//   - Max Frequency: Moderate, limited by the combinational CRC calculation path.
+//   - Area: Minimal, scales with CRC width.
+//
+// Verification Coverage:
+//   - Code Coverage: TBD
+//   - Functional Coverage: TBD
+//   - Branch Coverage: TBD
+//
+// Synthesis:
+//   - Target Technology: ASIC/FPGA
+//   - Synthesis Tool: Any
+//   - Clock Domains: 1
+//   - Constraints File: crc_engine.sdc
+//
+// Testing:
+//   - Testbench: crc_engine_tb.sv
+//   - Test Vectors: TBD, must include known good CRC values for given data streams.
+//
+//----
+// Revision History:
+// Version | Date       | Author                       | Description
+//=============================================================================
+// 1.0.0   | 2025-05-25 | DesignAI Example Generator   | Initial release.
+//=============================================================================
+
+---
+## Documentation: crc_engine.md
+---
+
+# Module Design Document: crc_engine
+
+**Version:** 1.0.0
+**Source File(s):** `crc_engine.sv`
+**Author:** DesignAI Example Generator (example@company.com)
+**Generated On:** 2025-05-25
+**Module Type:** RTL
+**Target Technology Preference:** ASIC/FPGA
+**Related Specification(s):** N/A
+**Verification Status:** Not Verified
+**Quality Status:** Draft
+
+## 1. Overview
+
+This module provides a generic, parameterizable engine for calculating a Cyclic Redundancy Check (CRC). CRC is a powerful and widely used error-detection code commonly used to ensure data integrity for data being transmitted over a channel or stored in a medium.
+
+This engine processes input data one word at a time (e.g., byte-by-byte) and maintains the running CRC value in an internal register. It is controlled via start-of-packet (`sop_i`) and end-of-packet (`eop_i`) signals, making it suitable for variable-length data packets. The generator polynomial, initial value, and final XOR mask are all parameterizable, allowing it to implement many common CRC standards.
+
+## 2. Key Features
+
+*   Generic, parameterizable CRC engine.
+*   Processes data serially on a word-by-word basis.
+*   Supports variable-length packets via `sop_i` and `eop_i` controls.
+*   Configurable data width, CRC width, polynomial, initial value, and output XOR mask.
+*   Defaults to the common `CRC-16-CCITT` standard.
+
+## 3. Block Diagram
+
+**Textual Representation:**
+`
+  +----+
+  | crc_engine                                        |
+  |                                                   |
+  |   Inputs:                                         |
+  |     - clk_i, rst_ni                               |
+  |     - data_i, valid_i                             |
+  |     - sop_i, eop_i                                |
+  |                                                   |
+  |   Outputs:                                        |
+  |     - crc_o, crc_valid_o                          |
+  |                                                   |
+  |   Internal Logic:                                 |
+  |     - CRC Register [CONFIG_CRC_WIDTH]             |
+  |     - Combinational LFSR Logic for next CRC value |
+  |     - Control logic for SOP/EOP handling          |
+  |                                                   |
+  +----+
+`
+
+## 4. Parameters
+
+| Parameter Name        | Type                 | Default Value | Description                                                    |
+| --- | --- | --- | ---- |
+| `CONFIG_DATA_WIDTH`   | `integer`            | `8`           | Width of the input data bus, processed per cycle.              |
+| `CONFIG_CRC_WIDTH`    | `integer`            | `16`          | Width of the CRC checksum.                                     |
+| `CONFIG_CRC_POLY`     | `logic[WIDTH-1:0]`   | `16'h1021`    | The generator polynomial for the CRC calculation. Default: CRC-16-CCITT. |
+| `CONFIG_CRC_INIT`     | `logic[WIDTH-1:0]`   | `16'FFFF`     | The initial value for the CRC register.                        |
+| `CONFIG_CRC_XOR_OUT`  | `logic[WIDTH-1:0]`   | `16'h0000`    | A value to XOR with the final CRC result.                      |
+
+## 5. Ports
+
+| Port Name     | Dir.   | Type / Width              | Clock Domain | Description                                                    |
+| ---- | --- | ---- | --- | --- |
+| `clk_i`       | input  | `logic`                   | `clk_i`      | System clock.                                                  |
+| `rst_ni`      | input  | `logic`                   | `clk_i` (async)| Asynchronous active-low reset.                               |
+| `data_i`      | input  | `logic[DATA_WIDTH-1:0]`   | `clk_i`      | Data word for this cycle's calculation.                        |
+| `valid_i`     | input  | `logic`                   | `clk_i`      | Qualifies that `data_i` is valid.                              |
+| `sop_i`       | input  | `logic`                   | `clk_i`      | Start of Packet. Resets the CRC accumulator.                 |
+| `eop_i`       | input  | `logic`                   | `clk_i`      | End of Packet. Signals the final CRC is ready.               |
+| `crc_o`       | output | `logic[CRC_WIDTH-1:0]`    | `clk_i`      | The final calculated CRC value.                                |
+| `crc_valid_o` | output | `logic`                   | `clk_i`      | Pulsed for one cycle when the final CRC is available on `crc_o`. |
+
+## 6. Theory of Operation
+
+The CRC engine is implemented as a Linear Feedback Shift Register (LFSR).
+
+1.  **Initialization:** When `sop_i` is asserted, the internal CRC register (`crc_r`) is loaded with the `CONFIG_CRC_INIT` value. This prepares the engine for a new packet.
+2.  **Data Processing:** For each clock cycle where `valid_i` is high, the module performs one step of the CRC calculation. The incoming `data_i` word is XORed with the most significant bits of the current CRC value. The result is then shifted and conditionally XORed with the `CONFIG_CRC_POLY` for each bit of the input data, effectively performing polynomial division in hardware. The result becomes the new value for `crc_r` on the next clock edge.
+3.  **Finalization:** When `eop_i` is asserted (along with `valid_i`), the final CRC calculation is performed. On the following clock cycle, `crc_valid_o` is asserted, and the `crc_o` output presents the final value from `crc_r`, XORed with the `CONFIG_CRC_XOR_OUT` mask.
+
+### Usage in a System
+
+*   **Generator:** To generate a CRC, feed the data packet into the engine and capture the `crc_o` value when `crc_valid_o` is asserted. This CRC is then typically appended to the data packet.
+*   **Checker:** To check a CRC, feed the data portion of the packet *and* the received CRC into the engine. If the final resulting CRC value is a specific, known constant (often '0' or another "magic number" depending on the standard), the packet is considered error-free.
+
+## 7. Safety and Verification Notes
+
+*   **Safety Hazard Mitigation:** This module is designed to mitigate **Undetected Data Corruption in Transmission**. By appending a CRC checksum to a data packet, a receiver can verify with very high probability whether the data was corrupted in transit. This is essential for any system where transmitted data integrity is critical.
+*   **Verification:** The primary verification strategy is to test the engine against a known-good software implementation of the same CRC algorithm. Test vectors should include data of various lengths and patterns, and the resulting hardware CRC must match the reference CRC exactly.

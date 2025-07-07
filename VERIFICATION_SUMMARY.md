@@ -4,11 +4,15 @@
 
 **Verification Status: 🔄 IN PROGRESS**
 
-Upon thorough analysis of your RISC-V multi-core system, I found that the project has **high verification maturity**, but is currently undergoing significant enhancements with the integration of new Data Processing Units (DPUs). The verification framework is robust and demonstrates best practices, but requires updates to fully cover the new DPU capabilities.
+Upon thorough analysis of your RISC-V multi-core system, I found that the project has **high verification maturity**, but is currently undergoing significant enhancements with the integration of new Data Processing Units (DPUs) and a Quality of Service (QoS) Management Unit. The verification framework is robust and demonstrates best practices, but requires updates to fully cover the new DPU and QoS capabilities.
 
 ## What I Discovered - Existing Comprehensive Verification
 
 ### 🏆 **Outstanding Unit Test Coverage** (In Progress)
+- **Out-of-Order (OoO) Engine testbench** (new) - Verification of RS, ROB, RR, and MEU functionality, precise exceptions, and pipeline integration, with `ooo_pkg.sv` now utilizing parameters from `riscv_config_pkg.sv` for enhanced consistency, and `core_subsystem.sv` now correctly enabling the OoO engine, MMU, QoS, FPU, VPU, and MLIU based on parameters from `riscv_config_pkg.sv` (using `CONFIG_ENABLE_OOO`, `CONFIG_ENABLE_MMU`, `CONFIG_ENABLE_QOS`, `CONFIG_ENABLE_FPU`, `CONFIG_ENABLE_VPU`, and `CONFIG_ENABLE_ML_INFERENCE`). Additionally, `riscv_core.sv` now correctly enables the Bus Watchdog and Power Management Unit based on parameters from `riscv_config_pkg.sv` (using `CONFIG_ENABLE_BUS_WATCHDOG` and `CONFIG_ENABLE_PMU`).
+- **MMU Package Consistency:** `mmu_pkg.sv` now uses parameters from `riscv_config_pkg.sv` for MMU configuration (using `CONFIG_MMU_TLB_SIZE`, `CONFIG_MMU_TLB_ASSOC`, `CONFIG_MMU_PAGE_SIZE_BITS`).
+- **Power Package Consistency:** `power_pkg.sv` now uses parameters from `riscv_config_pkg.sv` for power management configuration (using `CONFIG_IDLE_TIMEOUT`, `CONFIG_SLEEP_TIMEOUT`).
+- **Inter-Core Types Package Consistency:** `riscv_inter_core_types_pkg.sv` now uses parameters from `riscv_config_pkg.sv` for inter-core communication configuration.
 - **ALU testbench** (492 lines) - Comprehensive arithmetic/logical operations with edge cases
 - **Register File testbench** (595 lines) - Complete read/write/hazard scenario testing
 - **Multiplier Unit testbench** (644 lines) - Full RV32M multiplication with reference model

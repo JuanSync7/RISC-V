@@ -22,57 +22,48 @@
 `timescale 1ns/1ps
 `default_nettype none
 
+import ooo_pkg::*;
+
 // AI_TAG: FEATURE - Eliminates WAR and WAW hazards via register renaming.
 // AI_TAG: FEATURE - Provides operand values directly if ready, reducing stalls.
 // AI_TAG: FEATURE - Maintains the mapping between architectural and physical registers (ROB tags).
 // AI_TAG: INTERNAL_BLOCK - MapTable - Stores the mapping from architectural register to ROB tag.
-// AI_TAG: INTERNAL_BLOCK - PhysicalRegFile - Stores the latest speculative register values.
+// AI_TAG: INTERNAL_BLOCK - PhysicalRegFile - Stores the latest speculative values.
 // AI_TAG: INTERNAL_BLOCK - OperandFetch - Logic to fetch tags or data for source operands.
 
 module register_renaming #(
-    parameter integer DATA_WIDTH     = 32, // AI_TAG: PARAM_DESC - Width of the data path and registers.
-    parameter integer ARCH_REG_COUNT = 32, // AI_TAG: PARAM_DESC - Number of architectural registers.
-    parameter integer ROB_SIZE       = 32, // AI_TAG: PARAM_DESC - Number of entries in the ROB.
-    parameter integer REG_ADDR_WIDTH = 5   // AI_TAG: PARAM_DESC - Width of the architectural register file address.
+    parameter integer DATA_WIDTH     = ooo_pkg::DATA_WIDTH,
+    parameter integer ARCH_REG_COUNT = 32, // RISC-V has 32 architectural registers
+    parameter integer ROB_SIZE       = ooo_pkg::ROB_SIZE,
+    parameter integer REG_ADDR_WIDTH = ooo_pkg::REG_ADDR_WIDTH
 ) (
-    input  logic clk_i,    // AI_TAG: PORT_DESC - System clock
-                           // AI_TAG: PORT_CLK_DOMAIN - clk_i
-    input  logic rst_ni,   // AI_TAG: PORT_DESC - Asynchronous active-low reset
-                           // AI_TAG: PORT_CLK_DOMAIN - clk_i (async assert)
+    input  logic clk_i,
+    input  logic rst_ni,
 
     // Flush signal
-    input  logic flush_i,  // AI_TAG: PORT_DESC - High to flush all speculative state.
-                           // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    input  logic flush_i,
 
     // Decode interface (inputs)
-    input  logic      decode_valid_i,         // AI_TAG: PORT_DESC - Valid instruction from decode stage.
-    input  logic [REG_ADDR_WIDTH-1:0] decode_rs1_addr_i,  // AI_TAG: PORT_DESC - Address of source register 1.
-    input  logic [REG_ADDR_WIDTH-1:0] decode_rs2_addr_i,  // AI_TAG: PORT_DESC - Address of source register 2.
-    input  logic [REG_ADDR_WIDTH-1:0] decode_rd_addr_i,   // AI_TAG: PORT_DESC - Address of destination register.
-    input  logic      decode_rd_write_en_i,   // AI_TAG: PORT_DESC - Indicates if the instruction writes to a destination register.
+    input  logic      decode_valid_i,
+    input  logic [REG_ADDR_WIDTH-1:0] decode_rs1_addr_i,
+    input  logic [REG_ADDR_WIDTH-1:0] decode_rs2_addr_i,
+    input  logic [REG_ADDR_WIDTH-1:0] decode_rd_addr_i,
+    input  logic      decode_rd_write_en_i,
+    input  logic [PC_WIDTH-1:0]       decode_pc_i, // PC of the instruction for dispatch
+    input  logic [31:0]               decode_opcode_i, // Full instruction opcode/data for dispatch
 
-    // Dispatch interface (outputs to Reservation Station)
-    output logic      dispatch_valid_o,         // AI_TAG: PORT_DESC - Renamed instruction is valid for dispatch.
-    output logic [DATA_WIDTH-1:0] dispatch_v_rs1_o, // AI_TAG: PORT_DESC - Value of operand 1 if ready.
-    output logic      dispatch_q_rs1_valid_o, // AI_TAG: PORT_DESC - Is operand 1 not ready (i.e., waiting for a tag)?
-    output logic [$clog2(ROB_SIZE)-1:0] dispatch_q_rs1_o,   // AI_TAG: PORT_DESC - ROB tag for operand 1.
-    output logic [DATA_WIDTH-1:0] dispatch_v_rs2_o, // AI_TAG: PORT_DESC - Value of operand 2 if ready.
-    output logic      dispatch_q_rs2_valid_o, // AI_TAG: PORT_DESC - Is operand 2 not ready?
-    output logic [$clog2(ROB_SIZE)-1:0] dispatch_q_rs2_o,   // AI_TAG: PORT_DESC - ROB tag for operand 2.
+    // Dispatch interface (outputs to Reservation Station and ROB)
+    output ooo_dispatch_t dispatch_o,
 
     // ROB interface
-    input  logic [$clog2(ROB_SIZE)-1:0] rob_new_tag_i,      // AI_TAG: PORT_DESC - The new ROB tag allocated for this instruction.
-    input  logic      rob_ready_i,            // AI_TAG: PORT_DESC - Is the ROB ready to accept a new entry?
+    input  logic [$clog2(ROB_SIZE)-1:0] rob_new_tag_i,
+    input  logic      rob_ready_i,
 
     // Result bus (CDB) for snooping and updating the PRF
-    input  logic      result_valid_i,         // AI_TAG: PORT_DESC - A valid result is on the CDB.
-    input  logic [$clog2(ROB_SIZE)-1:0] result_rob_tag_i,   // AI_TAG: PORT_DESC - The ROB tag of the result.
-    input  logic [DATA_WIDTH-1:0] result_data_i,        // AI_TAG: PORT_DESC - The result value.
+    input  ooo_result_t result_i,
 
     // Commit interface (to update/invalidate map table entries)
-    input  logic      commit_valid_i,         // AI_TAG: PORT_DESC - An instruction is committing.
-    input  logic [REG_ADDR_WIDTH-1:0] commit_rd_addr_i,   // AI_TAG: PORT_DESC - The destination register of the committing instruction.
-    input  logic [$clog2(ROB_SIZE)-1:0] commit_rob_tag_i    // AI_TAG: PORT_DESC - The ROB tag of the committing instruction.
+    input  ooo_commit_t commit_i
 );
 
     localparam ROB_ADDR_WIDTH = $clog2(ROB_SIZE);
@@ -103,9 +94,9 @@ module register_renaming #(
     assign rs1_is_mapped_c = rs1_map_c.busy && (decode_rs1_addr_i != 0);
     assign rs1_is_ready_c  = prf_ready_r[rs1_map_c.tag];
 
-    assign dispatch_q_rs1_valid_o = rs1_is_mapped_c && !rs1_is_ready_c;
-    assign dispatch_q_rs1_o       = rs1_map_c.tag;
-    assign dispatch_v_rs1_o       = rs1_is_ready_c ? prf_r[rs1_map_c.tag] : '0;
+    assign dispatch_o.q_rs1_valid = rs1_is_mapped_c && !rs1_is_ready_c;
+    assign dispatch_o.q_rs1       = rs1_map_c.tag;
+    assign dispatch_o.v_rs1       = rs1_is_ready_c ? prf_r[rs1_map_c.tag] : '0;
 
     // Operand 2 Fetch Logic
     map_table_entry_t rs2_map_c;
@@ -116,13 +107,17 @@ module register_renaming #(
     assign rs2_is_mapped_c = rs2_map_c.busy && (decode_rs2_addr_i != 0);
     assign rs2_is_ready_c  = prf_ready_r[rs2_map_c.tag];
 
-    assign dispatch_q_rs2_valid_o = rs2_is_mapped_c && !rs2_is_ready_c;
-    assign dispatch_q_rs2_o       = rs2_map_c.tag;
-    assign dispatch_v_rs2_o       = rs2_is_ready_c ? prf_r[rs2_map_c.tag] : '0;
+    assign dispatch_o.q_rs2_valid = rs2_is_mapped_c && !rs2_is_ready_c;
+    assign dispatch_o.q_rs2       = rs2_map_c.tag;
+    assign dispatch_o.v_rs2       = rs2_is_ready_c ? prf_r[rs2_map_c.tag] : '0;
 
-
-    // The overall dispatch is valid if the source instruction is valid and the ROB has space.
-    assign dispatch_valid_o = decode_valid_i && rob_ready_i;
+    // Assign other dispatch outputs
+    assign dispatch_o.valid        = decode_valid_i && rob_ready_i;
+    assign dispatch_o.pc           = decode_pc_i;
+    assign dispatch_o.opcode       = decode_opcode_i;
+    assign dispatch_o.rd_addr      = decode_rd_addr_i;
+    assign dispatch_o.rd_write_en  = decode_rd_write_en_i;
+    assign dispatch_o.rob_tag      = rob_new_tag_i;
 
     //---------------------------------------------------------------------------
     // Next-State Logic
@@ -134,21 +129,21 @@ module register_renaming #(
         map_table_ns = map_table_r;
         prf_ns       = prf_r;
         prf_ready_ns = prf_ready_r;
-        do_dispatch_c = dispatch_valid_o;
+        do_dispatch_c = dispatch_o.valid;
 
         // --- Result Bus Update (snooping) ---
         // A result is broadcast on the CDB. Update the corresponding PRF entry.
-        if (result_valid_i) begin
-            prf_ns[result_rob_tag_i]       = result_data_i;
-            prf_ready_ns[result_rob_tag_i] = 1'b1;
+        if (result_i.valid) begin
+            prf_ns[result_i.rob_tag]       = result_i.data;
+            prf_ready_ns[result_i.rob_tag] = 1'b1;
         end
 
         // --- Commit Stage: Freeing a mapping ---
         // An instruction commits. If the map table still points to its tag,
         // the mapping is now stale (value is in architectural file), so we clear it.
-        if (commit_valid_i) begin
-            if (map_table_r[commit_rd_addr_i].busy && (map_table_r[commit_rd_addr_i].tag == commit_rob_tag_i)) begin
-                map_table_ns[commit_rd_addr_i].busy = 1'b0;
+        if (commit_i.valid) begin
+            if (map_table_r[commit_i.rd_addr].busy && (map_table_r[commit_i.rd_addr].tag == commit_i.rob_tag)) begin
+                map_table_ns[commit_i.rd_addr].busy = 1'b0;
             end
         end
 

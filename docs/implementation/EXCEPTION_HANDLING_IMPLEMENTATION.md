@@ -372,10 +372,12 @@ assign mtval_in = exception_info.tval;
 
 ### Exception Information Structure
 
-**File:** `rtl/core/riscv_core_pkg.sv`
+**File:** `rtl/pkg/riscv_core_pkg.sv`
+
+This package defines the `exception_info_t` struct used for propagating exception information through the pipeline.
 
 ```systemverilog
-// Exception information structure
+// from rtl/pkg/riscv_core_pkg.sv
 typedef struct packed {
     logic              valid;           // Exception is valid
     exception_type_e   exc_type;        // Exception type (interrupt/exception)

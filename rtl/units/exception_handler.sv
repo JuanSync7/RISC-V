@@ -78,6 +78,7 @@ module exception_handler #(
     output addr_t       trap_vector_o,
     // AI_TAG: PORT_DESC - pipeline_flush_o - Pipeline should be flushed
     output logic        pipeline_flush_o,
+    output exception_info_t exception_o,
 
     // --- Interrupt Outputs ---
     // AI_TAG: PORT_DESC - interrupt_info_o - Current interrupt state
@@ -228,6 +229,7 @@ module exception_handler #(
     // AI_TAG: INTERNAL_LOGIC - Output Generation
     assign exception_valid_o = selected_exception.valid;
     assign exception_info_o = selected_exception;
+    assign exception_o = selected_exception;
     assign pipeline_flush_o = selected_exception.valid;
 
     //---------------------------------------------------------------------------

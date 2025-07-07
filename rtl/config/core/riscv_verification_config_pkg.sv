@@ -29,6 +29,7 @@ package riscv_verification_config_pkg;
     
     parameter time CLOCK_PERIOD = 10ns;               // Default clock period for testbenches
     parameter integer TIMEOUT_CYCLES = 100000;        // Default test timeout in cycles
+    parameter integer BUS_TIMEOUT_CYCLES = 5000;          // Default bus timeout in cycles
     
     //---------------------------------------------------------------------------
     // 10. Performance Configuration

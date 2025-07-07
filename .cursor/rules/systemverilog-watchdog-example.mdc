@@ -1,0 +1,202 @@
+# SystemVerilog Safety Feature Example: Watchdog Timer
+
+This file provides a few-shot example for implementing a watchdog timer, a critical system-level safety mechanism, while adhering to the project's coding and documentation standards.
+
+---
+## RTL Source: watchdog_timer.sv
+---
+
+//=============================================================================
+// Company: Sondrel Ltd
+// Project Name: AES_GCM
+//
+// File: watchdog_timer.sv
+//
+// ----- Fields for Automated Documentation -----
+// MODULE_NAME: watchdog_timer
+// AUTHOR: DesignAI Example Generator (example@company.com)
+// VERSION: 1.0.0
+// DATE: 2025-05-25
+// DESCRIPTION: A configurable watchdog timer for system liveness monitoring.
+// PRIMARY_PURPOSE: To detect system hangs, deadlocks, or livelocks and trigger a recovery action.
+// ROLE_IN_SYSTEM: Acts as a fail-safe that resets the system if the main control logic becomes unresponsive.
+// PROBLEM_SOLVED: Prevents the system from remaining in a non-functional state indefinitely.
+// MODULE_TYPE: RTL
+// TARGET_TECHNOLOGY_PREF: ASIC/FPGA
+// RELATED_SPECIFICATION: N/A
+//
+// ----- Status and Tracking -----
+// VERIFICATION_STATUS: Not Verified
+// QUALITY_STATUS: Draft
+//
+//=============================================================================
+
+`timescale 1ns/1ps
+`default_nettype none
+
+module watchdog_timer #(
+    parameter integer CONFIG_COUNTER_WIDTH = 24 // AI_TAG: PARAM_DESC - Bit-width of the internal timer counter. Timeout period is 2^WIDTH clock cycles.
+) (
+    // Clock and Reset
+    input  logic clk_i,       // AI_TAG: PORT_DESC - System clock. // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    input  logic rst_ni,      // AI_TAG: PORT_DESC - Asynchronous active-low reset. // AI_TAG: PORT_CLK_DOMAIN - clk_i (async assert)
+
+    // Control Inputs
+    input  logic enable_i,    // AI_TAG: PORT_DESC - Enables the watchdog timer. When low, the timer is held in reset. // AI_TAG: PORT_CLK_DOMAIN - clk_i
+    input  logic kick_i,      // AI_TAG: PORT_DESC - Resets the watchdog timer count. Must be pulsed periodically to prevent a timeout. // AI_TAG: PORT_CLK_DOMAIN - clk_i
+
+    // Outputs
+    output logic timeout_error_o  // AI_TAG: PORT_DESC - Asserted when the timer expires. Typically connected to a system reset controller. // AI_TAG: PORT_CLK_DOMAIN - clk_i
+);
+
+    // ----- Internal Signal Declarations -----
+    logic [CONFIG_COUNTER_WIDTH-1:0] count_r;
+    logic                            timeout_r;
+
+    // ----- Sequential Logic (Registers) -----
+    always_ff @(posedge clk_i or negedge rst_ni) begin : proc_counter
+        if (!rst_ni) begin
+            count_r <= '0;
+            timeout_r <= 1'b0;
+        end else begin
+            if (kick_i || !enable_i) begin
+                // If kicked or disabled, reset the counter and the timeout flag
+                count_r <= '0;
+                timeout_r <= 1'b0;
+            end else if (count_r == {CONFIG_COUNTER_WIDTH{1'b1}}) begin
+                // If the counter is at max value, hold it and assert the timeout flag
+                count_r <= {CONFIG_COUNTER_WIDTH{1'b1}};
+                timeout_r <= 1'b1;
+            end else begin
+                // Otherwise, increment the counter
+                count_r <= count_r + 1;
+                timeout_r <= 1'b0; // Ensure timeout is low while counting
+            end
+        end
+    end
+
+    // ----- Combinational Logic -----
+    assign timeout_error_o = timeout_r;
+
+
+    // ----- AI Tags for Documentation -----
+    // AI_TAG: SAFETY_HAZARD_MITIGATION - System Hang / Deadlock - The watchdog timer forces a system reset if the control logic fails to periodically service it, ensuring the system can recover from unresponsive states.
+    // AI_TAG: VERIF_SCENARIO_KEY - Let the timer run without kicking it and verify `timeout_error_o` asserts at the correct time (2^CONFIG_COUNTER_WIDTH cycles).
+    // AI_TAG: VERIF_SCENARIO_KEY - Periodically kick the timer and verify `timeout_error_o` never asserts.
+    // AI_TAG: VERIF_SCENARIO_KEY - Test that de-asserting `enable_i` correctly holds the timer in a safe, reset state.
+
+endmodule : watchdog_timer
+
+//=============================================================================
+// Dependencies: None
+//
+// Performance:
+//   - Critical Path: The adder in the counter is the main timing path.
+//   - Max Frequency: High, dependent on the technology's standard cell library.
+//   - Area: Minimal, scales with counter width.
+//
+// Verification Coverage:
+//   - Code Coverage: TBD
+//   - Functional Coverage: TBD
+//   - Branch Coverage: TBD
+//
+// Synthesis:
+//   - Target Technology: ASIC/FPGA
+//   - Synthesis Tool: Any
+//   - Clock Domains: 1
+//   - Constraints File: N/A
+//
+// Testing:
+//   - Testbench: watchdog_timer_tb.sv
+//   - Test Vectors: TBD
+//
+//----
+// Revision History:
+// Version | Date       | Author                       | Description
+//=============================================================================
+// 1.0.0   | 2025-05-25 | DesignAI Example Generator   | Initial release.
+//=============================================================================
+
+---
+## Documentation: watchdog_timer.md
+---
+
+# Module Design Document: watchdog_timer
+
+**Version:** 1.0.0
+**Source File(s):** `watchdog_timer.sv`
+**Author:** DesignAI Example Generator (example@company.com)
+**Generated On:** 2025-05-25
+**Module Type:** RTL
+**Target Technology Preference:** ASIC/FPGA
+**Related Specification(s):** N/A
+**Verification Status:** Not Verified
+**Quality Status:** Draft
+
+## 1. Overview
+
+This module implements a configurable watchdog timer (WDT), a critical safety mechanism for monitoring system liveness. The primary function of a WDT is to trigger a system recovery (typically a reset) if the main control software or hardware state machine ceases to operate correctly.
+
+Once enabled, the internal counter continuously increments. The system's main control loop must periodically "kick" the watchdog by pulsing the `kick_i` signal, which resets the counter. If the system hangs, gets stuck in a loop, or otherwise fails to issue a kick within the configured timeout period, the counter will overflow, asserting the `timeout_error_o` signal.
+
+## 2. Key Features
+
+*   Configurable timeout period via `CONFIG_COUNTER_WIDTH`.
+*   Simple enable (`enable_i`) and kick (`kick_i`) interface.
+*   Provides a single, clear `timeout_error_o` output to signal a fault.
+*   Low-resource implementation suitable for any ASIC or FPGA design.
+
+## 3. Block Diagram
+
+**Textual Representation:**
+`
+  +----+
+  | watchdog_timer                                    |
+  |                                                   |
+  |   Inputs:                                         |
+  |     - clk_i, rst_ni                               |
+  |     - enable_i                                    |
+  |     - kick_i                                      |
+  |                                                   |
+  |   Outputs:                                        |
+  |     - timeout_error_o                             |
+  |                                                   |
+  |   Internal Logic:                                 |
+  |     - Free-running counter [WIDTH-1:0]            |
+  |     - Control logic to reset counter on kick/disable |
+  |     - Overflow detection logic                    |
+  |                                                   |
+  +----+
+`
+
+## 4. Parameters
+
+| Parameter Name        | Type      | Default Value | Description                                                    |
+| --------------------- | --------- | ------------- | -------------------------------------------------------------- |
+| `CONFIG_COUNTER_WIDTH`| `integer` | `24`          | Bit-width of the internal timer counter. Timeout period is 2^WIDTH clock cycles. |
+
+## 5. Ports
+
+| Port Name        | Dir.   | Type    | Clock Domain | Description                                                    |
+| ---------------- | ------ | ------- | ------------ | -------------------------------------------------------------- |
+| `clk_i`          | input  | `logic` | `clk_i`      | System clock.                                                  |
+| `rst_ni`         | input  | `logic` | `clk_i` (async)| Asynchronous active-low reset.                               |
+| `enable_i`       | input  | `logic` | `clk_i`      | Enables the watchdog timer. When low, the timer is held reset. |
+| `kick_i`         | input  | `logic` | `clk_i`      | Resets the watchdog timer count to prevent a timeout.          |
+| `timeout_error_o`| output | `logic` | `clk_i`      | Asserted when the timer expires due to a missed kick.          |
+
+
+## 6. Theory of Operation
+
+1.  **Initialization:** On reset, or whenever `enable_i` is low, the internal counter (`count_r`) is held at zero and the `timeout_error_o` output is de-asserted.
+2.  **Enabling:** When `enable_i` is high, the timer begins counting up on each rising edge of `clk_i`.
+3.  **Kicking:** If the `kick_i` signal is pulsed high for at least one clock cycle, the `count_r` is reset to zero on the next clock edge, restarting the timeout period. This is the normal mode of operation.
+4.  **Timeout:** If the timer is enabled and is never kicked (or not kicked frequently enough), `count_r` will increment until it reaches its maximum value (`2^CONFIG_COUNTER_WIDTH - 1`). On the next clock cycle, the counter will hold its maximum value and the `timeout_r` register will be asserted, driving `timeout_error_o` high. This signal remains asserted until the watchdog is kicked or disabled.
+
+## 7. Safety and Verification
+
+*   **Safety Hazard Mitigation**: This module directly mitigates the hazard of a **System Hang or Deadlock**. This is a common failure mode in complex software or FSMs. By forcing a reset, the watchdog ensures that the system can recover to a known-good state instead of remaining non-operational. It is a cornerstone of designs requiring high availability and functional safety.
+*   **Verification**:
+    *   The primary positive test case is to periodically assert `kick_i` and verify that `timeout_error_o` never asserts.
+    *   The primary negative test case is to enable the timer and not kick it, then verify that `timeout_error_o` asserts at exactly the right time (after `2^CONFIG_COUNTER_WIDTH` clock cycles).
+    *   The `enable_i` functionality must also be tested to ensure it correctly gates the timer's operation.

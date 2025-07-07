@@ -119,6 +119,16 @@ end
 - **Data Access:** 1-3 cycles (depending on memory wait states)
 - **Cache Hit:** 1 cycle (with instruction cache)
 
+### Quality of Service (QoS) Impact
+
+The Quality of Service (QoS) Management Unit plays a crucial role in optimizing memory performance and overall system responsiveness by prioritizing critical transactions and mitigating memory stalls. By dynamically assigning QoS levels to instruction fetches and data accesses, the core ensures that high-priority operations (e.g., exceptions, debug accesses) receive preferential treatment, reducing their latency and improving system predictability.
+
+**Key Contributions:**
+- **Prioritized Access:** Critical memory requests are granted higher priority, reducing their effective latency even under heavy memory contention.
+- **Reduced Stalls:** By actively managing memory access, the QoS unit helps minimize pipeline stalls caused by memory wait states, contributing to a higher effective IPC.
+- **Improved Responsiveness:** Ensures that time-sensitive operations are completed within their deadlines, enhancing the real-time capabilities of the core.
+- **Violation Monitoring:** The QoS monitor tracks potential violations, providing valuable insights into system bottlenecks and areas for further optimization.
+
 ### Branch Prediction Performance
 
 #### Branch Prediction Accuracy
@@ -191,7 +201,7 @@ end
 
 **Impact:**
 - **High Wait States:** Reduce IPC significantly
-- **Solution:** Implement instruction cache (Phase 1)
+- **Solution:** Implement instruction cache (Phase 1), **and QoS for critical path prioritization**
 - **Expected Improvement:** 20-30% IPC increase
 
 #### Memory Access Patterns
@@ -217,6 +227,7 @@ end
 - **Sequential Access:** Prefetch next instruction
 - **Random Access:** Improve branch prediction
 - **Spatial Locality:** Implement cache line prefetching
+- **Critical Accesses:** Utilize QoS to prioritize time-sensitive memory operations.
 
 ### Pipeline Bottlenecks
 

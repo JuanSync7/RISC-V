@@ -21,7 +21,6 @@
 `default_nettype none
 
 import riscv_core_pkg::*;
-
 module riscv_core
 #(
     // Core Configuration
@@ -33,7 +32,15 @@ module riscv_core
     parameter addr_t RESET_VECTOR = DEFAULT_RESET_VECTOR,
 
     // Feature Parameters
+    parameter bit ENABLE_BUS_WATCHDOG = DEFAULT_ENABLE_BUS_WATCHDOG,
+    parameter bit ENABLE_PMU = DEFAULT_ENABLE_PMU,
     parameter string BRANCH_PREDICTOR_TYPE = DEFAULT_BRANCH_PREDICTOR_TYPE,
+    parameter integer BTB_ENTRIES = DEFAULT_BTB_ENTRIES,
+    parameter integer BHT_ENTRIES = DEFAULT_BHT_ENTRIES,
+    parameter integer PHT_ENTRIES = DEFAULT_PHT_ENTRIES,
+    parameter integer SELECTOR_ENTRIES = DEFAULT_SELECTOR_ENTRIES,
+    parameter integer GLOBAL_HISTORY_WIDTH = DEFAULT_GLOBAL_HISTORY_WIDTH,
+    parameter integer RAS_ENTRIES = DEFAULT_RAS_ENTRIES,
 
     // Cache parameters
     parameter int unsigned L1_CACHE_SIZE = DEFAULT_L1_CACHE_SIZE,
@@ -50,7 +57,8 @@ module riscv_core
     // Interrupt Interface (per core)
     input  logic [NUM_CORES-1:0] m_software_interrupt_i,
     input  logic [NUM_CORES-1:0] m_timer_interrupt_i,
-    input  logic [NUM_CORES-1:0] m_external_interrupt_i
+    input  logic [NUM_CORES-1:0] m_external_interrupt_i,
+    output logic bus_watchdog_irq_o
 );
 
     //---------------------------------------------------------------------------
@@ -133,8 +141,16 @@ module riscv_core
                     .CORE_ID(i),
                     .EXECUTION_MODE(EXECUTION_MODE),
                     .BRANCH_PREDICTOR_TYPE(BRANCH_PREDICTOR_TYPE),
+                    .BTB_ENTRIES(BTB_ENTRIES),
+                    .BHT_ENTRIES(BHT_ENTRIES),
+                    .PHT_ENTRIES(PHT_ENTRIES),
+                    .SELECTOR_ENTRIES(SELECTOR_ENTRIES),
+                    .GLOBAL_HISTORY_WIDTH(GLOBAL_HISTORY_WIDTH),
+                    .RAS_ENTRIES(RAS_ENTRIES),
                     .L1_CACHE_SIZE(L1_CACHE_SIZE),
-                    .RESET_VECTOR(RESET_VECTOR)
+                    .RESET_VECTOR(RESET_VECTOR),
+                    .ENABLE_MMU(riscv_config_pkg::CONFIG_ENABLE_MMU), // Pass ENABLE_MMU parameter
+                    .ENABLE_QOS(riscv_config_pkg::CONFIG_ENABLE_QOS) // Pass ENABLE_QOS parameter
                 ) u_core_subsystem (
                     .clk_i,
                     .rst_ni,
@@ -169,6 +185,12 @@ module riscv_core
                 .CORE_ID(0),
                 .EXECUTION_MODE(EXECUTION_MODE),
                 .BRANCH_PREDICTOR_TYPE(BRANCH_PREDICTOR_TYPE),
+                .BTB_ENTRIES(BTB_ENTRIES),
+                .BHT_ENTRIES(BHT_ENTRIES),
+                .PHT_ENTRIES(PHT_ENTRIES),
+                .SELECTOR_ENTRIES(SELECTOR_ENTRIES),
+                .GLOBAL_HISTORY_WIDTH(GLOBAL_HISTORY_WIDTH),
+                .RAS_ENTRIES(RAS_ENTRIES),
                 .L1_CACHE_SIZE(L1_CACHE_SIZE),
                 .RESET_VECTOR(RESET_VECTOR)
             ) u_core_subsystem (
@@ -206,6 +228,60 @@ module riscv_core
     // AI_TAG: ASSERTION_COVERAGE_LINK - riscv_core_coverage.mem_req_valid_cp
     MemReqValid: assert property (@(posedge clk_i) disable iff (!rst_ni) 
         (mem_if.req_valid && mem_if.req_ready |-> mem_if.req_addr[1:0] == 2'b00));
+
+    // Instantiate the Bus Watchdog
+    bus_watchdog #(
+        .ENABLE_WATCHDOG(ENABLE_BUS_WATCHDOG)
+    ) u_bus_watchdog (
+        .clk_i(clk_i),
+        .rst_ni(rst_ni),
+        // Connect to a CSR bus interface if available
+        .csr_addr_i('0),
+        .csr_wdata_i('0),
+        .csr_write_en_i('0),
+        .csr_rdata_o(),
+        // Connect to the main memory bus
+        .bus_addr_i(mem_if.req_addr),
+        .bus_req_i(mem_if.req_valid),
+        .bus_gnt_i(mem_if.req_ready),
+        .watchdog_irq_o(bus_watchdog_irq_o)
+    );
+
+    // Instantiate the Power Management Unit
+    if (CONFIG_ENABLE_PMU) begin: gen_pmu
+        power_management_unit #(
+            .NUM_CORES(NUM_CORES)
+        ) u_pmu (
+            .clk_i(clk_i),
+            .rst_ni(rst_ni),
+            // TODO: Connect to a real CSR bus
+            .csr_access_i(1'b0),
+            .csr_addr_i('0),
+            .csr_write_i(1'b0),
+            .csr_wdata_i('0),
+            .csr_rdata_o(),
+
+            // TODO: Connect to core and cache activity signals
+            .core_active_i('0),
+            .core_idle_i('0),
+            .core_utilization_i('0),
+            .cache_active_i(1'b0),
+            .cache_miss_rate_i('0),
+            .thermal_alert_i(1'b0),
+
+            // Power Management Outputs
+            .core_clk_en_o(),
+            .l2_cache_clk_en_o(),
+            .l3_cache_clk_en_o(),
+            .interconnect_clk_en_o(),
+            .voltage_level_o(),
+            .frequency_level_o(),
+            .dvfs_update_o(),
+            .power_domain_en_o(),
+            .retention_mode_o(),
+            .throttling_event_count_o()
+        );
+    end
 
 endmodule : riscv_core
 

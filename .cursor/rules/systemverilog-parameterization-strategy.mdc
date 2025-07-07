@@ -1,0 +1,109 @@
+# SystemVerilog Parameterization and Configuration Strategy
+
+**Title:** Guideline for Hierarchical Parameterization and Configuration
+**Status:** Final
+**Version:** 1.0
+
+## 1. Guiding Principles
+
+-   **Modularity and Reusability:** Modules must be designed as reusable, standalone components. They must not have hidden dependencies on global or project-specific configuration packages.
+-   **Explicit Configuration:** All configuration must be done explicitly through a module's parameter interface. This makes the design's behavior clear and prevents unexpected changes.
+
+## 2. Architectural Strategy
+
+A hybrid strategy is mandatory to balance ease of use with robust, reusable design.
+
+### 2.1. The Top-Level "Configuration Root"
+
+-   Only the single, highest-level wrapper for a self-contained IP (e.g., `aes_gcm_full_axi_top.sv`) is permitted to `import` a user-facing `*_config_pkg.sv` file.
+-   This top-level module acts as the "Configuration Root." It is the single source of truth for the configuration of the entire hierarchy below it.
+
+### 2.2. Submodule Independence
+
+-   All lower-level modules (e.g., `core`, `fsm_controller`, `data_path`) **MUST NOT** `import` the `*_config_pkg.sv`.
+-   Every submodule must define its own `parameter`s for any value it needs.
+-   These parameters **MUST** be given sensible, self-contained default values. These defaults should allow the module to function in a typical use case and are critical for enabling standalone, unit-level testbenches.
+
+## 3. Configuration Propagation in Deep Hierarchies
+
+Propagating configuration from the "Root" down to a deeply nested submodule requires a strategy that avoids excessive "parameter drilling" (passing a parameter through many intermediate modules that do not use it).
+
+### 3.1. Shallow Hierarchies (1-2 Levels)
+
+-   For simple hierarchies, explicitly passing individual parameters from parent to child (`#(.PARAM(VALUE))`) is the clearest and preferred method.
+
+### 3.2. Deep Hierarchies (>2 Levels)
+
+-   For deep hierarchies, parameter drilling is an anti-pattern. The entire configuration **must be bundled** and passed down as a single entity.
+-   The **mandatory method** for this is the **Configuration Struct**.
+
+#### 3.2.1. The Configuration Struct (`struct`) Method
+
+1.  **Define a `config_t`:** In a core package (`*_pkg.sv`), define a `typedef struct` that contains all relevant configuration parameters for the IP. This creates a single, typed configuration object.
+
+2.  **Instantiate the Struct at the Top:** The "Configuration Root" module declares a `parameter` of this struct type. It populates the struct's fields with values from the imported `*_config_pkg.sv`.
+
+3.  **Pass the Single Struct Parameter:** This single struct parameter is then passed down the hierarchy. Intermediate modules do not need to know the contents of the struct; they just pass the parameter along.
+
+4.  **Access Values at the Destination:** The final destination module can access the specific configuration values it needs using dot notation (e.g., `CFG.DATA_WIDTH`, `CFG.FIFO_DEPTH`).
+
+### 4. Example
+
+**1. Define the Struct in a core package (`my_ip_pkg.sv`)**
+```systemverilog
+package my_ip_pkg;
+    typedef struct packed {
+        int unsigned DataWidth;
+        int unsigned FifoDepth;
+        bit          FeatureX_Enable;
+    } config_t;
+endpackage
+```
+
+**2. Populate and Pass from the Top-Level Wrapper**
+```systemverilog
+import my_ip_config_pkg::*; // Contains CONFIG_DATA_WIDTH, etc.
+import my_ip_pkg::*;
+
+module top_level_wrapper ( ... );
+    // Create and populate the single config parameter
+    parameter config_t CFG = '{
+        DataWidth:       CONFIG_DATA_WIDTH,
+        FifoDepth:       CONFIG_FIFO_DEPTH,
+        FeatureX_Enable: 1'b1
+    };
+
+    // Pass the single struct down
+    middle_level #(.CFG(CFG)) u_middle ( ... );
+endmodule
+```
+
+**3. Pass Through an Intermediate Module**
+```systemverilog
+import my_ip_pkg::*;
+module middle_level #(
+    parameter config_t CFG = '{...} // Must have a default
+) ( ... );
+    // No need to know details, just pass it along
+    bottom_level #(.CFG(CFG)) u_bottom ( ... );
+endmodule
+```
+
+**4. Use in the Destination Module**
+```systemverilog
+import my_ip_pkg::*;
+module bottom_level #(
+    parameter config_t CFG = '{...} // Must have a default
+) ( ... );
+    // Access the values needed
+    logic [CFG.DataWidth-1:0] data_bus;
+    if (CFG.FeatureX_Enable) begin
+        // ...
+    end
+endmodule
+```
+This strategy ensures a clean, maintainable, and highly reusable design hierarchy.
+description:
+globs:
+alwaysApply: false
+---

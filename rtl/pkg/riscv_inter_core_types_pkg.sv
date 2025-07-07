@@ -217,16 +217,16 @@ package riscv_inter_core_types_pkg;
     //-----
     
     // AI_TAG: CONSTANT - Maximum message queue depth
-    localparam int MAX_MSG_QUEUE_DEPTH = 16;
+    localparam int MAX_MSG_QUEUE_DEPTH = DEFAULT_MAX_MSG_QUEUE_DEPTH;
     
     // AI_TAG: CONSTANT - Maximum outstanding atomic operations
-    localparam int MAX_ATOMIC_OPS = 8;
+    localparam int MAX_ATOMIC_OPS = DEFAULT_MAX_ATOMIC_OPS;
     
     // AI_TAG: CONSTANT - Synchronization timeout default
-    localparam int SYNC_TIMEOUT_DEFAULT = 1000;
+    localparam int SYNC_TIMEOUT_DEFAULT = DEFAULT_SYNC_TIMEOUT;
     
     // AI_TAG: CONSTANT - Network packet size
-    localparam int NETWORK_PACKET_SIZE = 128;
+    localparam int NETWORK_PACKET_SIZE = DEFAULT_NETWORK_PACKET_SIZE;
 
     //-----
     // Utility Functions

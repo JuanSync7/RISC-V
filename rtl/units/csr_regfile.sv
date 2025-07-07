@@ -22,11 +22,14 @@
 `default_nettype none
 
 import riscv_core_pkg::*;
+import mmu_pkg::*; // Import MMU package
 
 module csr_regfile
 #(
     // AI_TAG: PARAMETER - HART_ID - A unique ID for this processor core (hart).
-    parameter word_t HART_ID = 32'd0
+    parameter word_t HART_ID = 32'd0,
+    parameter logic ENABLE_MMU = 1, // Enable MMU-related CSRs
+    parameter logic ENABLE_QOS = 1  // Enable QoS-related CSRs
 )
 (
     input  logic        clk_i,
@@ -103,12 +106,14 @@ module csr_regfile
     localparam logic [11:0] MINSTRET_ADDR  = 12'hB02;
     localparam logic [11:0] MCYCLEH_ADDR   = 12'hB80;
     localparam logic [11:0] MINSTRETH_ADDR = 12'hB82;
+    localparam logic [11:0] SATP_CSR_ADDR = 12'h180; // Supervisor Address Translation and Protection Register
 
     // AI_TAG: INTERNAL_STORAGE - Registers for each implemented M-mode CSR.
     word_t mstatus_q, misa_q, mie_q, mtvec_q, mscratch_q, mepc_q, mcause_q, mtval_q, mip_q;
     word_t mhartid_q; // Modeled as a register, but read-only.
     logic [63:0] mcycle_q;
     logic [63:0] minstret_q;
+    word_t satp_q; // SATP register
 
     // AI_TAG: INTERNAL_LOGIC - CSR Read Mux
     // Description: Combinational logic to read the current value of a CSR based on its address.
@@ -125,6 +130,7 @@ module csr_regfile
             MTVAL_ADDR:    read_data_o = mtval_q;
             MIP_ADDR:      read_data_o = mip_q;
             MHARTID_ADDR:  read_data_o = mhartid_q;
+            SATP_CSR_ADDR: read_data_o = satp_q; // Read SATP
             // Performance Counters
             MCYCLE_ADDR:    read_data_o = mcycle_q[31:0];
             MINSTRET_ADDR:  read_data_o = minstret_q[31:0];
@@ -152,6 +158,7 @@ module csr_regfile
             mhartid_q  <= HART_ID;
             mcycle_q   <= '0;
             minstret_q <= '0;
+            satp_q     <= '0; // Reset SATP
         end else begin
             // Free-running counters
             mcycle_q <= mcycle_q + 1;
@@ -181,6 +188,7 @@ module csr_regfile
                     MCAUSE_ADDR:   mcause_q   <= csr_op(mcause_q, rs1_data_i, csr_op_i);
                     MTVAL_ADDR:    mtval_q    <= csr_op(mtval_q, rs1_data_i, csr_op_i);
                     MIP_ADDR:      mip_q      <= csr_op(mip_q, rs1_data_i, csr_op_i);
+                    SATP_CSR_ADDR: satp_q     <= csr_op(satp_q, rs1_data_i, csr_op_i); // Write SATP
                     // MISA, MHARTID, and performance counters are read-only; writes are ignored.
                     default: ;
                 endcase

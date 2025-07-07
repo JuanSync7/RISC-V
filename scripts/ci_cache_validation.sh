@@ -208,7 +208,7 @@ run_syntax_checks() {
         log_debug "Using Verilator for syntax checking"
         
         local key_files=(
-            "$PROJECT_ROOT/rtl/core/riscv_cache_topology_pkg.sv"
+            "$PROJECT_ROOT/rtl/pkg/riscv_cache_topology_pkg.sv"
             "$PROJECT_ROOT/rtl/memory/cache_cluster_manager.sv"
             "$PROJECT_ROOT/rtl/core/multi_core_system.sv"
         )

@@ -28,7 +28,8 @@ import riscv_cache_types_pkg::*;
 module dcache #(
     parameter integer DCACHE_SIZE = DEFAULT_L1_DCACHE_SIZE,
     parameter integer DCACHE_LINE_SIZE = DEFAULT_L1_DCACHE_LINE_SIZE,
-    parameter integer DCACHE_WAYS = DEFAULT_L1_DCACHE_WAYS
+    parameter integer DCACHE_WAYS = DEFAULT_L1_DCACHE_WAYS,
+    parameter integer PADDR_WIDTH = ADDR_WIDTH // Physical Address width (from MMU)
 ) (
     input  logic        clk_i,
     input  logic        rst_ni,
@@ -36,7 +37,7 @@ module dcache #(
     // CPU Interface (from Memory Stage)
     input  logic        req_valid_i,
     output logic        req_ready_o,
-    input  addr_t       req_addr_i,
+    input  logic [PADDR_WIDTH-1:0] req_addr_i,
     input  logic        req_write_i,
     input  word_t       req_wdata_i,
     input  logic [3:0]  req_wstrb_i,

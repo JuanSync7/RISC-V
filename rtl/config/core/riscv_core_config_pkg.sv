@@ -31,6 +31,13 @@ package riscv_core_config_pkg;
     // Reset vector configuration
     parameter logic [ADDR_WIDTH-1:0] DEFAULT_RESET_VECTOR = 32'h0000_0000;
 
+//---------------------------------------------------------------------------
+    // 2. Core Feature Configuration
+    //---------------------------------------------------------------------------
+    parameter bit ENABLE_FPU = 1;                   // Enable Floating-Point Unit
+    parameter bit ENABLE_VPU = 1;                   // Enable Vector Processing Unit
+    parameter bit ENABLE_ML_INFERENCE = 1;          // Enable Machine Learning Inference Unit
+
 endpackage : riscv_core_config_pkg
 
 //=============================================================================
@@ -62,6 +69,7 @@ endpackage : riscv_core_config_pkg
 // Version | Date       | Author                          | Description
 //=============================================================================
 // 1.0.0   | 2025-07-31 | DesignAI (designai@sondrel.com) | Initial creation and added standard footer.
+// 1.1.0   | 2025-07-05 | DesignAI (designai@sondrel.com) | Added feature enable parameters.
 //=============================================================================
 
 `default_nettype wire

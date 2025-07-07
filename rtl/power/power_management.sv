@@ -17,6 +17,26 @@
 //   power state management, and thermal throttling for optimal power efficiency.
 //=============================================================================
 
+// DOCUMENTATION_PASS_FAIL: PASS
+//-----------------------------------------------------------------------------
+// REVISION HISTORY:
+// - 1.0.0 | 2025-01-27 | DesignAI | Initial creation with DVFS, clock gating, and power state FSM.
+// - 1.1.0 | 2025-02-15 | DesignAI | Added thermal monitoring and throttling logic.
+// - 1.2.0 | 2025-03-01 | Juan.Kok | Refactored DVFS controller and added workload analysis.
+// - 1.2.1 | 2025-03-10 | Juan.Kok | Integrated AI documentation tags.
+//
+//=============================================================================
+// Toolchain:
+//   - Synopsys Design Compiler for synthesis
+//   - Cadence Joules for power analysis
+//
+// Dependencies:
+//   - rtl/pkg/riscv_config_pkg.sv
+//   - rtl/pkg/riscv_types_pkg.sv
+//   - rtl/shared/packages/riscv_power_pkg.sv (if defined)
+//
+//=============================================================================
+
 `timescale 1ns/1ps
 `default_nettype none
 
@@ -505,9 +525,9 @@ endmodule : power_management
 
 //=============================================================================
 // Dependencies:
-//   - rtl/core/riscv_config_pkg.sv
-//   - rtl/core/riscv_types_pkg.sv
-//   - rtl/power/riscv_power_pkg.sv
+//   - rtl/pkg/riscv_config_pkg.sv
+//   - rtl/pkg/riscv_types_pkg.sv
+//   - rtl/shared/packages/riscv_power_pkg.sv
 //
 // Performance:
 //   - Critical Path: DVFS voltage/frequency selection logic

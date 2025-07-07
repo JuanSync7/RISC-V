@@ -22,6 +22,23 @@
 // QUALITY_STATUS: Draft
 //
 //=============================================================================
+// DOCUMENTATION_PASS_FAIL: PASS
+//-----------------------------------------------------------------------------
+// REVISION HISTORY:
+// - 1.0.0 | 2025-07-05 | Juan.Kok | Initial creation and basic test cases for ALU and branch operations.
+// - 1.1.0 | 2025-07-05 | Juan.Kok | Added DPU/FPU custom instruction test case and bypass logic placeholders.
+//
+//=============================================================================
+// Toolchain:
+//   - QuestaSim 2023.2
+//
+// Dependencies:
+//   - rtl/core/execute_stage.sv
+//   - rtl/pkg/riscv_config_pkg.sv
+//   - rtl/pkg/riscv_core_pkg.sv
+//   - rtl/pkg/riscv_dpu_types_pkg.sv
+//   - rtl/pkg/riscv_exception_pkg.sv
+//=============================================================================
 `timescale 1ns/1ps
 `default_nettype none
 
@@ -398,10 +415,10 @@ endmodule : execute_stage_tb
 //=============================================================================
 // Dependencies:
 //   - rtl/core/execute_stage.sv
-//   - rtl/core/riscv_config_pkg.sv
-//   - rtl/core/riscv_core_pkg.sv
-//   - rtl/core/riscv_dpu_types_pkg.sv
-//   - rtl/core/riscv_exception_pkg.sv
+//   - rtl/pkg/riscv_config_pkg.sv
+//   - rtl/pkg/riscv_core_pkg.sv
+//   - rtl/pkg/riscv_dpu_types_pkg.sv
+//   - rtl/pkg/riscv_exception_pkg.sv
 //
 // Instantiated In:
 //   - N/A (Unit Testbench)

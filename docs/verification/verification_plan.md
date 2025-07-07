@@ -23,6 +23,25 @@ This document outlines the comprehensive verification strategy for the RISC-V co
 
 ### 1. Unit Tests
 
+#### Out-of-Order Engine Tests
+**Location:** `tb/tests/unit_tests/ooo_engine_test.sv`
+
+**Test Cases:**
+- **Instruction Dispatch:** Verify correct dispatch to RS and ROB.
+- **Register Renaming:** Test WAR/WAW hazard elimination and PRF updates.
+- **Operand Forwarding:** Verify RAW hazard resolution via CDB.
+- **Instruction Issue:** Test correct instruction issue from RS to FUs.
+- **In-Order Commit:** Verify in-order retirement from ROB.
+- **Precise Exceptions:** Test exception handling and pipeline flush in OoO mode.
+- **ROB/RS Full/Empty:** Test boundary conditions for ROB and RS.
+- **Parameter Consistency:** Verify that `ooo_pkg.sv` correctly utilizes parameters from `riscv_config_pkg.sv`.
+- **Execution Mode Control:** Verify that the OoO engine is correctly enabled/disabled based on the `EXECUTION_MODE` parameter in `core_subsystem.sv`.
+
+**Coverage Goals:**
+- **Functional Coverage:** 100% coverage of RS/ROB states, renaming scenarios, and issue logic.
+- **Code Coverage:** >95% line coverage for OoO modules.
+- **Branch Coverage:** >90% branch coverage for OoO control logic.
+
 #### ALU Unit Tests
 **Location:** `tb/tests/unit_tests/alu_test.sv`
 
@@ -100,6 +119,14 @@ This document outlines the comprehensive verification strategy for the RISC-V co
 - **Forwarding Logic:** Correct operand selection
 - **Performance Impact:** IPC measurement
 
+#### Feature Enablement Tests
+**Location:** `tb/tests/integration_tests/feature_enablement_test.sv`
+
+**Test Cases:**
+- **MMU Enablement:** Verify MMU functionality when `CONFIG_ENABLE_MMU` is true, and bypass/disabled behavior when false.
+- **QoS Enablement:** Verify QoS functionality when `CONFIG_ENABLE_QOS` is true, and disabled behavior when false.
+- **Parameter Propagation:** Verify that `CONFIG_ENABLE_MMU` and `CONFIG_ENABLE_QOS` parameters are correctly propagated from `riscv_config_pkg.sv` through `riscv_core.sv` to `core_subsystem.sv`.
+
 ### 3. Compliance Tests
 
 #### RISC-V Compliance Tests
@@ -154,6 +181,21 @@ This document outlines the comprehensive verification strategy for the RISC-V co
 - **Multi-cycle Operation Mix:** ALU, multiply, divide combinations
 - **Exception Frequency:** High exception rate scenarios
 - **Long-running Programs:** Stability over extended periods
+
+#### QoS Tests
+**Location:** `tb/tests/performance_tests/qos_test.sv` (or integrated into `qos_stress_tb.sv`)
+
+**Test Cases:**
+- **Priority Enforcement:** Verify that critical transactions are prioritized over lower-priority ones.
+- **Bandwidth Allocation:** Test if bandwidth guarantees are met under contention.
+- **Latency Guarantees:** Measure and verify that critical transactions meet their maximum latency cycles.
+- **Fairness:** Ensure that lower-priority transactions are not starved under heavy load.
+- **QoS Violation Detection:** Verify that the QoS monitor correctly identifies and reports violations.
+- **Dynamic QoS Changes:** Test the system's response to real-time changes in QoS parameters.
+
+**Coverage Goals:**
+- **Functional Coverage:** 100% coverage of QoS levels, transaction types, and priority scenarios.
+- **Code Coverage:** >95% line and branch coverage for QoS-related logic.
 
 ## Test Infrastructure
 
