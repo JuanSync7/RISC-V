@@ -20,10 +20,12 @@
 `default_nettype none
 
 import riscv_types_pkg::*;
+import riscv_config_pkg::*;
+import riscv_bp_types_pkg::*;
 
 module local_predictor #(
-    parameter integer ADDR_WIDTH = 32,
-    parameter integer BHT_ENTRIES = 512
+    parameter integer ADDR_WIDTH = CONFIG_ADDR_WIDTH,
+    parameter integer BHT_ENTRIES = CONFIG_BHT_ENTRIES
 ) (
     input  logic clk_i,
     input  logic rst_ni,

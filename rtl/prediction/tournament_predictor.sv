@@ -20,14 +20,16 @@
 `default_nettype none
 
 import riscv_types_pkg::*;
+import riscv_config_pkg::*;
+import riscv_bp_types_pkg::*;
 
 module tournament_predictor #(
-    parameter integer ADDR_WIDTH = 32,
-    parameter integer GLOBAL_HISTORY_WIDTH = 8,
-    parameter integer BTB_ENTRIES = 128,
-    parameter integer BHT_ENTRIES = 512,
-    parameter integer PHT_ENTRIES = 4096,
-    parameter integer SELECTOR_ENTRIES = 4096
+    parameter integer ADDR_WIDTH = CONFIG_ADDR_WIDTH,
+    parameter integer GLOBAL_HISTORY_WIDTH = CONFIG_GLOBAL_HISTORY_WIDTH,
+    parameter integer BTB_ENTRIES = CONFIG_BTB_ENTRIES,
+    parameter integer BHT_ENTRIES = CONFIG_BHT_ENTRIES,
+    parameter integer PHT_ENTRIES = CONFIG_PHT_ENTRIES,
+    parameter integer SELECTOR_ENTRIES = CONFIG_SELECTOR_ENTRIES
 ) (
     input  logic clk_i,
     input  logic rst_ni,

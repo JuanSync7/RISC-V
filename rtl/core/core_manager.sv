@@ -29,7 +29,7 @@
 // AI_TAG: INTERNAL_BLOCK - BarrierSync - State machine and storage for hardware barriers.
 
 module core_manager #(
-    parameter integer NUM_CORES = 4,    // AI_TAG: PARAM_DESC - The total number of cores in the system.
+    parameter integer NUM_CORES = riscv_core_pkg::MAX_CORES,    // AI_TAG: PARAM_DESC - The total number of cores in the system.
                                         // AI_TAG: PARAM_USAGE - Must match NUM_CORES in connected interfaces and cores.
                                         // AI_TAG: PARAM_CONSTRAINTS - Must be > 1.
     // NOTE: NUM_BARRIERS, MSG_WIDTH, etc. are inherited from the interfaces

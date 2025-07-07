@@ -19,10 +19,12 @@
 `default_nettype none
 
 import riscv_types_pkg::*;
+import riscv_bp_types_pkg::*;
+import riscv_config_pkg::*;
 
 module btb #(
-    parameter integer ADDR_WIDTH = 32,
-    parameter integer BTB_ENTRIES = 128
+    parameter integer ADDR_WIDTH = CONFIG_ADDR_WIDTH,
+    parameter integer BTB_ENTRIES = riscv_bp_types_pkg::BTB_ENTRIES
 ) (
     input  logic clk_i,
     input  logic rst_ni,

@@ -21,7 +21,7 @@
 `timescale 1ns/1ps
 `default_nettype none
 
-import riscv_config_pkg::*;
+
 
 // AI_TAG: FEATURE - Dispatches instructions to multiple configurable functional units.
 // AI_TAG: FEATURE - Supports multi-cycle units (e.g., multiplier).
@@ -31,11 +31,11 @@ import riscv_config_pkg::*;
 // AI_TAG: INTERNAL_BLOCK - ResultArbiter - Selects one valid result to drive the output CDB.
 
 module multiple_execution_units #(
-    parameter integer DATA_WIDTH      = XLEN,
-    parameter integer ROB_ADDR_WIDTH  = $clog2(DEFAULT_ROB_SIZE),
-    parameter integer NUM_ALU_UNITS   = DEFAULT_NUM_ALU_UNITS, // AI_TAG: PARAM_DESC - Number of Arithmetic Logic Units.
-    parameter integer NUM_MULT_UNITS  = DEFAULT_NUM_MULT_UNITS, // AI_TAG: PARAM_DESC - Number of Multiplier Units.
-    parameter integer NUM_DIV_UNITS   = DEFAULT_NUM_DIV_UNITS  // AI_TAG: PARAM_DESC - Number of Division Units.
+    parameter integer DATA_WIDTH,
+    parameter integer ROB_SIZE,
+    parameter integer NUM_ALU_UNITS,
+    parameter integer NUM_MULT_UNITS,
+    parameter integer NUM_DIV_UNITS
 ) (
     input  logic clk_i,    // AI_TAG: PORT_DESC - System clock
     input  logic rst_ni,   // AI_TAG: PORT_DESC - Asynchronous active-low reset
@@ -46,19 +46,17 @@ module multiple_execution_units #(
     input  riscv_instr_t issue_opcode_i, // AI_TAG: PORT_DESC - Opcode of the issued instruction.
     input  logic [DATA_WIDTH-1:0] issue_v_rs1_i,    // AI_TAG: PORT_DESC - Value of operand 1.
     input  logic [DATA_WIDTH-1:0] issue_v_rs2_i,    // AI_TAG: PORT_DESC - Value of operand 2.
-    input  logic [ROB_ADDR_WIDTH-1:0] issue_rob_tag_i,  // AI_TAG: PORT_DESC - ROB tag of the issued instruction.
+    input  logic [$clog2(ROB_SIZE)-1:0] issue_rob_tag_i,  // AI_TAG: PORT_DESC - ROB tag of the issued instruction.
 
     // Interface to Result Bus (CDB)
     output logic result_valid_o,           // AI_TAG: PORT_DESC - A valid result is being broadcast.
-    output logic [ROB_ADDR_WIDTH-1:0] result_rob_tag_o, // AI_TAG: PORT_DESC - ROB tag of the result.
+    output logic [$clog2(ROB_SIZE)-1:0] result_rob_tag_o, // AI_TAG: PORT_DESC - ROB tag of the result.
     output logic [DATA_WIDTH-1:0] result_data_o,    // AI_TAG: PORT_DESC - Data value of the result.
     output logic result_exception_valid_o, // AI_TAG: PORT_DESC - The instruction resulted in an exception.
     output logic [31:0] result_exception_cause_o  // AI_TAG: PORT_DESC - The cause of the exception.
 );
 
-    localparam TOTAL_ALU_UNITS  = NUM_ALU_UNITS;
-    localparam TOTAL_MULT_UNITS = TOTAL_ALU_UNITS + NUM_MULT_UNITS;
-    localparam TOTAL_UNITS      = TOTAL_MULT_UNITS + NUM_DIV_UNITS;
+    localparam ROB_ADDR_WIDTH  = $clog2(ROB_SIZE);
 
     //---------------------------------------------------------------------------
     // Instruction Decoder

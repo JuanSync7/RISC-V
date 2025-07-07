@@ -20,8 +20,20 @@
 
 package riscv_memory_types_pkg;
 
-    import riscv_core_config_pkg::*;
-    import riscv_memory_config_pkg::*;
+    import riscv_config_pkg::*;
+    import riscv_types_pkg::*;
+
+    localparam integer XLEN = CONFIG_XLEN;
+    localparam integer ADDR_WIDTH = CONFIG_ADDR_WIDTH;
+    localparam integer CORE_ID_WIDTH = $clog2(CONFIG_NUM_CORES);
+    localparam integer DEFAULT_CACHE_LINE_SIZE = CONFIG_CACHE_LINE_SIZE;
+
+    // Derived parameters for cache line structure (assuming a generic cache)
+    // These are placeholders and should ideally be passed as parameters to cache modules
+    // or derived within cache-specific packages.
+    localparam integer INDEX_BITS = 6; // Example value, should be dynamic
+    localparam integer OFFSET_BITS = $clog2(DEFAULT_CACHE_LINE_SIZE);
+    localparam integer TAG_BITS = ADDR_WIDTH - INDEX_BITS - OFFSET_BITS;
 
     //-------------------------------------------------------------------------
     // Cache Coherence and Memory Types

@@ -5,6 +5,7 @@
 package power_pkg;
 
     import riscv_config_pkg::*;
+    import riscv_types_pkg::*;
 
     typedef enum logic [2:0] {
         POWER_ACTIVE,
@@ -19,8 +20,8 @@ package power_pkg;
         logic        cache_gating_en;
         logic        retention_mode;
         logic        power_gating_en;
-        logic [31:0] CONFIG_IDLE_TIMEOUT;
-        logic [31:0] CONFIG_SLEEP_TIMEOUT;
+        logic [31:0] DEFAULT_IDLE_TIMEOUT;
+        logic [31:0] DEFAULT_SLEEP_TIMEOUT;
     } power_config_t;
 
 endpackage

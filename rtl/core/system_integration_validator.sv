@@ -27,16 +27,30 @@
 
 // AI_TAG: BLOCK_DIAGRAM_DESC - Input interfaces connect to ConnectivityMonitor for validation. PerformanceTracker monitors protocol switching metrics. TimingAnalyzer evaluates critical paths. OptimizationEngine processes all data to generate recommendations.
 
+import riscv_core_pkg::*;
+
 module system_integration_validator #(
-    parameter integer NUM_CORES = 4,                    // AI_TAG: PARAM_DESC - Number of cores in the system
-                                                        // AI_TAG: PARAM_USAGE - Configures monitoring arrays for multi-core system
-                                                        // AI_TAG: PARAM_CONSTRAINTS - Must be power of 2, Max 8
-    parameter integer NUM_PROTOCOLS = 3,                // AI_TAG: PARAM_DESC - Number of supported protocols (AXI4, CHI, TileLink)
-                                                        // AI_TAG: PARAM_USAGE - Configures protocol switching monitoring
-                                                        // AI_TAG: PARAM_CONSTRAINTS - Must be >= 1
-    parameter integer MONITOR_WINDOW_SIZE = 1024        // AI_TAG: PARAM_DESC - Performance monitoring window size in cycles
-                                                        // AI_TAG: PARAM_USAGE - Determines averaging window for performance metrics
-                                                        // AI_TAG: PARAM_CONSTRAINTS - Must be power of 2
+    parameter integer NUM_CORES = MAX_CORES,                    // AI_TAG: PARAM_DESC - Number of cores in the system
+                                                                // AI_TAG: PARAM_USAGE - Configures monitoring arrays for multi-core system
+                                                                // AI_TAG: PARAM_CONSTRAINTS - Must be power of 2, Max 8
+    parameter integer NUM_PROTOCOLS = 3,                        // AI_TAG: PARAM_DESC - Number of supported protocols (AXI4, CHI, TileLink)
+                                                                // AI_TAG: PARAM_USAGE - Configures protocol switching monitoring
+                                                                // AI_TAG: PARAM_CONSTRAINTS - Must be >= 1
+    parameter integer VALIDATION_DEPTH = DEFAULT_VALIDATION_DEPTH, // AI_TAG: PARAM_DESC - Depth of validation checks
+                                                                // AI_TAG: PARAM_USAGE - Determines the thoroughness of integration validation
+                                                                // AI_TAG: PARAM_CONSTRAINTS - Must be >= 1
+    parameter integer OPTIMIZATION_WINDOW = DEFAULT_OPTIMIZATION_WINDOW, // AI_TAG: PARAM_DESC - Performance monitoring window size in cycles
+                                                                // AI_TAG: PARAM_USAGE - Determines averaging window for performance metrics
+                                                                // AI_TAG: PARAM_CONSTRAINTS - Must be power of 2
+    parameter integer HEALTH_THRESHOLD = DEFAULT_HEALTH_THRESHOLD, // AI_TAG: PARAM_DESC - Minimum health score for healthy system
+                                                                // AI_TAG: PARAM_USAGE - Defines the threshold for overall system health
+                                                                // AI_TAG: PARAM_CONSTRAINTS - Must be between 0 and 255
+    parameter integer PERFORMANCE_THRESHOLD = DEFAULT_PERFORMANCE_THRESHOLD, // AI_TAG: PARAM_DESC - Minimum performance percentage
+                                                                // AI_TAG: PARAM_USAGE - Defines the threshold for acceptable system performance
+                                                                // AI_TAG: PARAM_CONSTRAINTS - Must be between 0 and 100
+    parameter integer OPTIMIZATION_COOLDOWN = DEFAULT_OPTIMIZATION_COOLDOWN // AI_TAG: PARAM_DESC - Cycles between optimization recommendations
+                                                                // AI_TAG: PARAM_USAGE - Prevents rapid, successive optimization requests
+                                                                // AI_TAG: PARAM_CONSTRAINTS - Must be >= 0
 ) (
     // System Clock and Reset
     input  logic                            clk_i,      // AI_TAG: PORT_DESC - System clock

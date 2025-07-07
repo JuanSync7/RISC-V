@@ -21,14 +21,16 @@
 package riscv_protocol_types_pkg;
 
     import riscv_types_pkg::*;
+    import riscv_config_pkg::*;
+    import riscv_protocol_constants_pkg::*;
 
     //---------------------------------------------------------------------------
     // 1. Protocol Configuration Parameters
     //---------------------------------------------------------------------------
-    parameter integer AXI4_ID_WIDTH = 4;
-    parameter integer AXI4_ADDR_WIDTH = 32;
-    parameter integer AXI4_DATA_WIDTH = 32;
-    parameter integer AXI4_STRB_WIDTH = AXI4_DATA_WIDTH/8;
+    parameter integer AXI4_ID_WIDTH = CONFIG_AXI4_ID_WIDTH;
+    parameter integer AXI4_ADDR_WIDTH = CONFIG_AXI4_ADDR_WIDTH;
+    parameter integer AXI4_DATA_WIDTH = CONFIG_AXI4_DATA_WIDTH;
+    parameter integer AXI4_STRB_WIDTH = CONFIG_AXI4_DATA_WIDTH/8;
 
     //---------------------------------------------------------------------------
     // 2. Protocol Types

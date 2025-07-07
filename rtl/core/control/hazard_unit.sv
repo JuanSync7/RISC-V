@@ -22,7 +22,7 @@
 `default_nettype none
 
 import riscv_types_pkg::*;
-import riscv_config_pkg::*;
+import riscv_pipeline_types_pkg::*;
 
 module hazard_unit
 (
@@ -116,20 +116,20 @@ module hazard_unit
         // AI_TAG: FORWARDING_LOGIC - EX/MEM -> EX Path (Highest Priority Forward)
         if (ex_mem_reg_i.ctrl.reg_write_en && (ex_mem_reg_i.rd_addr != '0)) begin
             if (ex_mem_reg_i.rd_addr == id_ex_reg_i.rs1_addr) begin
-                forward_a_sel_o = riscv_config_pkg::FWD_SEL_MEM;
+                forward_a_sel_o = FWD_SEL_MEM;
             end
             if (ex_mem_reg_i.rd_addr == id_ex_reg_i.rs2_addr) begin
-                forward_b_sel_o = riscv_config_pkg::FWD_SEL_MEM;
+                forward_b_sel_o = FWD_SEL_MEM;
             end
         end
 
         // AI_TAG: FORWARDING_LOGIC - MEM/WB -> EX Path
         if (mem_wb_reg_i.reg_write_en && (mem_wb_reg_i.rd_addr != '0)) begin
-            if ((mem_wb_reg_i.rd_addr == id_ex_reg_i.rs1_addr) && (forward_a_sel_o == riscv_config_pkg::FWD_SEL_REG)) begin
-                forward_a_sel_o = riscv_config_pkg::FWD_SEL_WB;
+            if ((mem_wb_reg_i.rd_addr == id_ex_reg_i.rs1_addr) && (forward_a_sel_o == FWD_SEL_REG)) begin
+                forward_a_sel_o = FWD_SEL_WB;
             end
-            if ((mem_wb_reg_i.rd_addr == id_ex_reg_i.rs2_addr) && (forward_b_sel_o == riscv_config_pkg::FWD_SEL_REG)) begin
-                forward_b_sel_o = riscv_config_pkg::FWD_SEL_WB;
+            if ((mem_wb_reg_i.rd_addr == id_ex_reg_i.rs2_addr) && (forward_b_sel_o == FWD_SEL_REG)) begin
+                forward_b_sel_o = FWD_SEL_WB;
             end
         end
     end

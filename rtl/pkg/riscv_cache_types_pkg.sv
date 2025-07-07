@@ -24,22 +24,36 @@ package riscv_cache_types_pkg;
     import riscv_types_pkg::*;
     import riscv_mem_types_pkg::*;
 
+    localparam integer XLEN = CONFIG_XLEN;
+    localparam integer ADDR_WIDTH = CONFIG_ADDR_WIDTH;
+
+    // Default values for L2 Cache parameters
+    parameter integer DEFAULT_L2_CACHE_SIZE = CONFIG_L2_CACHE_SIZE;
+    parameter integer DEFAULT_CACHE_LINE_SIZE = CONFIG_CACHE_LINE_SIZE;
+    parameter integer DEFAULT_L2_NUM_WAYS = CONFIG_L2_CACHE_WAYS;
+    parameter integer DEFAULT_NUM_CORES = CONFIG_NUM_CORES;
+    parameter integer DEFAULT_DATA_WIDTH = CONFIG_XLEN;
+    parameter integer DEFAULT_ADDR_WIDTH = CONFIG_ADDR_WIDTH;
+    parameter integer DEFAULT_L2_PREFETCH_DEPTH = CONFIG_DEFAULT_L2_PREFETCH_DEPTH;
+    parameter integer DEFAULT_L2_STRIDE_TABLE_SIZE = CONFIG_DEFAULT_L2_STRIDE_TABLE_SIZE;
+    parameter integer DEFAULT_L2_PREFETCH_CONFIDENCE_THRESHOLD = CONFIG_DEFAULT_L2_PREFETCH_CONFIDENCE_THRESHOLD;
+
     //---------------------------------------------------------------------------
     // 1. Cache Configuration Parameters (now from config package)
     //---------------------------------------------------------------------------
     // All cache configuration parameters are now imported from riscv_config_pkg:
-    // DEFAULT_L1_CACHE_SIZE, DEFAULT_L2_CACHE_SIZE, DEFAULT_L3_CACHE_SIZE
-    // DEFAULT_L1_CACHE_WAYS, DEFAULT_L2_CACHE_WAYS, DEFAULT_L3_CACHE_WAYS
-    // DEFAULT_CACHE_LINE_SIZE
+    // CONFIG_L1_ICACHE_SIZE, CONFIG_L2_CACHE_SIZE, CONFIG_L3_CACHE_SIZE
+    // CONFIG_L1_ICACHE_WAYS, CONFIG_L2_CACHE_WAYS, CONFIG_L3_CACHE_WAYS
+    // CONFIG_CACHE_LINE_SIZE
 
     //---------------------------------------------------------------------------
     // 2. Cache Line Structure
     //---------------------------------------------------------------------------
     typedef struct packed {
         logic                    valid;      // Valid bit
-        logic [TAG_BITS-1:0]     tag;        // Tag bits (calculated per cache)
-        word_t                   data [DEFAULT_CACHE_LINE_SIZE/4-1:0];  // Data array
         logic                    dirty;      // Dirty bit for write-back
+        logic [TAG_BITS-1:0]     tag;        // Tag bits (calculated per cache)
+        word_t                   data [CONFIG_CACHE_LINE_SIZE/4-1:0];  // Data array
         logic                    lru;        // LRU bit (for 2-way cache)
     } cache_line_t;
 

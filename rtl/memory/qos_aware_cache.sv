@@ -18,14 +18,16 @@
 `timescale 1ns/1ps
 `default_nettype none
 
-import riscv_core_pkg::*;
+import riscv_cache_types_pkg::*;
+import riscv_qos_pkg::*;
+import riscv_config_pkg::*;
 
 module qos_aware_cache #(
-    parameter integer CACHE_SIZE = DEFAULT_L1_CACHE_SIZE,
+    parameter integer CACHE_SIZE = CONFIG_L1_ICACHE_SIZE,
     parameter integer LINE_SIZE = DEFAULT_CACHE_LINE_SIZE,
-    parameter integer WAYS = DEFAULT_L1_CACHE_WAYS,
-    parameter integer ADDR_WIDTH = 32,
-    parameter integer REQUEST_QUEUE_DEPTH = 8
+    parameter integer WAYS = CONFIG_L1_ICACHE_WAYS,
+    parameter integer ADDR_WIDTH = riscv_cache_types_pkg::ADDR_WIDTH,
+    parameter integer REQUEST_QUEUE_DEPTH = DEFAULT_QOS_REQUEST_QUEUE_DEPTH
 ) (
     input  logic        clk_i,
     input  logic        rst_ni,

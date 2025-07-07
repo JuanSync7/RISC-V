@@ -20,6 +20,9 @@
 `timescale 1ns/1ps
 `default_nettype none
 
+import riscv_protocol_types_pkg::*;
+import riscv_cache_types_pkg::*;
+
 module memory_wrapper #(
     // AI_TAG: PARAM_DESC - PROTOCOL_TYPE - Memory protocol type.
     // AI_TAG: PARAM_USAGE - Determines which protocol adapter to use.
@@ -27,13 +30,13 @@ module memory_wrapper #(
     parameter string PROTOCOL_TYPE = "AXI4",
     
     // AI_TAG: PARAM_DESC - ID_WIDTH - Width of transaction ID.
-    parameter integer ID_WIDTH = 4,
+    parameter integer ID_WIDTH = DEFAULT_ID_WIDTH,
     
     // AI_TAG: PARAM_DESC - ADDR_WIDTH - Width of address signals.
-    parameter integer ADDR_WIDTH = 32,
+    parameter integer ADDR_WIDTH = DEFAULT_ADDR_WIDTH,
     
     // AI_TAG: PARAM_DESC - DATA_WIDTH - Width of data signals.
-    parameter integer DATA_WIDTH = 32
+    parameter integer DATA_WIDTH = DEFAULT_DATA_WIDTH
 ) (
     // AI_TAG: PORT_DESC - clk_i - System clock.
     input  logic        clk_i,

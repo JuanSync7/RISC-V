@@ -25,20 +25,22 @@
 // AI_TAG: FEATURE - Master/Client and Slave/Manager modports
 // AI_TAG: FEATURE - Support for Get, Put, and atomic operations
 
+import riscv_protocol_types_pkg::*;
+
 interface tilelink_if #(
-    parameter integer DATA_WIDTH = 64,    // AI_TAG: PARAM_DESC - TileLink data bus width
+    parameter integer DATA_WIDTH = DEFAULT_DATA_WIDTH,    // AI_TAG: PARAM_DESC - TileLink data bus width
                                          // AI_TAG: PARAM_USAGE - Sets width of data fields
                                          // AI_TAG: PARAM_CONSTRAINTS - Must be 8, 16, 32, 64, 128, 256, or 512 bits
-    parameter integer ADDR_WIDTH = 32,    // AI_TAG: PARAM_DESC - TileLink address bus width
+    parameter integer ADDR_WIDTH = DEFAULT_ADDR_WIDTH,    // AI_TAG: PARAM_DESC - TileLink address bus width
                                          // AI_TAG: PARAM_USAGE - Sets width of address fields
                                          // AI_TAG: PARAM_CONSTRAINTS - Must be between 12 and 64
-    parameter integer SOURCE_WIDTH = 4,   // AI_TAG: PARAM_DESC - TileLink source ID width
+    parameter integer SOURCE_WIDTH = DEFAULT_TL_SOURCE_WIDTH,   // AI_TAG: PARAM_DESC - TileLink source ID width
                                          // AI_TAG: PARAM_USAGE - Sets width of source ID for transaction tracking
                                          // AI_TAG: PARAM_CONSTRAINTS - Must be between 1 and 16
-    parameter integer SINK_WIDTH = 4,     // AI_TAG: PARAM_DESC - TileLink sink ID width
+    parameter integer SINK_WIDTH = DEFAULT_TL_SINK_WIDTH,     // AI_TAG: PARAM_DESC - TileLink sink ID width
                                          // AI_TAG: PARAM_USAGE - Sets width of sink ID for response tracking
                                          // AI_TAG: PARAM_CONSTRAINTS - Must be between 1 and 16
-    parameter integer SIZE_WIDTH = 4      // AI_TAG: PARAM_DESC - TileLink size field width
+    parameter integer SIZE_WIDTH = DEFAULT_TL_SIZE_WIDTH      // AI_TAG: PARAM_DESC - TileLink size field width
                                          // AI_TAG: PARAM_USAGE - Sets width of size encoding
                                          // AI_TAG: PARAM_CONSTRAINTS - Must be between 2 and 8
 ) (

@@ -23,12 +23,16 @@ package riscv_bp_types_pkg;
     import riscv_config_pkg::*;
     import riscv_types_pkg::*;
 
+    localparam integer DEFAULT_BTB_ENTRIES = CONFIG_BTB_ENTRIES;
+    localparam integer DEFAULT_BHT_ENTRIES = CONFIG_BHT_ENTRIES;
+    localparam integer DEFAULT_RAS_ENTRIES = CONFIG_RSB_ENTRIES; // RAS_ENTRIES maps to RSB_ENTRIES
+
     //---------------------------------------------------------------------------
     // 1. Branch Predictor Configuration Parameters (now from config package)
     //---------------------------------------------------------------------------
     // All branch predictor parameters are now imported from riscv_config_pkg:
-    // DEFAULT_BTB_ENTRIES, DEFAULT_BHT_ENTRIES, DEFAULT_PHT_ENTRIES
-    // DEFAULT_SELECTOR_ENTRIES, DEFAULT_GLOBAL_HISTORY_WIDTH, DEFAULT_RSB_ENTRIES
+    // CONFIG_BTB_ENTRIES, CONFIG_BHT_ENTRIES, CONFIG_PHT_ENTRIES
+    // CONFIG_SELECTOR_ENTRIES, CONFIG_GLOBAL_HISTORY_WIDTH, CONFIG_RSB_ENTRIES
     // BTB_COUNTER_WIDTH, BHT_COUNTER_WIDTH, PHT_COUNTER_WIDTH, SELECTOR_COUNTER_WIDTH, CONFIDENCE_WIDTH
 
     //---------------------------------------------------------------------------
@@ -38,7 +42,7 @@ package riscv_bp_types_pkg;
         logic        valid;      // Valid bit for this entry
         addr_t       tag;        // PC tag for matching
         addr_t       target;     // Branch target address
-        logic [BTB_COUNTER_WIDTH-1:0] counter;    // 2-bit saturating counter
+        logic [CONFIG_BTB_COUNTER_WIDTH-1:0] counter;    // 2-bit saturating counter
         logic        is_branch;  // Indicates if this is a branch instruction
     } btb_entry_t;
 

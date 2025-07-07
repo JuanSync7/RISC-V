@@ -23,8 +23,7 @@
 import riscv_core_pkg::*;
 
 module alu #(
-    parameter integer DATA_WIDTH = XLEN
-)(
+) (
     // AI_TAG: PORT_DESC - alu_op_i - Control signal selecting the ALU operation to perform.
     input  alu_op_e alu_op_i,
     // AI_TAG: PORT_DESC - operand_a_i - First 32-bit data operand (e.g., from rs1 or PC).
@@ -39,13 +38,6 @@ module alu #(
     // AI_TAG: PORT_DESC - overflow_o - Flag that is asserted when arithmetic operations overflow. Used for exception handling.
     output logic    overflow_o
 );
-
-    // AI_TAG: FEATURE - Implements RV32I arithmetic operations: ADD, SUB.
-    // AI_TAG: FEATURE - Implements RV32I logical operations: XOR, OR, AND.
-    // AI_TAG: FEATURE - Implements RV32I shift operations: SLL, SRL, SRA.
-    // AI_TAG: FEATURE - Implements RV32I comparison operations: SLT, SLTU.
-    // AI_TAG: FEATURE - Implements pass-through capabilities for LUI and address calculations.
-    // AI_TAG: FEATURE - Implements overflow detection for ADD and SUB operations.
 
     logic [XLEN-1:0] alu_result;
     logic add_overflow, sub_overflow;

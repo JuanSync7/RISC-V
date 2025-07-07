@@ -21,6 +21,7 @@
 `default_nettype none
 
 import riscv_core_pkg::*;
+import riscv_qos_pkg::*;
 
 module qos_management_unit #(
     parameter integer CORE_ID = 0
@@ -53,12 +54,12 @@ module qos_management_unit #(
         qos_config.urgent = exception_pending_i;
         qos_config.guaranteed_bw = 1'b1;
         qos_config.weight = exception_pending_i ? QOS_WEIGHT_CRITICAL : QOS_WEIGHT_HIGH;
-        qos_config.max_latency_cycles = exception_pending_i ? 16'd5 : 16'd25;
-        qos_config.bandwidth_percent = 8'd30;
+        qos_config.max_latency_cycles = exception_pending_i ? QOS_INSTR_LATENCY_CRITICAL : QOS_INSTR_LATENCY_NORMAL;
+        qos_config.bandwidth_percent = QOS_INSTR_BW_PERCENT;
         qos_config.core_id = CORE_ID[3:0];
         qos_config.preemptable = ~exception_pending_i;
         qos_config.real_time = exception_pending_i;
-        qos_config.retry_limit = 3'd1;
+        qos_config.retry_limit = QOS_INSTR_RETRY_LIMIT;
         qos_config.ordered = 1'b1;
         
         return qos_config;
@@ -74,14 +75,14 @@ module qos_management_unit #(
         if (is_critical || exception_pending_i) begin
             qos_config.qos_level = QOS_LEVEL_CRITICAL;
             qos_config.weight = QOS_WEIGHT_CRITICAL;
-            qos_config.max_latency_cycles = 16'd10;
+            qos_config.max_latency_cycles = CONFIG_QOS_DATA_LATENCY_CRITICAL;
             qos_config.urgent = 1'b1;
             qos_config.real_time = 1'b1;
             qos_config.preemptable = 1'b0;
         end else begin
             qos_config.qos_level = is_store ? QOS_LEVEL_MEDIUM : QOS_LEVEL_MEDIUM_HIGH;
             qos_config.weight = is_store ? QOS_WEIGHT_MEDIUM : QOS_WEIGHT_MEDIUM_HIGH;
-            qos_config.max_latency_cycles = is_store ? 16'd100 : 16'd50;
+            qos_config.max_latency_cycles = is_store ? CONFIG_QOS_DATA_STORE_LATENCY_NORMAL : CONFIG_QOS_DATA_LOAD_LATENCY_NORMAL;
             qos_config.urgent = 1'b0;
             qos_config.real_time = 1'b0;
             qos_config.preemptable = 1'b1;
@@ -89,9 +90,9 @@ module qos_management_unit #(
         
         qos_config.transaction_type = QOS_TYPE_DATA_ACCESS;
         qos_config.guaranteed_bw = is_critical || exception_pending_i;
-        qos_config.bandwidth_percent = 8'd25;
+        qos_config.bandwidth_percent = CONFIG_QOS_DATA_BW_PERCENT;
         qos_config.core_id = CORE_ID[3:0];
-        qos_config.retry_limit = 3'd2;
+        qos_config.retry_limit = QOS_DATA_RETRY_LIMIT;
         qos_config.ordered = 1'b1;
         
         return qos_config;

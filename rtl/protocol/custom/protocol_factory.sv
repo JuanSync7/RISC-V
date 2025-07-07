@@ -32,7 +32,7 @@
 // AI_TAG: INTERNAL_BLOCK - PerformanceMonitor - Tracks protocol-specific metrics
 
 import riscv_core_pkg::*;
-import riscv_config_pkg::*;
+
 
 module protocol_factory #(
     parameter string DEFAULT_PROTOCOL = DEFAULT_MEMORY_PROTOCOL,           // AI_TAG: PARAM_DESC - Default protocol at reset

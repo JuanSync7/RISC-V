@@ -103,7 +103,7 @@ module vpu_unit
                             VPU_LOAD: begin
                                 // Assuming word_t is 32-bit and memory is byte-addressable
                                 // For simplicity, assuming word-aligned access here
-                                s2_result_vector_r[i] <= internal_memory[(s1_req_r.addr + i * (XLEN/8)) / (XLEN/8)];
+                                s2_result_vector_r[i] <= internal_memory[(s1_req_r.addr + i * ($bits(word_t)/8)) / ($bits(word_t)/8)];
                             end
                             VPU_STORE: begin
                                 // Assuming word_t is 32-bit and memory is byte-addressable

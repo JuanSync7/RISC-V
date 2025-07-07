@@ -18,13 +18,13 @@
 `default_nettype none
 
 import riscv_core_pkg::*;
-import riscv_config_pkg::*;
+
 
 module qos_arbiter #(
-    parameter integer NUM_REQUESTERS = DEFAULT_NUM_REQUESTERS,           // Number of requesting agents
-    parameter integer ADDR_WIDTH = ADDR_WIDTH,              // Address width
-    parameter integer DATA_WIDTH = XLEN,              // Data width
-    parameter integer QOS_LEVELS = DEFAULT_QOS_LEVELS               // Number of QoS levels
+    parameter integer NUM_REQUESTERS,           // Number of requesting agents
+    parameter integer ADDR_WIDTH,              // Address width
+    parameter integer DATA_WIDTH,              // Data width
+    parameter integer QOS_LEVELS               // Number of QoS levels
 ) (
     input  logic clk_i,                             // Clock
     input  logic rst_ni,                            // Active-low reset

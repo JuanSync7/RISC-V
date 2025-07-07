@@ -20,11 +20,13 @@
 `default_nettype none
 
 import riscv_types_pkg::*;
+import riscv_config_pkg::*;
+import riscv_bp_types_pkg::*;
 
 module global_predictor #(
-    parameter integer ADDR_WIDTH = 32,
-    parameter integer GLOBAL_HISTORY_WIDTH = 8,
-    parameter integer PHT_ENTRIES = 4096
+    parameter integer ADDR_WIDTH = CONFIG_ADDR_WIDTH,
+    parameter integer GLOBAL_HISTORY_WIDTH = CONFIG_GLOBAL_HISTORY_WIDTH,
+    parameter integer PHT_ENTRIES = CONFIG_PHT_ENTRIES
 ) (
     input  logic clk_i,
     input  logic rst_ni,

@@ -24,6 +24,7 @@
 package riscv_qos_pkg;
 
     import riscv_config_pkg::*;
+    import riscv_types_pkg::*;
 
     //---------------------------------------------------------------------------
     // 1. QoS Level Definitions
@@ -231,24 +232,41 @@ package riscv_qos_pkg;
     //---------------------------------------------------------------------------
     
     // Global QoS configuration
-    parameter logic QOS_ENABLE_DEFAULT              = 1'b1;      // Enable QoS by default
-    parameter qos_arbiter_policy_e QOS_DEFAULT_POLICY = QOS_ARBITER_WEIGHTED_RR; // Default policy
-    parameter integer QOS_MAX_LEVELS               = 16;        // Maximum QoS levels
-    parameter integer QOS_PERFORMANCE_HISTORY      = 16;        // Performance history depth
-    parameter integer QOS_BANDWIDTH_UPDATE_CYCLES  = 1000;      // Bandwidth measurement period
-    parameter integer QOS_LATENCY_MONITOR_DEPTH    = 32;        // Latency monitoring depth
-    parameter integer QOS_STARVATION_THRESHOLD     = 10000;     // Starvation prevention threshold
-    parameter integer QOS_EMERGENCY_THRESHOLD      = 50;        // Emergency mode threshold (% violations)
+    parameter logic QOS_ENABLE_DEFAULT              = CONFIG_QOS_ENABLE_DEFAULT;      // Enable QoS by default
+    parameter qos_arbiter_policy_e QOS_DEFAULT_POLICY = CONFIG_QOS_DEFAULT_POLICY; // Default policy
+    parameter integer QOS_MAX_LEVELS               = CONFIG_QOS_MAX_LEVELS;        // Maximum QoS levels
+    parameter integer QOS_PERFORMANCE_HISTORY      = CONFIG_QOS_PERFORMANCE_HISTORY;        // Performance history depth
+    parameter integer QOS_BANDWIDTH_UPDATE_CYCLES  = CONFIG_QOS_BANDWIDTH_UPDATE_CYCLES;      // Bandwidth measurement period
+    parameter integer QOS_LATENCY_MONITOR_DEPTH    = CONFIG_QOS_LATENCY_MONITOR_DEPTH;        // Latency monitoring depth
+    parameter integer QOS_STARVATION_THRESHOLD     = CONFIG_QOS_STARVATION_THRESHOLD;     // Starvation prevention threshold
+    parameter integer QOS_EMERGENCY_THRESHOLD      = CONFIG_QOS_EMERGENCY_THRESHOLD;        // Emergency mode threshold (% violations)
     
     // QoS arbitration weights (higher = more bandwidth)
-    parameter logic [7:0] QOS_WEIGHT_CRITICAL       = 8'd255;   // Maximum weight
-    parameter logic [7:0] QOS_WEIGHT_HIGH           = 8'd200;   // High weight
-    parameter logic [7:0] QOS_WEIGHT_MEDIUM_HIGH    = 8'd150;   // Medium-high weight
-    parameter logic [7:0] QOS_WEIGHT_MEDIUM         = 8'd100;   // Medium weight
-    parameter logic [7:0] QOS_WEIGHT_MEDIUM_LOW     = 8'd60;    // Medium-low weight
-    parameter logic [7:0] QOS_WEIGHT_LOW            = 8'd30;    // Low weight
-    parameter logic [7:0] QOS_WEIGHT_BEST_EFFORT    = 8'd10;    // Minimum weight
-    parameter logic [7:0] QOS_WEIGHT_NONE           = 8'd1;     // Minimal weight
+    parameter logic [7:0] QOS_WEIGHT_CRITICAL       = CONFIG_QOS_WEIGHT_CRITICAL;   // Maximum weight
+    parameter logic [7:0] QOS_WEIGHT_HIGH           = CONFIG_QOS_WEIGHT_HIGH;   // High weight
+    parameter logic [7:0] QOS_WEIGHT_MEDIUM_HIGH    = CONFIG_QOS_WEIGHT_MEDIUM_HIGH;   // Medium-high weight
+    parameter logic [7:0] QOS_WEIGHT_MEDIUM         = CONFIG_QOS_WEIGHT_MEDIUM;   // Medium weight
+    parameter logic [7:0] QOS_WEIGHT_MEDIUM_LOW     = CONFIG_QOS_WEIGHT_MEDIUM_LOW;    // Medium-low weight
+    parameter logic [7:0] QOS_WEIGHT_LOW            = CONFIG_QOS_WEIGHT_LOW;    // Low weight
+    parameter logic [7:0] QOS_WEIGHT_BEST_EFFORT    = CONFIG_QOS_WEIGHT_BEST_EFFORT;    // Minimum weight
+    parameter logic [7:0] QOS_WEIGHT_NONE           = CONFIG_QOS_WEIGHT_NONE;     // Minimal weight
+
+    parameter qos_arbiter_policy_e DEFAULT_QOS_ARBITER_POLICY = CONFIG_DEFAULT_QOS_ARBITER_POLICY;
+    parameter logic [3:0] DEFAULT_QOS_LEVEL_MEDIUM_HIGH = QOS_LEVEL_MEDIUM_HIGH;
+    parameter logic [7:0] DEFAULT_QOS_WEIGHT = CONFIG_QOS_WEIGHT_MEDIUM_HIGH;
+    parameter logic [15:0] DEFAULT_QOS_LATENCY_LIMIT = CONFIG_QOS_DATA_LOAD_LATENCY_NORMAL;
+    parameter logic [7:0] DEFAULT_QOS_BW_ALLOC = 8'd25;
+
+    parameter logic [15:0] QOS_INSTR_LATENCY_CRITICAL = CONFIG_QOS_INSTR_LATENCY_CRITICAL;
+    parameter logic [15:0] QOS_INSTR_LATENCY_NORMAL = CONFIG_QOS_INSTR_LATENCY_NORMAL;
+    parameter logic [7:0] QOS_INSTR_BW_PERCENT = CONFIG_QOS_INSTR_BW_PERCENT;
+    parameter logic [2:0] QOS_INSTR_RETRY_LIMIT = CONFIG_QOS_INSTR_RETRY_LIMIT;
+
+    parameter logic [15:0] QOS_DATA_LATENCY_CRITICAL = CONFIG_QOS_DATA_LATENCY_CRITICAL;
+    parameter logic [15:0] QOS_DATA_STORE_LATENCY_NORMAL = CONFIG_QOS_DATA_STORE_LATENCY_NORMAL;
+    parameter logic [15:0] QOS_DATA_LOAD_LATENCY_NORMAL = CONFIG_QOS_DATA_LOAD_LATENCY_NORMAL;
+    parameter logic [7:0] QOS_DATA_BW_PERCENT = CONFIG_QOS_DATA_BW_PERCENT;
+    parameter logic [2:0] QOS_DATA_RETRY_LIMIT = CONFIG_QOS_DATA_RETRY_LIMIT;
 
     //---------------------------------------------------------------------------
     // 11. QoS Helper Functions

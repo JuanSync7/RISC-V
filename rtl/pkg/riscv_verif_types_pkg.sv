@@ -20,13 +20,14 @@
 package riscv_verif_types_pkg;
 
     import riscv_types_pkg::*;
+    import riscv_config_pkg::*;
 
     //---------------------------------------------------------------------------
     // 1. Test Configuration Parameters
     //---------------------------------------------------------------------------
-    parameter integer VERIF_CLK_PERIOD = 10;
-    parameter integer VERIF_TIMEOUT_CYCLES = 1000;
-    parameter integer VERIF_MAX_TEST_ITERATIONS = 100;
+    parameter integer VERIF_CLK_PERIOD = CONFIG_CLK_PERIOD;
+    parameter integer VERIF_TIMEOUT_CYCLES = CONFIG_TIMEOUT_CYCLES;
+    parameter integer VERIF_MAX_TEST_ITERATIONS = CONFIG_MAX_TEST_ITERATIONS;
 
     //---------------------------------------------------------------------------
     // 2. Test Status Enumeration

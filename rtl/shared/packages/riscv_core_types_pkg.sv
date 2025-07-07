@@ -20,14 +20,14 @@
 
 package riscv_core_types_pkg;
 
-    import riscv_core_config_pkg::*;
+    import riscv_config_pkg::*;
 
     //-------------------------------------------------------------------------
     // Base Data Type Definitions
     //-------------------------------------------------------------------------
-    typedef logic [XLEN-1:0]           word_t;
-    typedef logic [ADDR_WIDTH-1:0]     addr_t;
-    typedef logic [REG_ADDR_WIDTH-1:0] reg_addr_t;
+    typedef logic [CONFIG_XLEN-1:0]           word_t;
+    typedef logic [CONFIG_ADDR_WIDTH-1:0]     addr_t;
+    typedef logic [CONFIG_REG_ADDR_WIDTH-1:0] reg_addr_t;
 
     //-------------------------------------------------------------------------
     // Instruction Types

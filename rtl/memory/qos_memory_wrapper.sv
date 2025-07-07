@@ -20,12 +20,16 @@
 
 import riscv_core_pkg::*;
 
+import riscv_mem_types_pkg::*;
+import riscv_qos_pkg::*;
+import riscv_core_pkg::*;
+
 module qos_memory_wrapper #(
-    parameter integer NUM_PORTS = 4,           // Number of input ports
-    parameter integer ADDR_WIDTH = 32,
-    parameter integer DATA_WIDTH = 32,
-    parameter integer OUTSTANDING_REQS = 16,   // Max outstanding requests
-    parameter integer QOS_QUEUE_DEPTH = 8      // QoS queue depth per priority
+    parameter integer NUM_PORTS = MAX_CORES,           // Number of input ports
+    parameter integer ADDR_WIDTH = riscv_mem_types_pkg::ADDR_WIDTH,
+    parameter integer DATA_WIDTH = riscv_mem_types_pkg::DATA_WIDTH,
+    parameter integer OUTSTANDING_REQS = DEFAULT_AXI4_MAX_OUTSTANDING,   // Max outstanding requests
+    parameter integer QOS_QUEUE_DEPTH = riscv_qos_pkg::QOS_QUEUE_DEPTH      // QoS queue depth per priority
 ) (
     input  logic        clk_i,
     input  logic        rst_ni,

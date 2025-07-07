@@ -24,17 +24,19 @@
 // AI_TAG: FEATURE - Supports a configurable number of synchronizing cores.
 // AI_TAG: FEATURE - Provides full ready/valid handshake mechanism for barrier arrival and release.
 
+import riscv_core_pkg::*;
+
 interface sync_primitives_if #(
-    parameter integer NUM_CORES    = 4,     // AI_TAG: PARAM_DESC - The total number of cores participating in synchronization.
+    parameter integer NUM_CORES    = MAX_CORES,     // AI_TAG: PARAM_DESC - The total number of cores participating in synchronization.
                                             // AI_TAG: PARAM_USAGE - Determines the dimension of the communication arrays.
                                             // AI_TAG: PARAM_CONSTRAINTS - Must be > 1.
-    parameter integer NUM_BARRIERS = 8,     // AI_TAG: PARAM_DESC - The number of available hardware barriers.
+    parameter integer NUM_BARRIERS = DEFAULT_NUM_BARRIERS,     // AI_TAG: PARAM_DESC - The number of available hardware barriers.
                                             // AI_TAG: PARAM_USAGE - Determines the width of the barrier ID signal.
                                             // AI_TAG: PARAM_CONSTRAINTS - Must be a power of 2.
     parameter integer BARRIER_ID_WIDTH = (NUM_BARRIERS > 1) ? $clog2(NUM_BARRIERS) : 1, // AI_TAG: PARAM_DESC - The bit-width required to identify a barrier.
                                                                                        // AI_TAG: PARAM_USAGE - Automatically calculated from NUM_BARRIERS.
                                                                                        // AI_TAG: PARAM_CONSTRAINTS - N/A
-    parameter integer DATA_WIDTH = 32
+    parameter integer DATA_WIDTH = XLEN
 ) (
     input logic clk_i,   // AI_TAG: PORT_DESC - Main system clock for the interface.
                          // AI_TAG: PORT_CLK_DOMAIN - clk_i

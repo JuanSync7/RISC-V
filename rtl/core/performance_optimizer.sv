@@ -27,7 +27,7 @@
 
 // AI_TAG: BLOCK_DIAGRAM_DESC - Performance metrics feed into CacheOptimizer and BranchOptimizer for algorithmic tuning. PipelineController manages stage balancing. PowerManager coordinates power-performance optimization across all components.
 
-import riscv_config_pkg::*;
+import riscv_core_pkg::*;
 
 module performance_optimizer #(
     parameter integer NUM_CACHE_LEVELS = DEFAULT_NUM_CACHE_LEVELS,            // AI_TAG: PARAM_DESC - Number of cache levels to optimize
@@ -36,7 +36,7 @@ module performance_optimizer #(
     parameter integer NUM_BP_PREDICTORS = DEFAULT_NUM_BP_PREDICTORS,            // AI_TAG: PARAM_DESC - Number of branch predictors
                                                         // AI_TAG: PARAM_USAGE - Configures branch predictor optimization
                                                         // AI_TAG: PARAM_CONSTRAINTS - Must be power of 2
-    parameter integer OPTIMIZATION_WINDOW = DEFAULT_OPT_WINDOW       // AI_TAG: PARAM_DESC - Optimization window size in cycles
+    parameter integer OPTIMIZATION_WINDOW = DEFAULT_OPTIMIZATION_WINDOW       // AI_TAG: PARAM_DESC - Optimization window size in cycles
                                                         // AI_TAG: PARAM_USAGE - Determines how often optimizations are applied
                                                         // AI_TAG: PARAM_CONSTRAINTS - Must be power of 2
 ) (

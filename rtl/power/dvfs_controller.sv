@@ -1,10 +1,12 @@
 
 `timescale 1ns / 1ps
 
+import riscv_core_pkg::*;
+import riscv_config_pkg::*;
 `include "power_pkg.sv"
 
 module dvfs_controller #(
-    parameter NUM_CORES = 1
+    parameter NUM_CORES = MAX_CORES
 ) (
     input  logic                          clk_i,
     input  logic                          rst_ni,

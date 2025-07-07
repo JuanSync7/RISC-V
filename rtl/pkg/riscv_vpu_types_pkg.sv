@@ -24,7 +24,7 @@ package riscv_vpu_types_pkg;
     // AI_TAG: PARAM_DESC - MAX_VECTOR_LENGTH - Maximum number of elements in a vector.
     // AI_TAG: PARAM_USAGE - Defines the maximum parallelism for vector operations.
     // AI_TAG: PARAM_CONSTRAINTS - Must be a power of 2.
-    parameter integer MAX_VECTOR_LENGTH = 8; // Example: 8 elements per vector
+    parameter integer MAX_VECTOR_LENGTH = CONFIG_MAX_VECTOR_LENGTH; // Example: 8 elements per vector
 
     // VPU Operation Codes
     typedef enum logic [3:0] {

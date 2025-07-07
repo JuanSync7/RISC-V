@@ -16,7 +16,7 @@
 `default_nettype none
 
 import riscv_core_pkg::*;
-import riscv_memory_config_pkg::*;
+
 
 module multi_core_management #(
     parameter integer NUM_CORES = DEFAULT_NUM_CORES,

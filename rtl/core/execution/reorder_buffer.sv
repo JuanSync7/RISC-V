@@ -28,7 +28,8 @@
 // AI_TAG: INTERNAL_BLOCK - CommitLogic - Determines when the head instruction can be committed.
 // AI_TAG: INTERNAL_BLOCK - PointerLogic - Manages head/tail pointers and entry count.
 
-import riscv_config_pkg::*;
+import riscv_ooo_types_pkg::*;
+import riscv_exception_pkg::*;
 
 module reorder_buffer #(
     parameter integer DATA_WIDTH     = XLEN, // AI_TAG: PARAM_DESC - Width of the data path and result values.

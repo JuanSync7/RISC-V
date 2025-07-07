@@ -155,17 +155,17 @@ module core_subsystem #(
     function automatic qos_config_t get_instruction_qos_config();
         qos_config_t qos_config;
         
-        qos_config.qos_level = exception_pending ? riscv_config_pkg::QOS_LEVEL_CRITICAL : riscv_config_pkg::QOS_LEVEL_HIGH;
-        qos_config.transaction_type = riscv_config_pkg::QOS_TYPE_INSTR_FETCH;
+        qos_config.qos_level = exception_pending ? CONFIG_QOS_LEVEL_CRITICAL : CONFIG_QOS_LEVEL_HIGH;
+        qos_config.transaction_type = CONFIG_QOS_TYPE_INSTR_FETCH;
         qos_config.urgent = exception_pending;
         qos_config.guaranteed_bw = 1'b1;
-        qos_config.weight = exception_pending ? riscv_config_pkg::QOS_WEIGHT_CRITICAL : riscv_config_pkg::QOS_WEIGHT_HIGH;
-        qos_config.max_latency_cycles = exception_pending ? riscv_config_pkg::QOS_INSTR_LATENCY_CRITICAL : riscv_config_pkg::QOS_INSTR_LATENCY_NORMAL;
-        qos_config.bandwidth_percent = riscv_config_pkg::QOS_INSTR_BW_PERCENT;
+        qos_config.weight = exception_pending ? CONFIG_QOS_WEIGHT_CRITICAL : CONFIG_QOS_WEIGHT_HIGH;
+        qos_config.max_latency_cycles = exception_pending ? CONFIG_QOS_INSTR_LATENCY_CRITICAL : CONFIG_QOS_INSTR_LATENCY_NORMAL;
+        qos_config.bandwidth_percent = CONFIG_QOS_INSTR_BW_PERCENT;
         qos_config.core_id = CORE_ID[3:0];
         qos_config.preemptable = ~exception_pending;
         qos_config.real_time = exception_pending;
-        qos_config.retry_limit = riscv_config_pkg::QOS_INSTR_RETRY_LIMIT;
+        qos_config.retry_limit = CONFIG_QOS_INSTR_RETRY_LIMIT;
         qos_config.ordered = 1'b1;
         
         return qos_config;
@@ -179,26 +179,26 @@ module core_subsystem #(
         qos_config_t qos_config;
         
         if (is_critical || exception_pending) begin
-            qos_config.qos_level = riscv_config_pkg::QOS_LEVEL_CRITICAL;
-            qos_config.weight = riscv_config_pkg::QOS_WEIGHT_CRITICAL;
-            qos_config.max_latency_cycles = riscv_config_pkg::QOS_DATA_LATENCY_CRITICAL;
+            qos_config.qos_level = CONFIG_QOS_LEVEL_CRITICAL;
+            qos_config.weight = CONFIG_QOS_WEIGHT_CRITICAL;
+            qos_config.max_latency_cycles = CONFIG_QOS_DATA_LATENCY_CRITICAL;
             qos_config.urgent = 1'b1;
             qos_config.real_time = 1'b1;
             qos_config.preemptable = 1'b0;
         end else begin
-            qos_config.qos_level = is_store ? riscv_config_pkg::QOS_LEVEL_MEDIUM : riscv_config_pkg::QOS_LEVEL_MEDIUM_HIGH;
-            qos_config.weight = is_store ? riscv_config_pkg::QOS_WEIGHT_MEDIUM : riscv_config_pkg::QOS_WEIGHT_MEDIUM_HIGH;
-            qos_config.max_latency_cycles = is_store ? riscv_config_pkg::QOS_DATA_STORE_LATENCY_NORMAL : riscv_config_pkg::QOS_DATA_LOAD_LATENCY_NORMAL;
+            qos_config.qos_level = is_store ? CONFIG_QOS_LEVEL_MEDIUM : CONFIG_QOS_LEVEL_MEDIUM_HIGH;
+            qos_config.weight = is_store ? CONFIG_QOS_WEIGHT_MEDIUM : CONFIG_QOS_WEIGHT_MEDIUM_HIGH;
+            qos_config.max_latency_cycles = is_store ? CONFIG_QOS_DATA_STORE_LATENCY_NORMAL : CONFIG_QOS_DATA_LOAD_LATENCY_NORMAL;
             qos_config.urgent = 1'b0;
             qos_config.real_time = 1'b0;
             qos_config.preemptable = 1'b1;
         end
         
-        qos_config.transaction_type = riscv_config_pkg::QOS_TYPE_DATA_ACCESS;
+        qos_config.transaction_type = CONFIG_QOS_TYPE_DATA_ACCESS;
         qos_config.guaranteed_bw = is_critical || exception_pending;
-        qos_config.bandwidth_percent = riscv_config_pkg::QOS_DATA_BW_PERCENT;
+        qos_config.bandwidth_percent = CONFIG_QOS_DATA_BW_PERCENT;
         qos_config.core_id = CORE_ID[3:0];
-        qos_config.retry_limit = riscv_config_pkg::QOS_DATA_RETRY_LIMIT;
+        qos_config.retry_limit = CONFIG_QOS_DATA_RETRY_LIMIT;
         qos_config.ordered = 1'b1;
         
         return qos_config;

@@ -29,8 +29,8 @@ import riscv_qos_pkg::*;
 // Enhanced Memory Request/Response Interface with QoS Support
 //-------------------------------------------------------------------------
 interface memory_req_rsp_if #(
-    parameter int unsigned ADDR_WIDTH = 32,
-    parameter int unsigned DATA_WIDTH = 32
+    parameter int unsigned ADDR_WIDTH = riscv_mem_types_pkg::ADDR_WIDTH,
+    parameter int unsigned DATA_WIDTH = riscv_mem_types_pkg::DATA_WIDTH
 )(
     input logic clk,
     input logic rst_n

@@ -29,10 +29,10 @@ import riscv_inter_core_types_pkg::*;
 import riscv_qos_pkg::*;  // Add QoS package import
 
 interface inter_core_comm_if #(
-    parameter integer NUM_CORES     = 4,    // AI_TAG: PARAM_DESC - The total number of cores in the system.
+    parameter integer NUM_CORES     = MAX_CORES,    // AI_TAG: PARAM_DESC - The total number of cores in the system.
                                             // AI_TAG: PARAM_USAGE - Determines the number of communication channels.
                                             // AI_TAG: PARAM_CONSTRAINTS - Must be > 1.
-    parameter integer MSG_WIDTH     = 32,   // AI_TAG: PARAM_DESC - The bit-width of the message payload.
+    parameter integer MSG_WIDTH     = INTER_CORE_MSG_WIDTH,   // AI_TAG: PARAM_DESC - The bit-width of the message payload.
                                             // AI_TAG: PARAM_USAGE - Defines the width of the send_message and recv_message signals.
                                             // AI_TAG: PARAM_CONSTRAINTS - Must be > 0.
     parameter integer CORE_ID_WIDTH = $clog2(NUM_CORES) // AI_TAG: PARAM_DESC - The bit-width required to address any core.

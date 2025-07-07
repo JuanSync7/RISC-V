@@ -20,8 +20,9 @@
 
 package riscv_pipeline_types_pkg;
 
-    import riscv_core_config_pkg::*;
-    import riscv_pipeline_config_pkg::*;
+    import riscv_config_pkg::*;
+    import riscv_types_pkg::*;
+    import riscv_core_types_pkg::*;
 
     //-------------------------------------------------------------------------
     // Pipeline Data Types

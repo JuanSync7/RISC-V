@@ -1,11 +1,13 @@
 
 `timescale 1ns / 1ps
 
+import riscv_core_pkg::*;
+import riscv_config_pkg::*;
 `include "power_pkg.sv"
 
 module power_domain_control #(
-    parameter NUM_CORES = 1,
-    parameter NUM_POWER_DOMAINS = 4
+    parameter NUM_CORES = MAX_CORES,
+    parameter NUM_POWER_DOMAINS = CONFIG_POWER_DOMAINS
 ) (
     input  logic                          clk_i,
     input  logic                          rst_ni,

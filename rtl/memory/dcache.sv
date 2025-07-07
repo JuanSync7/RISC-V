@@ -21,15 +21,15 @@
 `default_nettype none
 
 import riscv_core_pkg::*;
-import riscv_config_pkg::*;
+
 import riscv_mem_types_pkg::*;
 import riscv_cache_types_pkg::*;
 
 module dcache #(
-    parameter integer DCACHE_SIZE = DEFAULT_L1_DCACHE_SIZE,
-    parameter integer DCACHE_LINE_SIZE = DEFAULT_L1_DCACHE_LINE_SIZE,
-    parameter integer DCACHE_WAYS = DEFAULT_L1_DCACHE_WAYS,
-    parameter integer PADDR_WIDTH = ADDR_WIDTH // Physical Address width (from MMU)
+    parameter integer DCACHE_SIZE = DEFAULT_DCACHE_SIZE,
+    parameter integer DCACHE_LINE_SIZE = DEFAULT_CACHE_LINE_SIZE,
+    parameter integer DCACHE_WAYS = DEFAULT_DCACHE_WAYS,
+    parameter integer PADDR_WIDTH = ADDR_WIDTH
 ) (
     input  logic        clk_i,
     input  logic        rst_ni,
@@ -59,7 +59,7 @@ module dcache #(
     localparam integer NUM_SETS = DCACHE_SIZE / (DCACHE_LINE_SIZE * DCACHE_WAYS);
     localparam integer OFFSET_BITS = $clog2(DCACHE_LINE_SIZE);
     localparam integer INDEX_BITS = $clog2(NUM_SETS);
-    localparam integer TAG_BITS = ADDR_WIDTH - OFFSET_BITS - INDEX_BITS;
+    localparam integer TAG_BITS = PADDR_WIDTH - OFFSET_BITS - INDEX_BITS;
 
     // Cache line structure
     typedef struct packed {
@@ -113,7 +113,7 @@ module dcache #(
         if (cache_mem[req_index].valid && cache_mem[req_index].tag == req_tag) begin
             hit = 1'b1;
             // Extract word from cache line based on offset
-            read_data = cache_mem[req_index].data[req_offset*8 +: XLEN];
+            read_data = cache_mem[req_index].data[req_offset*8 +: $bits(word_t)];
         end
     end
 
@@ -174,7 +174,7 @@ module dcache #(
                         end
                     end else begin // Write hit
                         // Update cache line data
-                        for (int i = 0; i < XLEN/8; i++) begin
+                        for (int i = 0; i < $bits(word_t)/8; i++) begin
                             if (cpu_req_wstrb_q[i]) begin
                                 cache_mem[req_index].data[req_offset*8 + i*8 +: 8] = cpu_req_wdata_q[i*8 +: 8];
                             end
@@ -198,7 +198,7 @@ module dcache #(
                 mem_req_valid_o = 1'b1;
                 mem_req_o.addr = {cpu_req_addr_q[ADDR_WIDTH-1:OFFSET_BITS], {OFFSET_BITS{1'b0}}}; // Line address
                 mem_req_o.write = 1'b0;
-                mem_req_o.burst_len = DCACHE_LINE_SIZE / (XLEN/8) - 1; // Number of words in a line - 1
+                mem_req_o.burst_len = DCACHE_LINE_SIZE / ($bits(word_t)/8) - 1; // Number of words in a line - 1
                 mem_req_o.id = 4'h1; // Data cache ID
                 if (mem_req_ready_i) begin
                     mem_rsp_ready_o = 1'b1;
@@ -216,7 +216,7 @@ module dcache #(
                 mem_req_valid_o = 1'b1;
                 mem_req_o.addr = {cpu_req_addr_q[ADDR_WIDTH-1:OFFSET_BITS], {OFFSET_BITS{1'b0}}}; // Line address
                 mem_req_o.write = 1'b0;
-                mem_req_o.burst_len = DCACHE_LINE_SIZE / (XLEN/8) - 1;
+                mem_req_o.burst_len = DCACHE_LINE_SIZE / ($bits(word_t)/8) - 1;
                 mem_req_o.id = 4'h1;
                 if (mem_req_ready_i) begin
                     mem_rsp_ready_o = 1'b1;
@@ -233,7 +233,7 @@ module dcache #(
                 mem_req_o.addr = {cache_mem[req_index].tag, req_index, {OFFSET_BITS{1'b0}}}; // Original line address
                 mem_req_o.write = 1'b1;
                 mem_req_o.wdata = cache_mem[req_index].data; // Write back entire line
-                mem_req_o.burst_len = DCACHE_LINE_SIZE / (XLEN/8) - 1;
+                mem_req_o.burst_len = DCACHE_LINE_SIZE / ($bits(word_t)/8) - 1;
                 mem_req_o.id = 4'h1;
                 if (mem_req_ready_i) begin
                     mem_rsp_ready_o = 1'b1;
@@ -250,7 +250,7 @@ module dcache #(
                 // Re-process the original CPU request after cache line is ready
                 if (!cpu_req_write_q) begin // Original was a read
                     rsp_valid_o = 1'b1;
-                    rsp_rdata_o = cache_mem[req_index].data[req_offset*8 +: XLEN];
+                    read_data = cache_mem[req_index].data[req_offset*8 +: $bits(word_t)];
                     if (rsp_ready_i) begin
                         next_state = IDLE;
                     end

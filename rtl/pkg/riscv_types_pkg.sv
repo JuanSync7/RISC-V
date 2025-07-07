@@ -1,241 +1,53 @@
 //=============================================================================
 // Company: Sondrel Ltd
-// Author: DesignAI (designai@sondrel.com)
-// Created: 2025-06-28
+// Project Name: RISC-V Core
 //
 // File: riscv_types_pkg.sv
-// Module: riscv_types_pkg
 //
-// Project Name: RISC-V RV32IM Core
-// Target Devices: ASIC/FPGA
-//
-// Description:
-//   Contains fundamental data types, enumerations, and structures that define
-//   the core RISC-V architecture and its in-order pipeline.
+// MODULE_NAME: riscv_types_pkg
+// AUTHOR: DesignAI (designai@sondrel.com)
+// VERSION: 1.0.0
+// DATE: 2025-07-07
+// DESCRIPTION: Contains fixed, internal type definitions for the RISC-V core.
+//              This package should not be modified by the user.
+// MODULE_TYPE: Package
 //=============================================================================
 
-`timescale 1ns/1ps
-`default_nettype none
-
 package riscv_types_pkg;
-
     import riscv_config_pkg::*;
-    import riscv_exception_pkg::*;
 
-    //---------------------------------------------------------------------------
-    // 1. Core Architectural Parameters (now from config package)
-    //---------------------------------------------------------------------------
-    // These are now imported from riscv_config_pkg:
-    // XLEN, ADDR_WIDTH, REG_COUNT, REG_ADDR_WIDTH
-    // OPCODE_*, FUNCT7_M_EXT
+    // -- Basic Types --
+    typedef logic [CONFIG_XLEN-1:0] word_t;
+    typedef logic [CONFIG_REG_ADDR_WIDTH-1:0] reg_addr_t;
+    typedef logic [31:0]            inst_t;
+    typedef logic [CONFIG_ADDR_WIDTH-1:0] addr_t;
 
-    //---------------------------------------------------------------------------
-    // 2. Base Data Type Definitions
-    //---------------------------------------------------------------------------
-    typedef logic [XLEN-1:0]           word_t;
-    typedef logic [ADDR_WIDTH-1:0]     addr_t;
-    typedef logic [REG_ADDR_WIDTH-1:0] reg_addr_t;
-
-    //---------------------------------------------------------------------------
-    // 3. Control Signal Enumerations
-    //---------------------------------------------------------------------------
-    typedef enum logic [4:0] {
-        ALU_OP_ADD, ALU_OP_SUB, ALU_OP_XOR, ALU_OP_OR, ALU_OP_AND,
-        ALU_OP_SLL, ALU_OP_SRL, ALU_OP_SRA, ALU_OP_SLT, ALU_OP_SLTU,
-        ALU_OP_LUI, ALU_OP_COPY_A, ALU_OP_COPY_B
+    // -- ALU Operations --
+    typedef enum logic [3:0] {
+        ALU_ADD, ALU_SUB, ALU_XOR, ALU_OR, ALU_AND,
+        ALU_SLL, ALU_SRL, ALU_SRA, ALU_SLT, ALU_SLTU
     } alu_op_e;
 
-    typedef enum logic [0:0] { ALU_A_SEL_RS1, ALU_A_SEL_PC } alu_src_a_sel_e;
-    typedef enum logic [0:0] { ALU_B_SEL_RS2, ALU_B_SEL_IMM } alu_src_b_sel_e;
-    typedef enum logic [1:0] { WB_SEL_ALU, WB_SEL_MEM, WB_SEL_PC_P4, WB_SEL_CSR, WB_SEL_DPU } wb_mux_sel_e;
-
-    // Control signals for the Execute stage
+    // -- Pipeline Stage Structs --
     typedef struct packed {
-        alu_op_e        alu_op;
-        alu_src_a_sel_e alu_src_a_sel;
-        alu_src_b_sel_e alu_src_b_sel;
-        logic           mem_read_en;
-        logic           mem_write_en;
-        logic           reg_write_en;
-        wb_mux_sel_e    wb_mux_sel;
-        logic           is_branch;
-        logic           mult_en;
-        logic           div_en;
-        logic           csr_cmd_en;
-        logic [2:0]     funct3;
-        logic           dpu_en;         // Enable DPU operation
-        logic [1:0]     dpu_unit_sel;   // 0: FPU, 1: VPU, 2: MLIU
-        logic [6:0]     dpu_op_sel;     // Specific operation within the DPU unit (funct7)
-        logic           illegal_instr;  // Illegal instruction flag
-    } ctrl_signals_t;
-
-    //---------------------------------------------------------------------------
-    // 4. Pipeline Stage Data Structures
-    //---------------------------------------------------------------------------
-    typedef struct packed {
-        logic        valid;
-        addr_t       pc;
-        word_t       instruction;
-        logic [4:0]  rs1_addr;
-        logic [4:0]  rs2_addr;
-        logic [4:0]  rd_addr;
-        word_t       rs1_data;
-        word_t       rs2_data;
-        word_t       immediate;
-        alu_op_e     alu_op;
-        alu_src_a_sel_e alu_src_a_sel;
-        alu_src_b_sel_e alu_src_b_sel;
-        wb_mux_sel_e wb_sel;
-        logic        mem_read;
-        logic        mem_write;
-        logic [2:0]  mem_size;
-        logic [3:0]  mem_strb;
-        logic        branch;
-        logic        jump;
-        logic        csr_read;
-        logic        csr_write;
-        logic [11:0] csr_addr;
-        logic        is_jal;
-        addr_t       jal_target;
-        logic        is_jalr;
-    } decode_data_t;
+        addr_t   pc;
+        inst_t   inst;
+        logic    valid;
+    } fetch_decode_t;
 
     typedef struct packed {
-        logic        valid;
-        addr_t       pc;
-        word_t       rs1_data;
-        word_t       rs2_data;
-        word_t       immediate;
-        logic [4:0]  rd_addr;
-        ctrl_signals_t ctrl;
-        logic [4:0]  rs1_addr; // For hazard unit
-        logic [4:0]  rs2_addr; // For hazard unit
-        logic        is_jal;
-        addr_t       jal_target;
-        logic        is_jalr;
-        // DPU specific fields
-        word_t       fpu_operand_a; // FPU operand A
-        word_t       fpu_operand_b; // FPU operand B
-        word_t       vpu_operand_a; // VPU operand A
-        word_t       vpu_operand_b; // VPU operand B
-        word_t       mliu_operand_a; // MLIU operand A
-        word_t       mliu_operand_b; // MLIU operand B
-    } id_ex_reg_t;
+        addr_t      pc;
+        word_t      operand_a;
+        word_t      operand_b;
+        reg_addr_t  rd_addr;
+        alu_op_e    alu_op;
+        logic       is_branch;
+        logic       is_jump;
+        logic       is_mem_read;
+        logic       is_mem_write;
+        logic       valid;
+    } decode_execute_t;
 
-    typedef struct packed {
-        logic        valid;
-        addr_t       pc;
-        word_t       alu_result;
-        word_t       rs2_data;
-        logic [4:0]  rd_addr;
-        wb_mux_sel_e wb_sel;
-        logic        mem_read;
-        logic        mem_write;
-        logic [2:0]  mem_size;
-        logic [3:0]  mem_strb;
-        logic        branch;
-        logic        jump;
-        logic        csr_read;
-        logic        csr_write;
-        logic [11:0] csr_addr;
-    } execute_data_t;
+    // ... other pipeline structs to be defined as needed ...
 
-    typedef struct packed {
-        logic        valid;
-        addr_t       pc;
-        word_t       mem_data;
-        word_t       alu_result;
-        logic [4:0]  rd_addr;
-        wb_mux_sel_e wb_sel;
-        logic        csr_read;
-        logic        csr_write;
-        logic [11:0] csr_addr;
-    } memory_data_t;
-
-    typedef struct packed {
-        logic        valid;
-        addr_t       pc;
-        word_t       result;
-        logic [4:0]  rd_addr;
-        logic        csr_read;
-        logic        csr_write;
-        logic [11:0] csr_addr;
-    } writeback_data_t;
-
-    //---------------------------------------------------------------------------
-    // 5. Hazard Detection Types
-    //---------------------------------------------------------------------------
-    typedef struct packed {
-        logic        data_hazard;
-        logic        control_hazard;
-        logic        structural_hazard;
-        logic [4:0]  rs1_addr;
-        logic [4:0]  rs2_addr;
-        logic [4:0]  rd_addr;
-    } hazard_info_t;
-
-    //---------------------------------------------------------------------------
-    // 6. Forwarding Types
-    //---------------------------------------------------------------------------
-    typedef struct packed {
-        logic        rs1_forward;
-        logic        rs2_forward;
-        logic [1:0]  rs1_forward_stage;
-        logic [1:0]  rs2_forward_stage;
-        word_t       rs1_forward_data;
-        word_t       rs2_forward_data;
-    } forwarding_info_t;
-
-    //---------------------------------------------------------------------------
-    // 7. Branch Predictor Definitions
-    //---------------------------------------------------------------------------
-    typedef struct packed {
-        logic        predict_taken;
-        addr_t       predict_target;
-        logic        btb_hit;
-    } branch_prediction_t;
-
-    typedef struct packed {
-        logic        update_valid;
-        addr_t       update_pc;
-        logic        actual_taken;
-        addr_t       actual_target;
-        logic        is_branch;
-        logic        is_jal;
-        addr_t       jal_target;
-        logic        is_jalr;
-    } branch_update_t;
-
-    //---------------------------------------------------------------------------
-    // 8. Memory Interface Types (DEPRECATED - Defined in riscv_mem_types_pkg)
-    //---------------------------------------------------------------------------
-
-    //---------------------------------------------------------------------------
-    // 9. Instruction Types
-    //---------------------------------------------------------------------------
-    typedef struct packed {
-        logic [6:0]  opcode;
-        logic [2:0]  funct3;
-        logic [6:0]  funct7;
-        logic [4:0]  rs1;
-        logic [4:0]  rs2;
-        logic [4:0]  rd;
-        logic [11:0] immediate;
-    } instruction_fields_t;
-
-    typedef instruction_fields_t riscv_instr_t;
-
-    //---------------------------------------------------------------------------
-    // 10. Performance Counter Types
-    //---------------------------------------------------------------------------
-    typedef struct packed {
-        logic [31:0] cycles;
-        logic [31:0] instructions;
-        logic [31:0] branches;
-        logic [31:0] branch_mispredicts;
-        logic [31:0] cache_misses;
-        logic [31:0] cache_hits;
-        logic [31:0] stalls;
-    } perf_counters_t;
-
-endpackage : riscv_types_pkg
+endpackage

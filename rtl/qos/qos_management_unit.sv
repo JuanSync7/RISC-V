@@ -1,3 +1,5 @@
+import riscv_config_pkg::*;
+import riscv_core_pkg::*;
 `include "qos_pkg.sv"
 `include "qos_arbiter.sv"
 `include "qos_monitor.sv"

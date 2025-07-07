@@ -28,8 +28,8 @@ module csr_regfile
 #(
     // AI_TAG: PARAMETER - HART_ID - A unique ID for this processor core (hart).
     parameter word_t HART_ID = 32'd0,
-    parameter logic ENABLE_MMU = 1, // Enable MMU-related CSRs
-    parameter logic ENABLE_QOS = 1  // Enable QoS-related CSRs
+    parameter logic ENABLE_MMU = CONFIG_ENABLE_MMU, // Enable MMU-related CSRs
+    parameter logic ENABLE_QOS = CONFIG_ENABLE_QOS  // Enable QoS-related CSRs
 )
 (
     input  logic        clk_i,
@@ -87,7 +87,7 @@ module csr_regfile
     output addr_t       mtvec_base_o,
 
     // Cache performance inputs
-    input  logic [NUM_CORES-1:0]    l1_icache_hit_i,        // AI_TAG: PORT_DESC - Per-core L1 I-cache hits
+    input  logic [CONFIG_NUM_CORES-1:0]    l1_icache_hit_i,        // AI_TAG: PORT_DESC - Per-core L1 I-cache hits
 
     // AI_TAG: PORT_DESC - pipeline_stall_i - Per-core pipeline stall indicators
     input  logic        pipeline_stall_i

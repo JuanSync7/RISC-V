@@ -27,7 +27,7 @@
 
 // AI_TAG: BLOCK_DIAGRAM_DESC - OoOCoordinator manages ROB, reservation stations, and register renaming integration. QoSIntegrator coordinates QoS policies across cache hierarchy and memory interfaces. DebugController provides unified debug access. FeatureMonitor tracks integration status and performance.
 
-import riscv_config_pkg::*;
+
 
 module advanced_feature_integrator #(
     parameter integer NUM_CORES = DEFAULT_NUM_CORES,                   // AI_TAG: PARAM_DESC - Number of cores in the system

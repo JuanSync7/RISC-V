@@ -25,9 +25,9 @@ import riscv_core_pkg::*;
 import riscv_config_pkg::*;
 
 module reg_file #(
-    parameter integer DATA_WIDTH = XLEN,
-    parameter integer REG_COUNT = REG_COUNT,
-    parameter integer REG_ADDR_WIDTH = REG_ADDR_WIDTH
+    parameter integer DATA_WIDTH = CONFIG_XLEN,
+    parameter integer REG_COUNT = CONFIG_REG_COUNT,
+    parameter integer REG_ADDR_WIDTH = CONFIG_REG_ADDR_WIDTH
 )
 (
     input  logic        clk_i,

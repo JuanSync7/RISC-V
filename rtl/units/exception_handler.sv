@@ -23,6 +23,8 @@
 
 import riscv_core_pkg::*;
 import riscv_config_pkg::*;
+import riscv_qos_pkg::*;
+import riscv_mem_types_pkg::*;
 
 module exception_handler #(
     parameter integer CORE_ID = 0
@@ -258,12 +260,12 @@ module exception_handler #(
             // Debug access - highest priority
             qos_config.qos_level = QOS_LEVEL_CRITICAL;
             qos_config.transaction_type = QOS_TYPE_DEBUG;
-            qos_config.max_latency_cycles = 16'd5;   // 5 cycles max for debug
+            qos_config.max_latency_cycles = CONFIG_QOS_DEBUG_LATENCY;   // 5 cycles max for debug
         end else if (is_interrupt) begin
             // Interrupt handling - critical priority
             qos_config.qos_level = QOS_LEVEL_CRITICAL;
             qos_config.transaction_type = QOS_TYPE_EXCEPTION;
-            qos_config.max_latency_cycles = 16'd10;  // 10 cycles max for interrupts
+            qos_config.max_latency_cycles = CONFIG_QOS_EXCEPTION_LATENCY;  // 10 cycles max for interrupts
         end else begin
             // Exception handling based on type
             case (exc_info.cause)
@@ -272,25 +274,25 @@ module exception_handler #(
                 EXC_CAUSE_STORE_ACCESS_FAULT: begin
                     qos_config.qos_level = QOS_LEVEL_CRITICAL;
                     qos_config.transaction_type = QOS_TYPE_EXCEPTION;
-                    qos_config.max_latency_cycles = 16'd10;
+                    qos_config.max_latency_cycles = CONFIG_QOS_EXCEPTION_LATENCY;
                 end
                 
                 EXC_CAUSE_BREAKPOINT: begin
                     qos_config.qos_level = QOS_LEVEL_CRITICAL;
                     qos_config.transaction_type = QOS_TYPE_DEBUG;
-                    qos_config.max_latency_cycles = 16'd5;
+                    qos_config.max_latency_cycles = CONFIG_QOS_DEBUG_LATENCY;
                 end
                 
                 EXC_CAUSE_ECALL_M: begin
                     qos_config.qos_level = QOS_LEVEL_HIGH;
                     qos_config.transaction_type = QOS_TYPE_EXCEPTION;
-                    qos_config.max_latency_cycles = 16'd15;
+                    qos_config.max_latency_cycles = CONFIG_QOS_ECALL_LATENCY;
                 end
                 
                 default: begin
                     qos_config.qos_level = QOS_LEVEL_HIGH;
                     qos_config.transaction_type = QOS_TYPE_EXCEPTION;
-                    qos_config.max_latency_cycles = 16'd20;
+                    qos_config.max_latency_cycles = CONFIG_QOS_DEFAULT_EXCEPTION_LATENCY;
                 end
             endcase
         end

@@ -21,7 +21,7 @@
 import riscv_core_pkg::*;
 
 module cache_cluster_manager #(
-    parameter integer NUM_CORES = DEFAULT_NUM_CORES,
+    parameter integer NUM_CORES = MAX_CORES,
     parameter cache_topology_e CACHE_TOPOLOGY = CACHE_TOPOLOGY_UNIFIED,
     parameter integer L2_CACHE_SIZE = DEFAULT_L2_CACHE_SIZE,
     parameter integer L3_CACHE_SIZE = DEFAULT_L3_CACHE_SIZE

@@ -1,9 +1,13 @@
 
 `timescale 1ns / 1ps
 
+import riscv_core_pkg::*;
+import riscv_config_pkg::*;
 `include "power_pkg.sv"
 
-module power_state_machine (
+module power_state_machine #(
+    parameter NUM_CORES = MAX_CORES
+) (
     input  logic                          clk_i,
     input  logic                          rst_ni,
     input  logic                          pm_enable_i,

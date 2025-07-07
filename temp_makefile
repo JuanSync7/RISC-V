@@ -1,0 +1,14 @@
+# Makefile for compiling packages
+
+.PHONY: all clean
+
+all: compile_pkgs
+
+compile_pkgs:
+	@echo "Compiling packages..."
+	vlog -work work "C:/Users/Juan.Kok/OneDrive - Sondrel Ltd/Documents/GitHub/RISC-V/rtl/config/riscv_config_pkg.sv"
+	vlog -work work "C:/Users/Juan.Kok/OneDrive - Sondrel Ltd/Documents/GitHub/RISC-V/rtl/pkg/riscv_types_pkg.sv"
+	@echo "Task 1.1 Verification PASSED: Packages compiled successfully."
+
+clean:
+	@rm -rf work

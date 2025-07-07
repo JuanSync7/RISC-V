@@ -27,11 +27,13 @@
 // AI_TAG: INTERNAL_BLOCK - StrideTable - Stores history and state for stride detection.
 // AI_TAG: INTERNAL_BLOCK - PrefetchController - FSM to manage prefetch request generation and handshake.
 
+import riscv_cache_types_pkg::*;
+
 module prefetch_unit #(
-    parameter integer ADDR_WIDTH        = 32, // AI_TAG: PARAM_DESC - Width of the addresses in the memory access stream.
-    parameter integer STRIDE_TABLE_SIZE = 64, // AI_TAG: PARAM_DESC - Number of entries in the stride detection table.
+    parameter integer ADDR_WIDTH        = riscv_cache_types_pkg::ADDR_WIDTH, // AI_TAG: PARAM_DESC - Width of the addresses in the memory access stream.
+    parameter integer STRIDE_TABLE_SIZE = riscv_cache_types_pkg::DEFAULT_L2_STRIDE_TABLE_SIZE, // AI_TAG: PARAM_DESC - Number of entries in the stride detection table.
                                               // AI_TAG: PARAM_USAGE - More entries can track more streams, at the cost of area.
-    parameter integer CACHE_LINE_BYTES  = 64  // AI_TAG: PARAM_DESC - The size of a cache line, used for address alignment.
+    parameter integer CACHE_LINE_BYTES  = riscv_cache_types_pkg::DEFAULT_CACHE_LINE_SIZE  // AI_TAG: PARAM_DESC - The size of a cache line, used for address alignment.
 ) (
     input  logic clk_i,    // AI_TAG: PORT_DESC - System clock
     input  logic rst_ni,   // AI_TAG: PORT_DESC - Asynchronous active-low reset

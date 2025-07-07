@@ -51,10 +51,10 @@ import riscv_power_pkg::*;
 // AI_TAG: FEATURE - Thermal monitoring and throttling
 
 module power_management #(
-    parameter integer NUM_CORES = DEFAULT_NUM_CORES,  // AI_TAG: PARAM_DESC - Number of cores to manage
+    parameter integer NUM_CORES = CONFIG_NUM_CORES,  // AI_TAG: PARAM_DESC - Number of cores to manage
                                                        // AI_TAG: PARAM_USAGE - Determines power domain sizing
                                                        // AI_TAG: PARAM_CONSTRAINTS - Must match system configuration
-    parameter integer NUM_POWER_DOMAINS = 8,          // AI_TAG: PARAM_DESC - Number of independent power domains
+    parameter integer NUM_POWER_DOMAINS = CONFIG_POWER_DOMAINS,          // AI_TAG: PARAM_DESC - Number of independent power domains
                                                        // AI_TAG: PARAM_USAGE - Cache, cores, peripherals
                                                        // AI_TAG: PARAM_CONSTRAINTS - Must be at least NUM_CORES + 4
     parameter integer NUM_VOLTAGE_LEVELS = 8,         // AI_TAG: PARAM_DESC - Number of voltage levels for DVFS

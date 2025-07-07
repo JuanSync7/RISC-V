@@ -26,6 +26,7 @@ package riscv_core_pkg;
     
     // Core architectural types and parameters
     import riscv_types_pkg::*;
+    import riscv_core_types_pkg::*;
     
     // Memory hierarchy and coherency types
     import riscv_mem_types_pkg::*;
@@ -53,49 +54,65 @@ package riscv_core_pkg;
     import riscv_vpu_types_pkg::*;
 
     //---------------------------------------------------------------------------
-    // 1. Core Configuration Presets
+    // 1. Default Parameter Values (derived from riscv_config_pkg)
+    //---------------------------------------------------------------------------
+    parameter logic DEFAULT_ENABLE_FPU = CONFIG_ENABLE_FPU;
+    parameter logic DEFAULT_ENABLE_VPU = CONFIG_ENABLE_VPU;
+    parameter logic DEFAULT_ENABLE_ML_INFERENCE = CONFIG_ENABLE_ML_INFERENCE;
+    parameter logic DEFAULT_ENABLE_MMU = CONFIG_ENABLE_MMU;
+    parameter logic DEFAULT_ENABLE_QOS = CONFIG_ENABLE_QOS;
+    parameter logic DEFAULT_ENABLE_DATA_ACCELERATOR = CONFIG_ENABLE_DATA_ACCELERATOR;
+    parameter int MAX_CORES = CONFIG_NUM_CORES;
+    parameter int DEFAULT_VALIDATION_DEPTH = CONFIG_DEFAULT_VALIDATION_DEPTH;
+    parameter string DEFAULT_MEMORY_PROTOCOL = CONFIG_MEMORY_PROTOCOL;
+    parameter int DEFAULT_AXI4_MAX_OUTSTANDING = CONFIG_AXI4_MAX_OUTSTANDING;
+    parameter int DEFAULT_MSG_WIDTH = CONFIG_MSG_WIDTH;
+    parameter int DEFAULT_NUM_BARRIERS = CONFIG_NUM_BARRIERS;
+
+    //---------------------------------------------------------------------------
+    // 2. Core Configuration Presets
     //---------------------------------------------------------------------------
     // Small configuration for area-constrained designs
     parameter ooo_config_t SMALL_OOO_CONFIG = '{
-        rob_size: SMALL_ROB_SIZE,
-        rs_size: SMALL_RS_SIZE,
-        phys_regs: DEFAULT_PHYS_REGS,
-        num_alu_units: DEFAULT_NUM_ALU_UNITS,
-        num_mult_units: DEFAULT_NUM_MULT_UNITS,
-        num_div_units: DEFAULT_NUM_DIV_UNITS,
-        div_latency: DEFAULT_DIV_LATENCY
+        rob_size: CONFIG_SMALL_ROB_SIZE,
+        rs_size: CONFIG_SMALL_RS_SIZE,
+        phys_regs: CONFIG_DEFAULT_PHYS_REGS,
+        num_alu_units: CONFIG_DEFAULT_NUM_ALU_UNITS,
+        num_mult_units: CONFIG_DEFAULT_NUM_MULT_UNITS,
+        num_div_units: CONFIG_DEFAULT_NUM_DIV_UNITS,
+        div_latency: CONFIG_DEFAULT_DIV_LATENCY
     };
 
     // Large configuration for high-performance designs
     parameter ooo_config_t LARGE_OOO_CONFIG = '{
-        rob_size: LARGE_ROB_SIZE,
-        rs_size: LARGE_RS_SIZE,
-        phys_regs: DEFAULT_PHYS_REGS,
-        num_alu_units: LARGE_NUM_ALU_UNITS,
-        num_mult_units: LARGE_NUM_MULT_UNITS,
-        num_div_units: LARGE_NUM_DIV_UNITS,
-        div_latency: DEFAULT_DIV_LATENCY
+        rob_size: CONFIG_LARGE_ROB_SIZE,
+        rs_size: CONFIG_LARGE_RS_SIZE,
+        phys_regs: CONFIG_DEFAULT_PHYS_REGS,
+        num_alu_units: CONFIG_DEFAULT_NUM_ALU_UNITS,
+        num_mult_units: CONFIG_DEFAULT_NUM_MULT_UNITS,
+        num_div_units: CONFIG_DEFAULT_NUM_DIV_UNITS,
+        div_latency: CONFIG_DEFAULT_DIV_LATENCY
     };
 
     // Small branch predictor configuration
     parameter bp_config_t SMALL_BP_CONFIG = '{
-        btb_entries: SMALL_BTB_ENTRIES,
-        bht_entries: SMALL_BHT_ENTRIES,
-        pht_entries: DEFAULT_PHT_ENTRIES,
-        selector_entries: DEFAULT_SELECTOR_ENTRIES,
-        global_history_width: DEFAULT_GLOBAL_HISTORY_WIDTH,
-        rsb_entries: DEFAULT_RSB_ENTRIES,
+        btb_entries: CONFIG_SMALL_BTB_ENTRIES,
+        bht_entries: CONFIG_SMALL_BHT_ENTRIES,
+        pht_entries: CONFIG_DEFAULT_PHT_ENTRIES,
+        selector_entries: CONFIG_DEFAULT_SELECTOR_ENTRIES,
+        global_history_width: CONFIG_DEFAULT_GLOBAL_HISTORY_WIDTH,
+        rsb_entries: CONFIG_DEFAULT_RSB_ENTRIES,
         predictor_type: PREDICTOR_TOURNAMENT
     };
 
     // Large branch predictor configuration
     parameter bp_config_t LARGE_BP_CONFIG = '{
-        btb_entries: LARGE_BTB_ENTRIES,
-        bht_entries: LARGE_BHT_ENTRIES,
-        pht_entries: DEFAULT_PHT_ENTRIES,
-        selector_entries: DEFAULT_SELECTOR_ENTRIES,
-        global_history_width: DEFAULT_GLOBAL_HISTORY_WIDTH,
-        rsb_entries: DEFAULT_RSB_ENTRIES,
+        btb_entries: CONFIG_LARGE_BTB_ENTRIES,
+        bht_entries: CONFIG_LARGE_BHT_ENTRIES,
+        pht_entries: CONFIG_DEFAULT_PHT_ENTRIES,
+        selector_entries: CONFIG_DEFAULT_SELECTOR_ENTRIES,
+        global_history_width: CONFIG_DEFAULT_GLOBAL_HISTORY_WIDTH,
+        rsb_entries: CONFIG_DEFAULT_RSB_ENTRIES,
         predictor_type: PREDICTOR_TOURNAMENT
     };
 

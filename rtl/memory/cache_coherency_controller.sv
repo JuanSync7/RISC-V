@@ -18,13 +18,16 @@
 `timescale 1ns/1ps
 `default_nettype none
 
+import riscv_core_pkg::*;
+import riscv_core_types_pkg::*;
+import riscv_cache_types_pkg::*;
 import riscv_mem_types_pkg::*;
 
 module cache_coherency_controller #(
-    parameter integer NUM_CORES = 4,
-    parameter integer ADDR_WIDTH = 32,
-    parameter int unsigned L2_CACHE_WAYS = 8,
-    parameter int unsigned L2_CACHE_SETS = 256
+    parameter integer NUM_CORES = MAX_CORES,
+    parameter integer ADDR_WIDTH = ADDR_WIDTH,
+    parameter int unsigned L2_CACHE_WAYS = DEFAULT_L2_CACHE_WAYS,
+    parameter int unsigned L2_CACHE_SETS = DEFAULT_L2_CACHE_SIZE / (DEFAULT_CACHE_LINE_SIZE * DEFAULT_L2_CACHE_WAYS)
 ) (
     input  logic clk_i,
     input  logic rst_ni,

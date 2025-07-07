@@ -45,36 +45,15 @@
 `default_nettype none
 
 import riscv_core_pkg::*;
-
-// AI_TAG: FEATURE - Unified L2 cache for instructions and data.
-// AI_TAG: FEATURE - 8-way set-associative with true LRU replacement policy.
-// AI_TAG: FEATURE - Maintains MESI coherency across L1 caches.
-// AI_TAG: FEATURE - Handles snoop requests from the coherency controller.
-// AI_TAG: INTERNAL_BLOCK - RequestArbiter - Round-robin arbiter for L1 requests.
-// AI_TAG: INTERNAL_BLOCK - CacheControllerFSM - Main FSM for handling cache requests (hits/misses).
-// AI_TAG: INTERNAL_BLOCK - SnoopLogic - Logic to handle incoming snoop requests.
-// AI_TAG: INTERNAL_BLOCK - StorageArrays - Tag, Data, and State arrays.
-// AI_TAG: INTERNAL_BLOCK - LRU_Logic - Per-set LRU state machine instances.
+import riscv_cache_types_pkg::*;
 
 module l2_cache #(
-    parameter integer L2_CACHE_SIZE   = 256 * 1024,     // AI_TAG: PARAM_DESC - L2 cache size in bytes (256KB)
-                                                         // AI_TAG: PARAM_USAGE - Determines total cache capacity
-                                                         // AI_TAG: PARAM_CONSTRAINTS - Must be power of 2, minimum 64KB
-    parameter integer CACHE_LINE_SIZE = 64,             // AI_TAG: PARAM_DESC - Cache line size in bytes (64 Bytes)
-                                                         // AI_TAG: PARAM_USAGE - Must match L1 cache line size for coherency
-                                                         // AI_TAG: PARAM_CONSTRAINTS - Must be power of 2, typically 32 or 64 bytes
-    parameter integer NUM_WAYS        = 8,              // AI_TAG: PARAM_DESC - Number of ways for set-associativity
-                                                         // AI_TAG: PARAM_USAGE - Higher associativity reduces conflict misses
-                                                         // AI_TAG: PARAM_CONSTRAINTS - Must be power of 2, typically 4-16
-    parameter integer NUM_CORES       = DEFAULT_NUM_CORES, // AI_TAG: PARAM_DESC - Number of CPU cores to serve
-                                                           // AI_TAG: PARAM_USAGE - Determines interface array sizes
-                                                           // AI_TAG: PARAM_CONSTRAINTS - Must match system configuration
-    parameter integer DATA_WIDTH      = XLEN,          // AI_TAG: PARAM_DESC - Data bus width
-                                                        // AI_TAG: PARAM_USAGE - Must match core data width
-                                                        // AI_TAG: PARAM_CONSTRAINTS - Must be XLEN (32 or 64)
-    parameter integer ADDR_WIDTH      = ADDR_WIDTH // AI_TAG: PARAM_DESC - Address bus width
-                                                        // AI_TAG: PARAM_USAGE - Determines addressable memory space
-                                                        // AI_TAG: PARAM_CONSTRAINTS - Typically 32 or 64 bits
+    parameter integer L2_CACHE_SIZE   = DEFAULT_L2_CACHE_SIZE,
+    parameter integer CACHE_LINE_SIZE = DEFAULT_CACHE_LINE_SIZE,
+    parameter integer NUM_WAYS        = DEFAULT_L2_CACHE_WAYS,
+    parameter integer NUM_CORES       = MAX_CORES,
+    parameter integer DATA_WIDTH      = XLEN,
+    parameter integer ADDR_WIDTH      = ADDR_WIDTH
 ) (
     input  logic clk_i,    // AI_TAG: PORT_DESC - System clock
                            // AI_TAG: PORT_CLK_DOMAIN - clk_i

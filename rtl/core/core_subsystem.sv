@@ -26,7 +26,7 @@
 `timescale 1ns/1ps
 `default_nettype none
 
-import riscv_config_pkg::*;
+
 import riscv_types_pkg::*;
 import riscv_core_pkg::*;
 import riscv_ooo_types_pkg::*;
@@ -40,13 +40,14 @@ module core_subsystem #(
     parameter string EXECUTION_MODE = DEFAULT_EXECUTION_MODE,
     parameter string BRANCH_PREDICTOR_TYPE = DEFAULT_BRANCH_PREDICTOR_TYPE,
     parameter int unsigned L1_CACHE_SIZE = DEFAULT_L1_CACHE_SIZE,
-    parameter logic ENABLE_FPU = riscv_config_pkg::CONFIG_ENABLE_FPU,
-    parameter logic ENABLE_VPU = riscv_config_pkg::CONFIG_ENABLE_VPU,
-    parameter logic ENABLE_ML_INFERENCE = riscv_config_pkg::CONFIG_ENABLE_ML_INFERENCE,
-    parameter logic ENABLE_MMU = riscv_config_pkg::CONFIG_ENABLE_MMU, // New: Enable Memory Management Unit
-    parameter logic ENABLE_QOS = riscv_config_pkg::CONFIG_ENABLE_QOS, // New: Enable Quality of Service Unit
+    
+    parameter logic ENABLE_FPU = DEFAULT_ENABLE_FPU,
+    parameter logic ENABLE_VPU = DEFAULT_ENABLE_VPU,
+    parameter logic ENABLE_ML_INFERENCE = DEFAULT_ENABLE_ML_INFERENCE,
+    parameter logic ENABLE_MMU = DEFAULT_ENABLE_MMU, // New: Enable Memory Management Unit
+    parameter logic ENABLE_QOS = DEFAULT_ENABLE_QOS, // New: Enable Quality of Service Unit
     parameter logic ENABLE_OOO = (EXECUTION_MODE == "OUT_OF_ORDER"), // New: Enable Out-of-Order Execution
-    parameter logic ENABLE_DATA_ACCELERATOR = riscv_config_pkg::CONFIG_ENABLE_DATA_ACCELERATOR
+    parameter logic ENABLE_DATA_ACCELERATOR = DEFAULT_ENABLE_DATA_ACCELERATOR
 ) (
     // Clock and Reset
     input  logic        clk_i,
@@ -246,7 +247,7 @@ module core_subsystem #(
     //---------------------------------------------------------------------------
     // QoS Configuration and Management
     //---------------------------------------------------------------------------
-    generate if (riscv_config_pkg::CONFIG_ENABLE_QOS) begin : gen_qos_unit
+    generate if (ENABLE_QOS) begin : gen_qos_unit
         qos_management_unit #(
             .CORE_ID(CORE_ID),
             .NUM_REQUESTERS(2) // Instruction and Data requests
@@ -362,8 +363,8 @@ module core_subsystem #(
     //------------------------------------------------------------------------- 
     csr_regfile #(
         .HART_ID(CORE_ID),
-        .ENABLE_MMU(riscv_config_pkg::CONFIG_ENABLE_MMU),
-        .ENABLE_QOS(riscv_config_pkg::CONFIG_ENABLE_QOS)
+        .ENABLE_MMU(ENABLE_MMU),
+        .ENABLE_QOS(ENABLE_QOS)
     ) u_csr_regfile (
         .clk_i(clk_i),
         .rst_ni(rst_ni),
@@ -409,7 +410,7 @@ module core_subsystem #(
         .ENABLE_ML_INFERENCE(ENABLE_ML_INFERENCE),
         .ENABLE_MMU(ENABLE_MMU),
         .ENABLE_QOS(ENABLE_QOS),
-        .ENABLE_OOO(riscv_config_pkg::CONFIG_ENABLE_OOO), // Pass ENABLE_OOO parameter
+                .ENABLE_OOO(ENABLE_OOO), // Pass ENABLE_OOO parameter
         .ooo_dispatch_o(decode_dispatch_o), // Connect OOO dispatch output
         .ooo_commit_i(ooo_commit_i),       // Connect OOO commit input
         .ooo_decode_ready_i(decode_ready_o), // Connect OOO decode ready input
@@ -491,7 +492,7 @@ module core_subsystem #(
     // AI_TAG: ASSERTION_TYPE - Both
     // AI_TAG: ASSERTION_SEVERITY - Error
     CoreIdValidity: assert property (@(posedge clk_i) disable iff (!rst_ni) 
-        (CORE_ID < riscv_config_pkg::MAX_CORES_SUPPORTED))
+        (CORE_ID < MAX_CORES))
     else $error("Core ID exceeds maximum allowed cores");
 
     // AI_TAG: ASSERTION - Pipeline integrity check
@@ -510,8 +511,8 @@ module core_subsystem #(
             dpu_subsystem #(
                 .DPU_ID(CORE_ID),
                 .ENABLE_FPU(ENABLE_FPU),
-                .ENABLE_VPU(riscv_config_pkg::CONFIG_ENABLE_VPU),
-                .ENABLE_ML_INFERENCE(riscv_config_pkg::CONFIG_ENABLE_ML_INFERENCE)
+                .ENABLE_VPU(ENABLE_VPU),
+                .ENABLE_ML_INFERENCE(ENABLE_ML_INFERENCE)
             ) u_dpu_subsystem (
                 .clk_i(clk_i),
                 .rst_ni(rst_ni_sync2),

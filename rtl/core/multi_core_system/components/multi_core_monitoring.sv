@@ -18,7 +18,7 @@
 import riscv_core_pkg::*;
 
 module multi_core_monitoring #(
-    parameter integer NUM_CORES = DEFAULT_NUM_CORES
+    parameter integer NUM_CORES = riscv_core_pkg::MAX_CORES
 ) (
     input  logic        clk_i,
     input  logic        rst_ni,

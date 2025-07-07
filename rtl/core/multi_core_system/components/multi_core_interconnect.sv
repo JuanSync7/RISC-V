@@ -16,7 +16,7 @@
 `default_nettype none
 
 import riscv_core_pkg::*;
-import riscv_memory_config_pkg::*;
+
 
 module multi_core_interconnect #(
     parameter integer NUM_CORES = DEFAULT_NUM_CORES,
@@ -82,9 +82,9 @@ module multi_core_interconnect #(
     //-------------------------------------------------------------------------
     protocol_factory #(
         .DEFAULT_PROTOCOL(DEFAULT_PROTOCOL),
-        .ADDR_WIDTH(ADDR_WIDTH),
-        .DATA_WIDTH(XLEN),
-        .ID_WIDTH(DEFAULT_AXI4_ID_WIDTH),
+        .ADDR_WIDTH(riscv_core_types_pkg::ADDR_WIDTH),
+        .DATA_WIDTH(riscv_core_types_pkg::XLEN),
+        .ID_WIDTH(riscv_protocol_types_pkg::AXI4_ID_WIDTH),
         .MAX_OUTSTANDING(MAX_OUTSTANDING)
     ) u_protocol_factory (
         .clk_i(clk_i),

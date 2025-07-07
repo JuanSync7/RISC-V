@@ -22,17 +22,19 @@
 `default_nettype none
 
 import riscv_types_pkg::*;
+import riscv_config_pkg::*;
+import riscv_bp_types_pkg::*;
 
 module branch_predictor #(
     // AI_TAG: PARAM_DESC - BTB_ENTRIES - Number of entries in the Branch Target Buffer.
     // AI_TAG: PARAM_USAGE - Determines the number of branch targets that can be cached.
     // AI_TAG: PARAM_CONSTRAINTS - Must be a power of 2 for efficient indexing.
-    parameter integer BTB_ENTRIES = 64,
+    parameter integer BTB_ENTRIES = CONFIG_BTB_ENTRIES,
     
     // AI_TAG: PARAM_DESC - BHT_ENTRIES - Number of entries in the Branch History Table.
     // AI_TAG: PARAM_USAGE - Determines the number of branch history patterns that can be tracked.
     // AI_TAG: PARAM_CONSTRAINTS - Must be a power of 2 for efficient indexing.
-    parameter integer BHT_ENTRIES = 256
+    parameter integer BHT_ENTRIES = CONFIG_BHT_ENTRIES
 ) (
     // AI_TAG: PORT_DESC - clk_i - System clock for synchronous operations.
     // AI_TAG: PORT_CLK_DOMAIN - clk_i

@@ -1,6 +1,7 @@
 package mmu_pkg;
 
   import riscv_config_pkg::*;
+  import riscv_types_pkg::*;
 
   // MMU configuration parameters
   parameter int MMU_TLB_SIZE = DEFAULT_MMU_TLB_SIZE; // Number of entries in TLB

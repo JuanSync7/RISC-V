@@ -21,7 +21,7 @@
 `include "components/multi_core_monitoring.sv"
 
 import riscv_core_pkg::*;
-import riscv_memory_config_pkg::*;
+
 
 module multi_core_system #(
     // Parameters from original module

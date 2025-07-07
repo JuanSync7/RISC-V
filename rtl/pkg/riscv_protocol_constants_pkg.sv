@@ -23,6 +23,8 @@
 
 package riscv_protocol_constants_pkg;
 
+    import riscv_config_pkg::*;
+
     //---------------------------------------------------------------------------
     // 1. AXI4 Protocol Constants
     //---------------------------------------------------------------------------
@@ -77,6 +79,11 @@ package riscv_protocol_constants_pkg;
     parameter logic        AXI4_LOCK_NORMAL     = 1'b0;    // Normal access
     parameter logic        AXI4_LOCK_EXCLUSIVE  = 1'b1;    // Exclusive access
     parameter logic        AXI4_LAST_TRANSFER   = 1'b1;    // Last transfer in burst
+    parameter int          AXI4_ID_WIDTH        = CONFIG_AXI4_ID_WIDTH;
+    parameter int          AXI4_ADDR_WIDTH      = CONFIG_AXI4_ADDR_WIDTH;
+    parameter int          AXI4_DATA_WIDTH      = CONFIG_AXI4_DATA_WIDTH;
+    parameter int          AXI4_USER_WIDTH      = CONFIG_AXI4_USER_WIDTH;
+    parameter int          AXI4_MAX_OUTSTANDING = CONFIG_AXI4_MAX_OUTSTANDING;
     
     //---------------------------------------------------------------------------
     // 2. CHI Protocol Constants (CHI-B Specification)
@@ -127,6 +134,10 @@ package riscv_protocol_constants_pkg;
     parameter logic [2:0] CHI_SIZE_16_BYTES   = 3'd4;   // 16 bytes
     parameter logic [2:0] CHI_SIZE_32_BYTES   = 3'd5;   // 32 bytes
     parameter logic [2:0] CHI_SIZE_64_BYTES   = 3'd6;   // 64 bytes
+    parameter int         CHI_DATA_WIDTH      = CONFIG_CHI_DATA_WIDTH;
+    parameter int         CHI_ADDR_WIDTH      = CONFIG_CHI_ADDR_WIDTH;
+    parameter int         CHI_NODEID_WIDTH    = CONFIG_CHI_NODEID_WIDTH;
+    parameter int         CHI_TXNID_WIDTH     = CONFIG_CHI_TXNID_WIDTH;
     
     // CHI Response Error Codes
     parameter logic [2:0] CHI_RESPERR_OK      = 3'b000; // Normal okay response
@@ -194,6 +205,11 @@ package riscv_protocol_constants_pkg;
     parameter logic [2:0] TL_PARAM_TOTRUNK    = 3'h1;   // To trunk
     parameter logic [2:0] TL_PARAM_TOBRANCH   = 3'h2;   // To branch
     parameter logic [2:0] TL_PARAM_TONONE     = 3'h3;   // To none
+    parameter int         TL_DATA_WIDTH       = CONFIG_TL_DATA_WIDTH;
+    parameter int         TL_ADDR_WIDTH       = CONFIG_TL_ADDR_WIDTH;
+    parameter int         TL_SOURCE_WIDTH     = CONFIG_TL_SOURCE_WIDTH;
+    parameter int         TL_SINK_WIDTH       = CONFIG_TL_SINK_WIDTH;
+    parameter int         TL_SIZE_WIDTH       = CONFIG_TL_SIZE_WIDTH;
     
     //---------------------------------------------------------------------------
     // 4. Cache Coherency Constants

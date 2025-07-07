@@ -19,9 +19,9 @@
 `default_nettype none
 
 module l3_cache #(
-    parameter int unsigned L3_CACHE_SIZE = 2 * 1024 * 1024, // 2MB
-    parameter int unsigned CACHE_LINE_SIZE = 64,            // 64 Bytes
-    parameter int unsigned NUM_WAYS = 16
+    parameter int unsigned L3_CACHE_SIZE,
+    parameter int unsigned CACHE_LINE_SIZE,
+    parameter int unsigned NUM_WAYS
 ) (
     input  logic clk_i,
     input  logic rst_ni,
@@ -33,12 +33,12 @@ module l3_cache #(
     memory_req_rsp_if.master mem_if
 );
 
-    import riscv_core_pkg::*;
+    import riscv_core_types_pkg::*;
 
     localparam NUM_SETS = L3_CACHE_SIZE / (CACHE_LINE_SIZE * NUM_WAYS);
     localparam OFFSET_BITS = $clog2(CACHE_LINE_SIZE);
     localparam INDEX_BITS = $clog2(NUM_SETS);
-    localparam TAG_BITS = XLEN - INDEX_BITS - OFFSET_BITS;
+    localparam TAG_BITS = $bits(word_t) - INDEX_BITS - OFFSET_BITS;
 
     //---------------------------------------------------------------------------
     // L3 Cache Storage

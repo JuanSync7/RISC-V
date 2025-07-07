@@ -23,6 +23,7 @@ package riscv_ooo_types_pkg;
     import riscv_config_pkg::*;
     import riscv_types_pkg::*;
     import riscv_exception_pkg::*;
+    import riscv_core_types_pkg::*;
 
     //---------------------------------------------------------------------------
     // 1. Out-of-Order Engine Parameters (now from config package)
@@ -35,9 +36,9 @@ package riscv_ooo_types_pkg;
     //---------------------------------------------------------------------------
     // 2. Type Definitions for OoO Identifiers
     //---------------------------------------------------------------------------
-    typedef logic [$clog2(DEFAULT_ROB_SIZE)-1:0]   rob_tag_t;
-    typedef logic [$clog2(DEFAULT_RS_SIZE)-1:0]    rs_tag_t;
-    typedef logic [$clog2(DEFAULT_PHYS_REGS)-1:0]  phys_reg_addr_t;
+    typedef logic [$clog2(CONFIG_ROB_SIZE)-1:0]   rob_tag_t;
+    typedef logic [$clog2(CONFIG_RS_SIZE)-1:0]    rs_tag_t;
+    typedef logic [$clog2(CONFIG_PHYS_REGS)-1:0]  phys_reg_addr_t;
     typedef logic [REG_ADDR_WIDTH-1:0]             arch_reg_addr_t;
 
     //---------------------------------------------------------------------------

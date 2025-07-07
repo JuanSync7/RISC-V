@@ -1,6 +1,7 @@
 
 `timescale 1ns / 1ps
 
+import riscv_config_pkg::*;
 `include "power_pkg.sv"
 
 module pmu_csr #(
@@ -23,10 +24,10 @@ module pmu_csr #(
     logic pm_enable_r;
 
     // CSR Registers
-    localparam PMU_ENABLE_ADDR      = 12'hF00;
-    localparam PMU_CONFIG_ADDR      = 12'hF01;
-    localparam IDLE_TIMEOUT_ADDR    = 12'hF02;
-    localparam SLEEP_TIMEOUT_ADDR   = 12'hF03;
+    localparam PMU_ENABLE_ADDR      = CONFIG_PMU_ENABLE_ADDR;
+    localparam PMU_CONFIG_ADDR      = CONFIG_PMU_CONFIG_ADDR;
+    localparam IDLE_TIMEOUT_ADDR    = CONFIG_PMU_IDLE_TIMEOUT_ADDR;
+    localparam SLEEP_TIMEOUT_ADDR   = CONFIG_PMU_SLEEP_TIMEOUT_ADDR;
 
     always_ff @(posedge clk_i or negedge rst_ni) begin
         if (!rst_ni) begin
@@ -35,8 +36,8 @@ module pmu_csr #(
             power_config_r.cache_gating_en   <= 1'b0;
             power_config_r.retention_mode    <= 1'b0;
             power_config_r.power_gating_en   <= 1'b0;
-            power_config_r.idle_timeout      <= 32'd1000;
-            power_config_r.sleep_timeout     <= 32'd10000;
+            power_config_r.idle_timeout      <= power_pkg::DEFAULT_IDLE_TIMEOUT;
+            power_config_r.sleep_timeout     <= power_pkg::DEFAULT_SLEEP_TIMEOUT;
         end else if (csr_access_i && csr_write_i) begin
             case (csr_addr_i)
                 PMU_ENABLE_ADDR:

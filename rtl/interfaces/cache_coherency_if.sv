@@ -18,14 +18,15 @@
 `timescale 1ns/1ps
 `default_nettype none
 
+import riscv_core_pkg::*;
+import riscv_mem_types_pkg::*;
+
 interface cache_coherency_if #(
-    parameter int unsigned NUM_CORES = 4
+    parameter int unsigned NUM_CORES = MAX_CORES
 ) (
     input logic clk,
     input logic rst_n
 );
-
-    import riscv_mem_types_pkg::*;
 
     //---------------------------------------------------------------------------
     // Coherency Signals

@@ -1,7 +1,9 @@
+import riscv_config_pkg::*;
+import riscv_core_pkg::*;
 `include "qos_pkg.sv"
 
 module qos_arbiter #(
-    parameter NUM_REQUESTERS = 2
+    parameter NUM_REQUESTERS = MAX_CORES
 ) (
     input  logic                   clk_i,
     input  logic                   rst_ni,

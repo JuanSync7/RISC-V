@@ -35,13 +35,13 @@ interface cache_coherency_if #(
     logic                       req_ready   [NUM_CORES];
     addr_t                      req_addr    [NUM_CORES];
     coherency_req_type_e        req_type    [NUM_CORES];
-    logic [riscv_config_pkg::CORE_ID_WIDTH-1:0]   req_source  [NUM_CORES];
+    logic [riscv_config_pkg::CONFIG_CORE_ID_WIDTH-1:0]   req_source  [NUM_CORES];
 
     // From Coherency Controller to Core
     logic                       rsp_valid   [NUM_CORES];
     logic                       rsp_ready   [NUM_CORES];
     cache_state_t               rsp_state   [NUM_CORES];
-    word_t                      rsp_data    [NUM_CORES][riscv_config_pkg::DEFAULT_CACHE_LINE_SIZE/4];
+    word_t                      rsp_data    [NUM_CORES][riscv_config_pkg::CONFIG_CACHE_LINE_SIZE/4];
 
     // Snoop signals from Coherency Controller to Core L1 caches
     logic                       snoop_valid [NUM_CORES];
@@ -52,7 +52,7 @@ interface cache_coherency_if #(
     // Snoop response signals from Core L1 caches to Coherency Controller
     logic                       snoop_rsp_valid [NUM_CORES];
     logic                       snoop_rsp_data_en [NUM_CORES]; // Indicates the response contains data
-    word_t                      snoop_rsp_data [NUM_CORES][riscv_config_pkg::DEFAULT_CACHE_LINE_SIZE/4];
+    word_t                      snoop_rsp_data [NUM_CORES][riscv_config_pkg::CONFIG_CACHE_LINE_SIZE/4];
 
 
     //---------------------------------------------------------------------------

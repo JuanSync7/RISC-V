@@ -22,8 +22,8 @@
 `timescale 1ns/1ps
 `default_nettype none
 
-import riscv_core_pkg::*;
-import riscv_config_pkg::*;
+
+
 
 // AI_TAG: FEATURE - Unified L2 cache for instructions and data.
 // AI_TAG: FEATURE - 8-way set-associative with true LRU replacement policy.
@@ -42,18 +42,21 @@ module l2_cache #(
     parameter integer CACHE_LINE_SIZE = DEFAULT_CACHE_LINE_SIZE,             // AI_TAG: PARAM_DESC - Cache line size in bytes (64 Bytes)
                                                          // AI_TAG: PARAM_USAGE - Must match L1 cache line size for coherency
                                                          // AI_TAG: PARAM_CONSTRAINTS - Must be power of 2, typically 32 or 64 bytes
-    parameter integer NUM_WAYS        = DEFAULT_L2_CACHE_WAYS,              // AI_TAG: PARAM_DESC - Number of ways for set-associativity
+    parameter integer NUM_WAYS        = DEFAULT_L2_NUM_WAYS,              // AI_TAG: PARAM_DESC - Number of ways for set-associativity
                                                          // AI_TAG: PARAM_USAGE - Higher associativity reduces conflict misses
                                                          // AI_TAG: PARAM_CONSTRAINTS - Must be power of 2, typically 4-16
-    parameter integer NUM_CORES       = DEFAULT_NUM_CORES, // AI_TAG: PARAM_DESC - Number of CPU cores to serve
+    parameter integer NUM_CORES       = MAX_CORES, // AI_TAG: PARAM_DESC - Number of CPU cores to serve
                                                            // AI_TAG: PARAM_USAGE - Determines interface array sizes
                                                            // AI_TAG: PARAM_CONSTRAINTS - Must match system configuration
     parameter integer DATA_WIDTH      = XLEN,          // AI_TAG: PARAM_DESC - Data bus width
                                                         // AI_TAG: PARAM_USAGE - Must match core data width
                                                         // AI_TAG: PARAM_CONSTRAINTS - Must be XLEN (32 or 64)
-    parameter integer ADDR_WIDTH      = ADDR_WIDTH // AI_TAG: PARAM_DESC - Address bus width
+    parameter integer ADDR_WIDTH      = ADDR_WIDTH, // AI_TAG: PARAM_DESC - Address bus width
                                                         // AI_TAG: PARAM_USAGE - Determines addressable memory space
                                                         // AI_TAG: PARAM_CONSTRAINTS - Typically 32 or 64 bits
+    parameter integer PREFETCH_DEPTH = DEFAULT_L2_PREFETCH_DEPTH,        // How many lines to prefetch ahead
+    parameter integer STRIDE_TABLE_SIZE = DEFAULT_L2_STRIDE_TABLE_SIZE,    // Number of stride prediction entries
+    parameter integer CONFIDENCE_THRESHOLD = DEFAULT_L2_PREFETCH_CONFIDENCE_THRESHOLD  // Minimum confidence for prefetch
 ) (
     input  logic clk_i,    // AI_TAG: PORT_DESC - System clock
                            // AI_TAG: PORT_CLK_DOMAIN - clk_i

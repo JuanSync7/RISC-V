@@ -19,7 +19,7 @@
 `default_nettype none
 
 import riscv_core_pkg::*;
-import riscv_config_pkg::*;
+import riscv_qos_pkg::*;
 
 module qos_csr_regfile #(
     parameter integer NUM_CORES = DEFAULT_NUM_CORES,
@@ -134,7 +134,7 @@ module qos_csr_regfile #(
             qos_control_r <= '{
                 reserved: 16'h0,
                 max_qos_level: 4'hF,
-                arbiter_policy: riscv_config_pkg::DEFAULT_QOS_ARBITER_POLICY,
+                arbiter_policy: riscv_config_pkg::CONFIG_DEFAULT_QOS_ARBITER_POLICY,
                 qos_enable: 1'b1,
                 emergency_enable: 1'b1,
                 monitoring_enable: 1'b1,
@@ -149,12 +149,12 @@ module qos_csr_regfile #(
             // Initialize per-core configurations
             for (int i = 0; i < NUM_CORES; i++) begin
                 qos_core_config_r[i] <= '{
-                    qos_level: riscv_config_pkg::QOS_LEVEL_MEDIUM_HIGH,
-                    weight: riscv_config_pkg::DEFAULT_QOS_WEIGHT,
-                    latency_limit: riscv_config_pkg::DEFAULT_QOS_LATENCY_LIMIT,
+                    qos_level: DEFAULT_QOS_LEVEL_MEDIUM_HIGH,
+                    weight: DEFAULT_QOS_WEIGHT,
+                    latency_limit: DEFAULT_QOS_LATENCY_LIMIT,
                     reserved: 4'h0
                 };
-                bandwidth_allocation_r[i] <= riscv_config_pkg::DEFAULT_QOS_BW_ALLOC; // 25% per core
+                bandwidth_allocation_r[i] <= DEFAULT_QOS_BW_ALLOC; // 25% per core
             end
             
             qos_debug_r <= 32'h0;

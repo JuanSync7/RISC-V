@@ -440,7 +440,7 @@ module execute_stage #(
     // AI_TAG: INTERNAL_LOGIC - PC Redirect Logic
     assign pc_redirect_o        = branch_taken || (id_ex_reg_i.ctrl.wb_mux_sel == WB_SEL_PC_P4);
     assign pc_redirect_target_o = (id_ex_reg_i.ctrl.wb_mux_sel == WB_SEL_PC_P4 && id_ex_reg_i.ctrl.alu_op == ALU_OP_ADD)
-                                  ? {alu_result[XLEN-1:1], 1'b0}
+                                  ? {alu_result[$bits(word_t)-1:1], 1'b0}
                                   : id_ex_reg_i.pc + id_ex_reg_i.immediate;
 
     // Connect to MMU interface
@@ -561,7 +561,7 @@ module execute_stage #(
     // AI_TAG: INTERNAL_LOGIC - PC Redirect Logic
     assign pc_redirect_o        = branch_taken || (id_ex_reg_i.ctrl.wb_mux_sel == WB_SEL_PC_P4);
     assign pc_redirect_target_o = (id_ex_reg_i.ctrl.wb_mux_sel == WB_SEL_PC_P4 && id_ex_reg_i.ctrl.alu_op == ALU_OP_ADD)
-                                  ? {alu_result[XLEN-1:1], 1'b0}
+                                  ? {alu_result[$bits(word_t)-1:1], 1'b0}
                                   : id_ex_reg_i.pc + id_ex_reg_i.immediate;
 
     // AI_TAG: INTERNAL_LOGIC - EX/MEM Pipeline Register

@@ -32,6 +32,11 @@ package riscv_inter_core_types_pkg;
     import riscv_config_pkg::*;
     import riscv_types_pkg::*;
 
+    localparam integer XLEN = CONFIG_XLEN;
+    localparam integer ADDR_WIDTH = CONFIG_ADDR_WIDTH;
+    localparam integer HART_ID_WIDTH = $clog2(CONFIG_NUM_CORES);
+    localparam integer CACHE_LINE_WIDTH = CONFIG_CACHE_LINE_SIZE * 8;
+
     //-----
     // Inter-Core Message Types
     //-----

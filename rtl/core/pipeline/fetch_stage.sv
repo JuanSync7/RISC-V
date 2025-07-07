@@ -23,7 +23,7 @@
 `default_nettype none
 
 import riscv_core_pkg::*;
-import riscv_config_pkg::*;
+
 
 module fetch_stage
 #(
@@ -35,8 +35,7 @@ module fetch_stage
     parameter integer BHT_ENTRIES = DEFAULT_BHT_ENTRIES,
     // AI_TAG: PARAMETER - RAS_ENTRIES - Number of entries in the Return Address Stack.
     parameter integer RAS_ENTRIES = DEFAULT_RAS_ENTRIES
-)
-(
+)(
     input  logic        clk_i,
     input  logic        rst_ni,
 
@@ -232,18 +231,18 @@ module fetch_stage
         if (instr_addr_misaligned) begin
             exception_detected.valid = 1'b1;
             exception_detected.exc_type = EXC_TYPE_EXCEPTION;
-            exception_detected.cause = riscv_config_pkg::CAUSE_MISALIGNED_FETCH;
+            exception_detected.cause = CONFIG_CAUSE_MISALIGNED_FETCH;
             exception_detected.pc = pc_q; // The misaligned PC
             exception_detected.tval = pc_q; // The misaligned address
-            exception_detected.priority = riscv_config_pkg::PRIO_MISALIGNED_FETCH;
+            exception_detected.priority = CONFIG_PRIO_MISALIGNED_FETCH;
         end
         else if (instr_access_fault) begin
             exception_detected.valid = 1'b1;
             exception_detected.exc_type = EXC_TYPE_EXCEPTION;
-            exception_detected.cause = riscv_config_pkg::CAUSE_FETCH_ACCESS;
+            exception_detected.cause = CONFIG_CAUSE_FETCH_ACCESS;
             exception_detected.pc = pc_q; // The faulting PC
             exception_detected.tval = pc_q; // The faulting address
-            exception_detected.priority = riscv_config_pkg::PRIO_FETCH_FAULT;
+            exception_detected.priority = CONFIG_PRIO_FETCH_FAULT;
         end
     end
 
@@ -253,12 +252,12 @@ module fetch_stage
     // IF/ID pipeline register now uses ICache output
     always_ff @(posedge clk_i or negedge rst_ni) begin
         if (!rst_ni) begin
-            if_id_reg_q.instr <= riscv_config_pkg::NOP_INSTRUCTION;
+            if_id_reg_q.instr <= CONFIG_NOP_INSTRUCTION;
             if_id_reg_q.pc    <= '0;
             if_id_reg_q.valid <= 1'b0;
         end else if (!stall_d_i) begin
             if (flush_f_i) begin
-                if_id_reg_q.instr <= riscv_config_pkg::NOP_INSTRUCTION;
+                if_id_reg_q.instr <= CONFIG_NOP_INSTRUCTION;
                 if_id_reg_q.pc    <= '0;
                 if_id_reg_q.valid <= 1'b0;
             end else begin
